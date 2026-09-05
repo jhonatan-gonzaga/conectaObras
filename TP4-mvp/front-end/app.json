@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Conecta Obras",
+    "slug": "conecta-obras",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#fbf6f7"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "softwareKeyboardLayoutMode": "resize",
+      "adaptiveIcon": {
+        "backgroundColor": "#fbf6f7"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": [
+      "@react-native-community/datetimepicker"
+    ]
+  }
+}
