@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "visual-check",
+  "status": "skipped",
+  "visualReview": "pending",
+  "artifact": {
+    "path": "/home/jhonatan/Área de trabalho/4 Periodo/3 - ENGENHARIA DE SOFTWARE II/projeto/TP4-mvp/TP4-mvp/docs/arquitetura-componentes.html",
+    "sha256": "ccb6e4d8bcb06677eb282aae3a8de5adb4c56600478ae002d6d8c6f6547d4f35",
+    "bytes": 644041
+  },
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "chrome": {
+    "status": "unavailable",
+    "executable": null
+  },
+  "containment": {
+    "status": "skipped",
+    "viewports": []
+  },
+  "captures": {
+    "status": "skipped",
+    "screenshots": [],
+    "contactSheet": null
+  },
+  "sidecars": {
+    "receipt": "arquitetura-componentes.visual-check.json",
+    "contactSheet": "arquitetura-componentes.visual-check.html"
+  },
+  "error": "Chrome or Chromium is unavailable. Set ARCHIFY_CHROME to its executable path."
+}

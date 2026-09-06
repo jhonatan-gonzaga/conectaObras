@@ -1,0 +1,262 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Arquitetura de Componentes do Conecta Obras",
+    "output": "arquitetura-componentes.html",
+    "quality_profile": "showcase",
+    "viewBox": [1950, 820],
+    "views": [
+      {
+        "id": "fluxo-app",
+        "label": "Fluxo do app",
+        "focus": ["usuarios", "app", "cliente", "profissional", "apiClient", "api"],
+        "note": "O aplicativo Expo concentra telas de cliente e profissional e chama a API REST pelo cliente HTTP."
+      },
+      {
+        "id": "backend-negocio",
+        "label": "Backend de negocio",
+        "focus": ["api", "authUsers", "marketplace", "contractsChat", "uploadsNotifications", "prisma"],
+        "note": "Os modulos NestJS separam autenticacao, marketplace, contratos, conversas, uploads e notificacoes."
+      },
+      {
+        "id": "persistencia",
+        "label": "Persistencia",
+        "focus": ["api", "prisma", "persistencia"],
+        "note": "O Prisma acessa o MySQL, enquanto uploads de imagens e audios sao gravados localmente."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "usuarios",
+      "type": "external",
+      "label": "Clientes e Profissionais",
+      "sublabel": "Usuarios do aplicativo",
+      "pos": [60, 350],
+      "size": [160, 70]
+    },
+    {
+      "id": "app",
+      "type": "frontend",
+      "label": "Expo React Native",
+      "sublabel": "front-end/src/App.tsx",
+      "pos": [300, 350],
+      "size": [160, 70]
+    },
+    {
+      "id": "cliente",
+      "type": "frontend",
+      "label": "Telas Cliente",
+      "sublabel": "pages/cliente",
+      "pos": [540, 250],
+      "size": [150, 64]
+    },
+    {
+      "id": "profissional",
+      "type": "frontend",
+      "label": "Telas Profissional",
+      "sublabel": "pages/profissional",
+      "pos": [540, 470],
+      "size": [170, 64]
+    },
+    {
+      "id": "apiClient",
+      "type": "frontend",
+      "label": "Cliente HTTP",
+      "sublabel": "services/api.ts",
+      "pos": [740, 350],
+      "size": [150, 70]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "NestJS API",
+      "sublabel": "backend/src",
+      "pos": [960, 350],
+      "size": [160, 70]
+    },
+    {
+      "id": "authUsers",
+      "type": "security",
+      "label": "Auth e Users",
+      "sublabel": "JWT, cadastro, perfil",
+      "pos": [1200, 90],
+      "size": [170, 64]
+    },
+    {
+      "id": "marketplace",
+      "type": "backend",
+      "label": "Marketplace",
+      "sublabel": "Professionals, Ads, Applications, DirectRequests",
+      "pos": [1200, 230],
+      "size": [200, 68]
+    },
+    {
+      "id": "contractsChat",
+      "type": "backend",
+      "label": "Contratos e Conversas",
+      "sublabel": "Contracts, Conversations",
+      "pos": [1200, 470],
+      "size": [190, 68]
+    },
+    {
+      "id": "uploadsNotifications",
+      "type": "backend",
+      "label": "Uploads e Notificacoes",
+      "sublabel": "Uploads, Notifications, Support",
+      "pos": [1200, 610],
+      "size": [200, 68]
+    },
+    {
+      "id": "prisma",
+      "type": "database",
+      "label": "PrismaService",
+      "sublabel": "ORM e schema.prisma",
+      "pos": [1460, 350],
+      "size": [160, 70]
+    },
+    {
+      "id": "persistencia",
+      "type": "database",
+      "label": "MySQL e Uploads",
+      "sublabel": "Banco relacional + arquivos locais",
+      "pos": [1690, 350],
+      "size": [190, 72]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Aplicativo Movel",
+      "wraps": ["app", "cliente", "profissional", "apiClient"],
+      "pad": 30
+    },
+    {
+      "kind": "region",
+      "label": "API e Regras de Negocio",
+      "wraps": ["api", "authUsers", "marketplace", "contractsChat", "uploadsNotifications"],
+      "pad": 34
+    },
+    {
+      "kind": "region",
+      "label": "Persistencia e Arquivos",
+      "wraps": ["prisma", "persistencia"],
+      "pad": 32
+    }
+  ],
+  "connections": [
+    {
+      "id": "usuarios-app",
+      "from": "usuarios",
+      "to": "app",
+      "label": "usa",
+      "variant": "emphasis"
+    },
+    {
+      "id": "app-cliente",
+      "from": "app",
+      "to": "cliente",
+      "label": "cliente"
+    },
+    {
+      "id": "app-profissional",
+      "from": "app",
+      "to": "profissional",
+      "label": "profissional"
+    },
+    {
+      "id": "cliente-api-client",
+      "from": "cliente",
+      "to": "apiClient",
+      "label": "HTTP"
+    },
+    {
+      "id": "profissional-api-client",
+      "from": "profissional",
+      "to": "apiClient",
+      "label": "HTTP"
+    },
+    {
+      "id": "api-client-api",
+      "from": "apiClient",
+      "to": "api",
+      "label": "REST + JWT",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-auth",
+      "from": "api",
+      "to": "authUsers",
+      "variant": "security"
+    },
+    {
+      "id": "api-marketplace",
+      "from": "api",
+      "to": "marketplace",
+      "variant": "default"
+    },
+    {
+      "id": "api-contracts",
+      "from": "api",
+      "to": "contractsChat",
+      "variant": "default"
+    },
+    {
+      "id": "api-uploads",
+      "from": "api",
+      "to": "uploadsNotifications",
+      "variant": "default"
+    },
+    {
+      "id": "backend-prisma",
+      "from": "marketplace",
+      "to": "prisma",
+      "variant": "default"
+    },
+    {
+      "id": "contracts-prisma",
+      "from": "contractsChat",
+      "to": "prisma",
+      "variant": "default"
+    },
+    {
+      "id": "auth-prisma",
+      "from": "authUsers",
+      "to": "prisma",
+      "variant": "default"
+    },
+    {
+      "id": "prisma-persistencia",
+      "from": "prisma",
+      "to": "persistencia",
+      "label": "SQL e URLs"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Componentes",
+      "items": [
+        "O backend usa modulos NestJS como componentes de negocio.",
+        "O front-end separa telas de cliente, profissional e servicos compartilhados."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Ponto de atencao",
+      "items": [
+        "Navegacao e cliente HTTP do front-end concentram muitas responsabilidades.",
+        "Fluxos de contrato espalham regras de estado e efeitos colaterais."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Padrao indicado",
+      "items": [
+        "State e recomendado para explicitar o ciclo de vida dos contratos.",
+        "Facade e Adapter podem ser avaliados depois para contratacao e uploads."
+      ]
+    }
+  ]
+}
