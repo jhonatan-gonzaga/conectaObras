@@ -22,7 +22,7 @@ O prefixo do commit serve para categorizar instantaneamente o tipo de mudança. 
 
 ## 2. Emojis nos Commits 🎨
 
-Você pode adicionar emojis no começo das mensagens. Existe um padrão super famoso para isso chamado **Gitmoji** (criado pelo Carlos Cuesta), que padroniza um emoji para cada tipo de intenção no código. É a primeira coisa a se colocar quando se faz um commit seguindo o padrão de commits
+Você pode adicionar emojis no começo das mensagens. Existe um padrão super famoso para isso chamado **Gitmoji** (criado pelo Carlos Cuesta), que padroniza um emoji para cada tipo de intenção no código. É a primeira coisa a se colocar quando se faz um commit seguindo o padrão de commits.
 
 Visite este site para ver a lista completa e quando usar cada um: [Gitmoji](https://gitmoji.dev/)
 
