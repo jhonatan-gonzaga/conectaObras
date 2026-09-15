@@ -1,0 +1,168 @@
+EXPLICAÇÃO DA REFATORAÇÃO DO APP.TSX
+
+1. CONTEXTO E PROBLEMA ORIGINAL
+
+Esta explicação compara o arquivo "app.tsx original/App.tsx" com a
+implementação refatorada em "TP4-mvp/front-end/src/App.tsx" e seus módulos
+na pasta "TP4-mvp/front-end/src/navigation".
+
+A issue apontava o trecho entre as linhas 112 e 356 do App.tsx original.
+O componente reunia responsabilidades diferentes: tema, fluxo de login,
+escolha de perfil, tela atual, destinos de retorno, serviços contratados,
+serviço selecionado, profissional selecionado e renderização das telas.
+
+A variável currentScreen usava uma longa sequência de operadores ternários
+para decidir qual componente exibir. Assim, uma alteração em qualquer fluxo
+exigia trabalhar no mesmo arquivo responsável pela estrutura global do app.
+
+2. COMO A REFATORAÇÃO FOI ORGANIZADA
+
+A lógica foi distribuída da seguinte forma:
+
+TP4-mvp/front-end/src/
+  App.tsx
+  navigation/
+    RootNavigator.tsx
+    AuthNavigator.tsx
+    ClientNavigator.tsx
+    ProfessionalNavigator.tsx
+    useAppNavigation.ts
+    types.ts
+    serviceMapping.ts
+
+App.tsx: ponto de entrada, tema e estrutura global
+
+O App mantém o estado isDarkMode, as variáveis dos temas claro e escuro,
+a StatusBar, a SafeAreaView e a adaptação ao teclado com KeyboardAvoidingView.
+Também mantém o ajuste de alinhamento conforme a tela pertence ao contexto
+profissional, usando isProfessionalContextScreen.
+
+Para compor a aplicação, chama useAppNavigation e passa o objeto retornado
+ao RootNavigator, junto com o tema e a função para alterá-lo. A importação
+direta das telas e a grande expressão currentScreen saíram do App.
+
+useAppNavigation.ts: estado e ações compartilhadas de navegação
+
+Esse hook personalizado reúne os estados que antes estavam no App:
+- Tela atual, iniciada em login.
+- Destinos de retorno do perfil da conta, dos serviços do cliente, do perfil
+  profissional visualizado pelo cliente e dos documentos legais.
+- Serviço selecionado e identificador do profissional selecionado.
+- Lista de serviços contratados pelo cliente.
+
+Também concentra as ações openAccountProfile, openProfessionalArea e
+openClientTab. A primeira registra a origem antes de abrir o perfil da conta.
+A segunda consulta api.professionalMe(): se a chamada tiver sucesso, abre
+professionalHome; se ocorrer uma falha, abre professionalSetup. A terceira
+seleciona a aba do cliente e registra a origem ao abrir seus serviços.
+
+O tipo AppNavigation é inferido do retorno do hook com ReturnType, permitindo
+que os navegadores recebam uma interface consistente de estados e ações.
+O hook guarda os dados; algumas atualizações específicas, como adicionar
+serviços e modificar seus status, continuam nos callbacks do ClientNavigator.
+
+RootNavigator.tsx: escolha do contexto
+
+O RootNavigator recebe a navegação e encaminha a renderização ao navegador
+de autenticação, cliente ou profissional, conforme a tela atual. Ele próprio
+renderiza AccountProfileScreen, pois o perfil da conta pode ser acessado
+por diferentes fluxos. Ao voltar ou salvar, utiliza profileReturnScreen.
+
+AuthNavigator.tsx: autenticação e escolha de perfil
+
+Agrupa login, cadastro, termos, privacidade e escolha de perfil. Usa switch
+para selecionar a tela e conecta seus eventos às ações de navegação.
+Preserva o retorno dos documentos legais ao login ou cadastro de origem.
+Após autenticação, abre a escolha de perfil; a escolha encaminha o usuário
+à área do cliente ou à ação que determina a entrada na área profissional.
+
+ClientNavigator.tsx: fluxo do cliente
+
+Agrupa início, busca, anúncios, configurações, serviços do cliente, detalhes,
+mensagens e perfil do profissional. Cada tela ocupa um caso do switch.
+
+Nesse módulo ficam os callbacks específicos do fluxo: selecionar um
+profissional, registrar de onde seu perfil foi aberto, contratar um serviço
+sem duplicar seu identificador, atualizar seu status e abrir detalhes.
+As telas de detalhes e mensagens retornam null quando não existe um serviço
+selecionado, preservando a condição de exibição existente no original.
+
+ProfessionalNavigator.tsx: fluxo do profissional
+
+Agrupa professionalSetup e professionalHome em um switch. Mantém as ações
+de voltar à escolha de perfil, abrir a conta, concluir a configuração e sair.
+A tela inicial do profissional também recebe o tema e sua função de alteração.
+
+types.ts: definição das telas e dos retornos
+
+Centraliza os tipos de tela e separa AuthScreen, ClientScreen e
+ProfessionalScreen. O tipo Screen combina esses grupos com profileChoice
+e accountProfile. Os destinos de retorno também possuem tipos próprios.
+
+As funções isAuthContextScreen, isClientContextScreen e
+isProfessionalContextScreen identificam o grupo de uma tela e permitem ao
+TypeScript restringir seu tipo ao contexto correspondente. A escolha de
+perfil é encaminhada ao navegador de autenticação por essa classificação.
+
+serviceMapping.ts: adaptação dos dados de serviço
+
+A função toServiceDetailsItem do original foi extraída e renomeada para
+toProfessionalService. Ela converte ClientWorkService em ProfessionalService,
+formato utilizado pela tela de detalhes reaproveitada no fluxo do cliente.
+
+Foram mantidos o mapeamento de status, os campos do serviço, os valores
+"A combinar" para preço, horário e prazo ausentes, e a conversão da quantidade
+de mensagens não lidas para texto quando esse valor está presente.
+
+3. EXEMPLO DO FUNCIONAMENTO APÓS A DIVISÃO
+
+Ao abrir um profissional a partir da busca, o ClientNavigator registra seu
+identificador, define clientSearch como destino de retorno e altera a tela
+para clientProfile, usando os estados disponibilizados pelo hook.
+
+A atualização faz o App renderizar novamente. O RootNavigator identifica
+o contexto de cliente e delega ao ClientNavigator, que exibe ClientProfilePage.
+Ao voltar, a tela registrada no estado é recuperada: clientSearch.
+
+Esse exemplo mostra a divisão: o hook mantém o estado, o RootNavigator
+seleciona o contexto e o navegador desse contexto conecta a tela às ações.
+
+4. RELAÇÃO COM OS REQUISITOS DA ISSUE
+
+- Criar um módulo específico de navegação:
+  Atendido pela pasta navigation, com o RootNavigator como distribuidor
+  dos fluxos e o hook como responsável pelos estados compartilhados.
+
+- Separar autenticação, cliente e profissional:
+  Atendido pelos três navegadores específicos de contexto.
+
+- Reduzir a grande cadeia de condicionais:
+  A sequência de ternários saiu do App. A seleção foi distribuída entre
+  verificações de contexto no RootNavigator e switches nos navegadores.
+
+- Manter o App como entrada, tema global e composição principal:
+  O App passou a montar a estrutura visual e conectar tema e navegação,
+  sem conter a implementação de renderização de cada tela.
+
+5. RESULTADO E MANUTENÇÃO
+
+A navegação ficou organizada por responsabilidade e contexto. O App deixou
+de depender diretamente de todas as telas, e mudanças em um fluxo podem
+ser concentradas em seu navegador. Os estados ainda são compartilhados
+pelo objeto AppNavigation; a separação reduz a concentração de dependências,
+mas não torna os fluxos completamente independentes.
+
+Para incluir uma tela em um contexto existente, normalmente basta atualizar
+o tipo e a função de classificação em types.ts, adicionar seu caso no
+navegador correspondente e conectar a ação que a abre. Se houver novos
+estados compartilhados, eles podem ser acrescentados ao hook. Esse trabalho
+não exige ampliar a lógica de renderização do App.tsx.
+
+A comparação dos arquivos mostra a preservação das regras de navegação,
+dos retornos, do tema e do tratamento de serviços descritos acima. A solução
+continua baseada em estado React e callbacks, sem introduzir uma biblioteca
+de navegação ou uma pilha automática de histórico.
+
+Este documento registra a refatoração já testada e aprovada anteriormente,
+conforme informado na solicitação. Não foram feitas alterações no código
+nem executados novos testes para produzir esta explicação.
