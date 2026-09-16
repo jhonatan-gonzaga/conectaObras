@@ -1,0 +1,124 @@
+TUTORIAL: EXECUTAR OS TESTES TYPESCRIPT PELO TERMINAL
+===================================================
+
+1. O que instalar
+-----------------
+Instale Node.js 22 (versão 22.13.0 ou superior da série 22), com npm:
+https://nodejs.org/en/download
+No Windows, o instalador deve adicionar o Node.js ao PATH. Depois da
+instalação, feche e reabra o terminal e, se necessário, o VS Code.
+
+Confira no terminal:
+  node --version
+  npm --version
+
+Não é necessário instalar extensões do VS Code, Jest globalmente,
+Android Studio ou emuladores para executar estes testes.
+
+2. Instalar as dependências do projeto
+-------------------------------------
+Na raiz do repositório (pasta que contém TP4-mvp), execute:
+  cd TP4-mvp/front-end
+  npm ci --include=dev
+
+Se já estiver na pasta TP4-mvp/tests, use primeiro:
+  cd ../front-end
+
+Os comandos seguintes devem ser executados dentro de TP4-mvp/front-end.
+As dependências e a configuração do Jest ficam nessa pasta, embora os
+arquivos de teste estejam em TP4-mvp/tests.
+
+O comando npm ci usa as versões registradas em package-lock.json e instala
+também as dependências de desenvolvimento. É necessário acesso à internet
+na instalação. Se node_modules já existir, npm ci recria essa pasta.
+
+Os pacotes necessários já estão declarados no package.json:
+  - jest: executor dos testes;
+  - jest-expo: configuração de testes para Expo e React Native;
+  - @testing-library/react-native: renderização e teste de hooks;
+  - react-test-renderer: suporte à renderização de testes;
+  - @testing-library/jest-native: asserções usadas pelo setup existente;
+  - typescript e babel-preset-expo: suporte ao código TypeScript/Expo.
+
+3. Executar todos os testes
+--------------------------
+  npm test -- --runInBand
+
+O Jest busca automaticamente os arquivos *.test.ts e *.test.tsx da pasta
+TP4-mvp/tests. A opção --runInBand executa as suítes em um único processo.
+
+Arquivos atuais:
+  navigation-types.test.ts: classificação das telas por contexto.
+  service-mapping.test.ts: conversão e valores padrão dos serviços.
+  use-app-navigation.test.ts: estado e ações do hook de navegação.
+
+Os testes atuais não precisam do backend, banco de dados, arquivo .env
+ou aplicativo aberto. As chamadas à API exercitadas nos testes do hook
+são substituídas por respostas simuladas.
+
+4. Comandos opcionais
+---------------------
+Executar apenas um arquivo:
+  npm test -- --runInBand --runTestsByPath ../tests/use-app-navigation.test.ts
+
+Executar novamente a cada alteração (Ctrl+C para sair):
+  npm test -- --watchAll --runInBand
+
+Executar a suíte em modo de integração contínua:
+  npm test -- --ci --runInBand
+
+Alternativa a partir da raiz do repositório, sem usar cd:
+  npm --prefix TP4-mvp/front-end ci --include=dev
+  npm --prefix TP4-mvp/front-end test -- --runInBand
+
+5. Problemas comuns
+-------------------
+"node" ou "npm" não reconhecido:
+  Confirme a instalação do Node.js e reabra o terminal/aplicativo para
+  carregar o PATH atualizado.
+
+PowerShell bloqueia npm.ps1 por política de execução:
+  Use npm.cmd no lugar de npm nos comandos deste tutorial. Exemplo:
+    npm.cmd ci --include=dev
+    npm.cmd test -- --runInBand
+  Não é necessário alterar a política de execução do Windows.
+
+"jest" não reconhecido ou módulo não encontrado:
+  Execute npm ci --include=dev dentro de TP4-mvp/front-end e tente novamente.
+
+"No tests found" ou package.json não encontrado:
+  Confira a pasta atual. Use TP4-mvp/front-end, conforme a seção 2.
+
+O Jest executa o TypeScript transformado pelo Babel. Passar nos testes
+não equivale a verificar todos os tipos da aplicação. O comando separado
+npm run typecheck verifica os arquivos incluídos no tsconfig.json do
+front-end; atualmente esse tsconfig não inclui a pasta externa tests.
+
+6. Submissão futura no GitHub
+----------------------------
+Inclua este tutorial e os arquivos de teste. Preserve também package.json,
+package-lock.json, jest.setup.ts, jest.asset-mock.js, jest.style-mock.js e
+babel.config.js do front-end, além do código-fonte testado.
+
+Não envie node_modules: ela é recriada por npm ci e já está ignorada pelo
+.gitignore do front-end. Não envie a instalação local do Node.js.
+Quem baixar o repositório poderá repetir as etapas 1, 2 e 3.
+
+Referência oficial da configuração Jest/Expo:
+https://docs.expo.dev/develop/unit-testing/
+
+7. Validação realizada neste ambiente
+------------------------------------
+Data: 15/09/2026. Sistema: Windows, terminal PowerShell.
+Node.js: v22.23.2. npm: 10.9.8.
+Instalação: npm.cmd ci --include=dev --no-audit --no-fund.
+Execução: npm.cmd test -- --runInBand.
+Resultado: 3 suítes aprovadas; 32 testes aprovados; nenhum snapshot.
+
+O Node.js foi instalado no usuário atual, fora do repositório, em:
+  %LOCALAPPDATA%\Programs\NodeJS\node-v22.23.2-win-x64
+Essa pasta foi adicionada ao PATH do usuário. Reabra o terminal ou o
+VS Code para que os comandos fiquem disponíveis em novas sessões.
+
+A instalação apresentou avisos de pacotes descontinuados nas dependências
+existentes, mas terminou com sucesso. Foram mantidas as versões do lockfile.
