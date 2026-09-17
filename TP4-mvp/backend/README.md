@@ -16,13 +16,23 @@ npm install
 cp .env.example .env
 ```
 
-3. Edite `DATABASE_URL` e `JWT_SECRET` no `.env`.
+3. Confirme que o MySQL local esta ativo em `localhost:3306` e que o banco
+   `COI` existe. No `.env`, informe a senha local do usuario `root` em
+   `DATABASE_URL`.
 
-4. Gere o client Prisma e rode a migracao:
+4. Gere o Prisma Client, aplique as migrations no banco local e cadastre as
+   categorias iniciais:
+
+```bash
+npm run db:setup
+```
+
+O comando equivale a:
 
 ```bash
 npm run prisma:generate
-npm run prisma:migrate
+npm run prisma:deploy
+npm run seed:categories
 ```
 
 5. Inicie a API:
@@ -30,6 +40,10 @@ npm run prisma:migrate
 ```bash
 npm run start:dev
 ```
+
+A API escuta em `0.0.0.0:3000`, permitindo acesso pelo Expo Go na mesma rede.
+No frontend, copie `.env.example` para `.env` e substitua `SEU_IP_LOCAL` pelo
+IP do computador.
 
 ## Endpoints
 
