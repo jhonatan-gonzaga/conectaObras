@@ -13,6 +13,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "seed:categories": "node prisma/seed-categories.js",
+    "test": "npm run test:compile && node --test dist-test/test/*.spec.js",
+    "test:compile": "tsc -p tsconfig.spec.json",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

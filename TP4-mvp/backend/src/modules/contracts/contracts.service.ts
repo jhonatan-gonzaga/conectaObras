@@ -1,10 +1,15 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ContractStatus, NotificationType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ContractStatusPolicyService } from './contract-status-policy.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { ReplyReviewDto } from './dto/reply-review.dto';
 import { ReportReviewDto } from './dto/report-review.dto';
 import { UpdateContractStatusDto } from './dto/update-contract-status.dto';
+import {
+  ContractActor,
+  ContractTransitionDeniedError,
+} from './states/contract-state';
 
 const contractInclude = {
   client: { include: { user: { select: { id: true, name: true, phone: true, avatarUrl: true } } } },
@@ -32,7 +37,10 @@ const contractInclude = {
 
 @Injectable()
 export class ContractsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly contractStatusPolicy: ContractStatusPolicyService,
+  ) {}
 
   async findMine(userId: string) {
     await this.ensureMissingConversations(userId);
@@ -53,7 +61,25 @@ export class ContractsService {
 
   async updateStatus(userId: string, id: string, dto: UpdateContractStatusDto) {
     const contract = await this.getVisibleContract(userId, id);
-    this.assertStatusTransition(contract.status, dto.status);
+    const actor =
+      contract.client.userId === userId
+        ? ContractActor.CLIENT
+        : ContractActor.PROFESSIONAL;
+
+    try {
+      this.contractStatusPolicy.assertCanTransition({
+        currentStatus: contract.status,
+        targetStatus: dto.status,
+        actor,
+        hasReview: Boolean(contract.review),
+      });
+    } catch (error) {
+      if (error instanceof ContractTransitionDeniedError) {
+        throw new BadRequestException(error.message);
+      }
+
+      throw error;
+    }
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const next = await tx.contract.update({
@@ -242,26 +268,4 @@ export class ContractsService {
     });
   }
 
-  private assertStatusTransition(current: ContractStatus, next: ContractStatus) {
-    const allowed: Record<ContractStatus, ContractStatus[]> = {
-      PENDING_START: [
-        ContractStatus.IN_PROGRESS,
-        ContractStatus.COMPLETED,
-        ContractStatus.CANCELED,
-      ],
-      IN_PROGRESS: [
-        ContractStatus.WAITING_CLIENT_APPROVAL,
-        ContractStatus.COMPLETED,
-        ContractStatus.CANCELED,
-      ],
-      WAITING_CLIENT_APPROVAL: [ContractStatus.COMPLETED, ContractStatus.REOPENED],
-      COMPLETED: [ContractStatus.REOPENED],
-      REOPENED: [ContractStatus.IN_PROGRESS, ContractStatus.CANCELED],
-      CANCELED: [],
-    };
-
-    if (!allowed[current].includes(next)) {
-      throw new BadRequestException(`Transicao de status invalida: ${current} -> ${next}.`);
-    }
-  }
 }
