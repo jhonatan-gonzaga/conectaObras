@@ -1,3 +1,4 @@
+import { ContractCreationModule } from '../contracts/contract-creation.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ConversationsModule } from '../conversations/conversations.module';
 import { Module } from '@nestjs/common';
@@ -6,7 +7,7 @@ import { DirectRequestsController } from './direct-requests.controller';
 import { DirectRequestsService } from './direct-requests.service';
 
 @Module({
-  imports: [PrismaModule, NotificationsModule, ConversationsModule],
+  imports: [PrismaModule, NotificationsModule, ConversationsModule, ContractCreationModule],
   controllers: [DirectRequestsController],
   providers: [DirectRequestsService],
 })

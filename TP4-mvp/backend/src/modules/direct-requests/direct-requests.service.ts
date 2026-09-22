@@ -1,10 +1,11 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ContractStatus, DirectRequestStatus, NotificationType, UserRole } from '@prisma/client';
+import { DirectRequestStatus, NotificationType, UserRole } from '@prisma/client';
 import { optionalFutureDate } from '../../common/utils/date';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ContractCreationService } from '../contracts/contract-creation.service';
 import { ConversationsService } from '../conversations/conversations.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { contractInclude, ContractWithRelations } from '../contracts/contract.include';
+import type { ContractWithRelations } from '../contracts/contract.include';
 import { CreateDirectRequestDto } from './dto/create-direct-request.dto';
 
 const directRequestInclude = {
@@ -26,6 +27,7 @@ export class DirectRequestsService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly conversations: ConversationsService,
+    private readonly contractCreation: ContractCreationService,
   ) {}
 
   async create(userId: string, dto: CreateDirectRequestDto) {
@@ -105,46 +107,8 @@ export class DirectRequestsService {
     return { pendingDirectRequests };
   }
 
-  async accept(userId: string, id: string): Promise<ContractWithRelations> {
-    const request = await this.getForProfessional(userId, id);
-
-    if (request.status !== DirectRequestStatus.SENT) {
-      throw new BadRequestException('Solicitacao direta nao esta pendente.');
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      await tx.directRequest.update({
-        where: { id },
-        data: { status: DirectRequestStatus.ACCEPTED },
-      });
-      const contract = await tx.contract.create({
-        data: {
-          clientId: request.clientId,
-          professionalId: request.professionalId,
-          directRequestId: request.id,
-          title: request.title,
-          description: request.description,
-          agreedValue: request.budget,
-          startDate: request.startDate,
-          status: ContractStatus.PENDING_START,
-        },
-      });
-      await tx.contractStatusHistory.create({
-        data: { contractId: contract.id, toStatus: ContractStatus.PENDING_START },
-      });
-      await this.conversations.attachDirectRequestToContract(request.id, contract.id, tx);
-      await this.notifications.create({
-        userId: request.client.userId,
-        type: NotificationType.DIRECT_REQUEST_ACCEPTED,
-        title: 'Solicitacao aceita',
-        body: `Sua solicitacao ${request.title} foi aceita.`,
-        data: { directRequestId: request.id, contractId: contract.id },
-      }, tx);
-      return tx.contract.findUniqueOrThrow({
-        where: { id: contract.id },
-        include: contractInclude,
-      });
-    });
+  accept(userId: string, id: string): Promise<ContractWithRelations> {
+    return this.contractCreation.acceptDirectRequest(userId, id);
   }
 
   async reject(userId: string, id: string) {

@@ -1,9 +1,9 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ApplicationStatus, ContractStatus, NotificationType, ServiceAdStatus } from '@prisma/client';
+import { ApplicationStatus, NotificationType, ServiceAdStatus } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
-import { ConversationsService } from '../conversations/conversations.service';
+import { ContractCreationService } from '../contracts/contract-creation.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { contractInclude, ContractWithRelations } from '../contracts/contract.include';
+import type { ContractWithRelations } from '../contracts/contract.include';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { UpdateApplicationDto } from './dto/update-application.dto';
 
@@ -12,7 +12,7 @@ export class ApplicationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
-    private readonly conversations: ConversationsService,
+    private readonly contractCreation: ContractCreationService,
   ) {}
 
   async create(userId: string, adId: string, dto: CreateApplicationDto) {
@@ -110,78 +110,8 @@ export class ApplicationsService {
     });
   }
 
-  async accept(userId: string, id: string): Promise<ContractWithRelations> {
-    const application = await this.prisma.application.findUnique({
-      where: { id },
-      include: {
-        professional: { include: { user: true } },
-        ad: { include: { client: { include: { user: true } } } },
-      },
-    });
-
-    if (!application) {
-      throw new NotFoundException('Candidatura nao encontrada.');
-    }
-
-    if (application.ad.client.userId !== userId) {
-      throw new ForbiddenException('Somente o cliente dono do anuncio pode aceitar.');
-    }
-
-    if (application.ad.status !== ServiceAdStatus.OPEN) {
-      throw new BadRequestException('Este anuncio nao esta aberto para contratacao.');
-    }
-
-    const agreedValue = application.proposedValue ?? application.ad.budget;
-
-    const contract = await this.prisma.$transaction(async (tx) => {
-      await tx.application.update({
-        where: { id },
-        data: { status: ApplicationStatus.ACCEPTED },
-      });
-      await tx.application.updateMany({
-        where: { adId: application.adId, id: { not: id } },
-        data: { status: ApplicationStatus.REJECTED },
-      });
-      await tx.serviceAd.update({
-        where: { id: application.adId },
-        data: { status: ServiceAdStatus.CONTRACTED },
-      });
-      const created = await tx.contract.create({
-        data: {
-          clientId: application.ad.clientId,
-          professionalId: application.professionalId,
-          adId: application.adId,
-          applicationId: application.id,
-          title: application.ad.title,
-          description: application.ad.description,
-          agreedValue,
-          startDate: application.ad.startDate,
-          status: ContractStatus.PENDING_START,
-        },
-      });
-      await tx.contractStatusHistory.create({
-        data: { contractId: created.id, toStatus: ContractStatus.PENDING_START },
-      });
-      await this.conversations.create({
-        clientUserId: application.ad.client.userId,
-        professionalUserId: application.professional.userId,
-        contractId: created.id,
-        applicationId: application.id,
-      }, tx);
-      await this.notifications.create({
-        userId: application.professional.userId,
-        type: NotificationType.APPLICATION_ACCEPTED,
-        title: 'Candidatura aceita',
-        body: `Sua candidatura para ${application.ad.title} foi aceita.`,
-        data: { contractId: created.id, applicationId: application.id },
-      }, tx);
-      return tx.contract.findUniqueOrThrow({
-        where: { id: created.id },
-        include: contractInclude,
-      });
-    });
-
-    return contract;
+  accept(userId: string, id: string): Promise<ContractWithRelations> {
+    return this.contractCreation.acceptApplication(userId, id);
   }
 
   async reject(userId: string, id: string) {
