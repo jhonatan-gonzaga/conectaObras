@@ -1,5 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ContractStatus, NotificationType } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ConversationsService } from '../conversations/conversations.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { contractInclude, ContractWithRelations } from './contract.include';
 import { ContractStatusPolicyService } from './contract-status-policy.service';
@@ -18,10 +20,12 @@ export class ContractsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly contractStatusPolicy: ContractStatusPolicyService,
+    private readonly notifications: NotificationsService,
+    private readonly conversations: ConversationsService,
   ) {}
 
   async findMine(userId: string): Promise<ContractWithRelations[]> {
-    await this.ensureMissingConversations(userId);
+    await this.conversations.ensureForContracts(userId);
 
     return this.prisma.contract.findMany({
       where: {
@@ -73,15 +77,13 @@ export class ContractsService {
         contract.client.userId === userId
           ? contract.professional.userId
           : contract.client.userId;
-      await tx.notification.create({
-        data: {
-          userId: notifyUserId,
-          type: NotificationType.CONTRACT_STATUS_CHANGED,
-          title: 'Status do contrato atualizado',
-          body: `${contract.title} mudou para ${dto.status}.`,
-          data: { contractId: id, status: dto.status },
-        },
-      });
+      await this.notifications.create({
+        userId: notifyUserId,
+        type: NotificationType.CONTRACT_STATUS_CHANGED,
+        title: 'Status do contrato atualizado',
+        body: `${contract.title} mudou para ${dto.status}.`,
+        data: { contractId: id, status: dto.status },
+      }, tx);
       return next;
     });
 
@@ -153,14 +155,12 @@ export class ContractsService {
       },
     });
 
-    await this.prisma.notification.create({
-      data: {
-        userId: contract.professional.userId,
-        type: NotificationType.REVIEW_RECEIVED,
-        title: 'Nova avaliacao recebida',
-        body: `Voce recebeu uma avaliacao de ${dto.rating} estrela(s).`,
-        data: { contractId: id, reviewId: review.id },
-      },
+    await this.notifications.create({
+      userId: contract.professional.userId,
+      type: NotificationType.REVIEW_RECEIVED,
+      title: 'Nova avaliacao recebida',
+      body: `Voce recebeu uma avaliacao de ${dto.rating} estrela(s).`,
+      data: { contractId: id, reviewId: review.id },
     });
 
     return review;
@@ -233,34 +233,6 @@ export class ContractsService {
     }
 
     return contract;
-  }
-
-  private async ensureMissingConversations(userId: string) {
-    const contracts = await this.prisma.contract.findMany({
-      where: {
-        OR: [{ client: { userId } }, { professional: { userId } }],
-        conversations: { none: {} },
-      },
-      include: {
-        client: true,
-        professional: true,
-      },
-    });
-
-    if (contracts.length === 0) {
-      return;
-    }
-
-    await this.prisma.conversation.createMany({
-      data: contracts.map((contract) => ({
-        clientUserId: contract.client.userId,
-        professionalUserId: contract.professional.userId,
-        contractId: contract.id,
-        applicationId: contract.applicationId,
-        directRequestId: contract.directRequestId,
-      })),
-      skipDuplicates: true,
-    });
   }
 
 }

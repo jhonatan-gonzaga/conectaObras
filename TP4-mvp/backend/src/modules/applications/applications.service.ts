@@ -1,5 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ApplicationStatus, ContractStatus, NotificationType, ServiceAdStatus } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ConversationsService } from '../conversations/conversations.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { contractInclude, ContractWithRelations } from '../contracts/contract.include';
 import { CreateApplicationDto } from './dto/create-application.dto';
@@ -7,7 +9,11 @@ import { UpdateApplicationDto } from './dto/update-application.dto';
 
 @Injectable()
 export class ApplicationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+    private readonly conversations: ConversationsService,
+  ) {}
 
   async create(userId: string, adId: string, dto: CreateApplicationDto) {
     const professional = await this.prisma.professionalProfile.findUnique({
@@ -43,14 +49,12 @@ export class ApplicationsService {
       include: { ad: true, professional: { include: { user: true } } },
     });
 
-    await this.prisma.notification.create({
-      data: {
-        userId: ad.client.userId,
-        type: NotificationType.APPLICATION_RECEIVED,
-        title: 'Nova candidatura recebida',
-        body: `${professional.user.name} se candidatou ao anuncio ${ad.title}.`,
-        data: { adId, applicationId: application.id },
-      },
+    await this.notifications.create({
+      userId: ad.client.userId,
+      type: NotificationType.APPLICATION_RECEIVED,
+      title: 'Nova candidatura recebida',
+      body: `${professional.user.name} se candidatou ao anuncio ${ad.title}.`,
+      data: { adId, applicationId: application.id },
     });
 
     return application;
@@ -158,23 +162,19 @@ export class ApplicationsService {
       await tx.contractStatusHistory.create({
         data: { contractId: created.id, toStatus: ContractStatus.PENDING_START },
       });
-      await tx.conversation.create({
-        data: {
-          clientUserId: application.ad.client.userId,
-          professionalUserId: application.professional.userId,
-          contractId: created.id,
-          applicationId: application.id,
-        },
-      });
-      await tx.notification.create({
-        data: {
-          userId: application.professional.userId,
-          type: NotificationType.APPLICATION_ACCEPTED,
-          title: 'Candidatura aceita',
-          body: `Sua candidatura para ${application.ad.title} foi aceita.`,
-          data: { contractId: created.id, applicationId: application.id },
-        },
-      });
+      await this.conversations.create({
+        clientUserId: application.ad.client.userId,
+        professionalUserId: application.professional.userId,
+        contractId: created.id,
+        applicationId: application.id,
+      }, tx);
+      await this.notifications.create({
+        userId: application.professional.userId,
+        type: NotificationType.APPLICATION_ACCEPTED,
+        title: 'Candidatura aceita',
+        body: `Sua candidatura para ${application.ad.title} foi aceita.`,
+        data: { contractId: created.id, applicationId: application.id },
+      }, tx);
       return tx.contract.findUniqueOrThrow({
         where: { id: created.id },
         include: contractInclude,
@@ -198,14 +198,12 @@ export class ApplicationsService {
       throw new ForbiddenException('Somente o cliente dono do anuncio pode recusar.');
     }
 
-    await this.prisma.notification.create({
-      data: {
-        userId: application.professional.userId,
-        type: NotificationType.APPLICATION_REJECTED,
-        title: 'Candidatura recusada',
-        body: `Sua candidatura para ${application.ad.title} foi recusada.`,
-        data: { applicationId: application.id, adId: application.adId },
-      },
+    await this.notifications.create({
+      userId: application.professional.userId,
+      type: NotificationType.APPLICATION_REJECTED,
+      title: 'Candidatura recusada',
+      body: `Sua candidatura para ${application.ad.title} foi recusada.`,
+      data: { applicationId: application.id, adId: application.adId },
     });
 
     return this.prisma.application.update({

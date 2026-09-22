@@ -1,11 +1,62 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { MessageType, NotificationType } from '@prisma/client';
+import { MessageType, NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateMessageDto } from './dto/create-message.dto';
+
+export type CreateConversationInput = Pick<
+  Prisma.ConversationUncheckedCreateInput,
+  'clientUserId' | 'professionalUserId' | 'contractId' | 'applicationId' | 'directRequestId'
+>;
 
 @Injectable()
 export class ConversationsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  create(
+    data: CreateConversationInput,
+    db: Pick<Prisma.TransactionClient, 'conversation'> = this.prisma,
+  ) {
+    return db.conversation.create({ data });
+  }
+
+  attachDirectRequestToContract(
+    directRequestId: string,
+    contractId: string,
+    tx: Pick<Prisma.TransactionClient, 'conversation'>,
+  ) {
+    return tx.conversation.updateMany({
+      where: { directRequestId },
+      data: { contractId },
+    });
+  }
+
+  async ensureForContracts(userId: string) {
+    const contracts = await this.prisma.contract.findMany({
+      where: {
+        OR: [{ client: { userId } }, { professional: { userId } }],
+        conversations: { none: {} },
+      },
+      include: {
+        client: true,
+        professional: true,
+      },
+    });
+
+    if (contracts.length === 0) {
+      return;
+    }
+
+    await this.prisma.conversation.createMany({
+      data: contracts.map((contract) => ({
+        clientUserId: contract.client.userId,
+        professionalUserId: contract.professional.userId,
+        contractId: contract.id,
+        applicationId: contract.applicationId,
+        directRequestId: contract.directRequestId,
+      })),
+      skipDuplicates: true,
+    });
+  }
 
   findAll(userId: string) {
     return this.prisma.conversation.findMany({
