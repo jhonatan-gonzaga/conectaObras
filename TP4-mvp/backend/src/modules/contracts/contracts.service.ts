@@ -8,6 +8,7 @@ import { ReportReviewDto } from './dto/report-review.dto';
 import { UpdateContractStatusDto } from './dto/update-contract-status.dto';
 import {
   ContractActor,
+  ContractStatusPolicyInput,
   ContractTransitionDeniedError,
 } from './states/contract-state';
 
@@ -66,20 +67,12 @@ export class ContractsService {
         ? ContractActor.CLIENT
         : ContractActor.PROFESSIONAL;
 
-    try {
-      this.contractStatusPolicy.assertCanTransition({
-        currentStatus: contract.status,
-        targetStatus: dto.status,
-        actor,
-        hasReview: Boolean(contract.review),
-      });
-    } catch (error) {
-      if (error instanceof ContractTransitionDeniedError) {
-        throw new BadRequestException(error.message);
-      }
-
-      throw error;
-    }
+    this.assertCanTransition({
+      currentStatus: contract.status,
+      targetStatus: dto.status,
+      actor,
+      hasReview: Boolean(contract.review),
+    });
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const next = await tx.contract.update({
@@ -127,6 +120,15 @@ export class ContractsService {
 
     if (contract.review) {
       throw new BadRequestException('Este contrato ja foi avaliado.');
+    }
+
+    if (contract.status !== ContractStatus.COMPLETED) {
+      this.assertCanTransition({
+        currentStatus: contract.status,
+        targetStatus: ContractStatus.COMPLETED,
+        actor: ContractActor.CLIENT,
+        hasReview: false,
+      });
     }
 
     const review = await this.prisma.$transaction(async (tx) => {
@@ -221,6 +223,18 @@ export class ContractsService {
     }
 
     return review;
+  }
+
+  private assertCanTransition(input: ContractStatusPolicyInput) {
+    try {
+      this.contractStatusPolicy.assertCanTransition(input);
+    } catch (error) {
+      if (error instanceof ContractTransitionDeniedError) {
+        throw new BadRequestException(error.message);
+      }
+
+      throw error;
+    }
   }
 
   private async getVisibleContract(userId: string, id: string) {
