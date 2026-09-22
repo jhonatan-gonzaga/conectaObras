@@ -3,7 +3,6 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../common/types/authenticated-user';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ContractsService } from './contracts.service';
-import { ContractStatusPolicyService } from './contract-status-policy.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { ReplyReviewDto } from './dto/reply-review.dto';
 import { ReportReviewDto } from './dto/report-review.dto';
@@ -12,10 +11,7 @@ import { UpdateContractStatusDto } from './dto/update-contract-status.dto';
 @UseGuards(JwtAuthGuard)
 @Controller('contracts')
 export class ContractsController {
-  constructor(
-    private readonly contractsService: ContractsService,
-    private readonly contractStatusPolicyService: ContractStatusPolicyService,
-  ) {}
+  constructor(private readonly contractsService: ContractsService) {}
 
   @Get('my')
   findMine(@CurrentUser() user: AuthenticatedUser) {
@@ -28,12 +24,11 @@ export class ContractsController {
   }
 
   @Patch(':id/status')
-  async updateStatus(
+  updateStatus(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: UpdateContractStatusDto,
   ) {
-    await this.contractStatusPolicyService.assertCanUpdate(user.id, id, dto);
     return this.contractsService.updateStatus(user.id, id, dto);
   }
 

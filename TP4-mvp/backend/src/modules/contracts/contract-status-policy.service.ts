@@ -1,60 +1,21 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ContractStatus } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
-import { UpdateContractStatusDto } from './dto/update-contract-status.dto';
+import { ContractState, ContractStatusPolicyInput } from './states/contract-state';
+import { contractStates } from './states/contract-states';
 
 @Injectable()
 export class ContractStatusPolicyService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly states = new Map<ContractStatus, ContractState>(
+    contractStates.map((state) => [state.status, state]),
+  );
 
-  async assertCanUpdate(userId: string, id: string, dto: UpdateContractStatusDto) {
-    const contract = await this.prisma.contract.findUnique({
-      where: { id },
-      include: {
-        client: true,
-        professional: true,
-        review: true,
-      },
-    });
+  assertCanTransition({ currentStatus, ...context }: ContractStatusPolicyInput) {
+    const state = this.states.get(currentStatus);
 
-    if (!contract) {
-      throw new NotFoundException('Contrato nao encontrado.');
+    if (!state) {
+      throw new Error(`Politica nao configurada para o status ${currentStatus}.`);
     }
 
-    const isClient = contract.client.userId === userId;
-    const isProfessional = contract.professional.userId === userId;
-
-    if (!isClient && !isProfessional) {
-      throw new ForbiddenException('Contrato pertence a outro usuario.');
-    }
-
-    if (contract.review && dto.status === ContractStatus.REOPENED) {
-      throw new BadRequestException('Servico avaliado nao pode ser reaberto.');
-    }
-
-    if (isProfessional) {
-      const allowedForProfessional: Partial<Record<ContractStatus, ContractStatus[]>> = {
-        PENDING_START: [ContractStatus.IN_PROGRESS],
-        REOPENED: [ContractStatus.IN_PROGRESS],
-        IN_PROGRESS: [],
-      };
-
-      if (!allowedForProfessional[contract.status]?.includes(dto.status)) {
-        throw new BadRequestException('Este status deve ser confirmado pelo cliente.');
-      }
-    }
-
-    if (isClient) {
-      const allowedForClient: Partial<Record<ContractStatus, ContractStatus[]>> = {
-        PENDING_START: [ContractStatus.CANCELED],
-        IN_PROGRESS: [ContractStatus.COMPLETED],
-        WAITING_CLIENT_APPROVAL: [ContractStatus.COMPLETED],
-        COMPLETED: contract.review ? [] : [ContractStatus.REOPENED],
-      };
-
-      if (!allowedForClient[contract.status]?.includes(dto.status)) {
-        throw new BadRequestException('Aguarde o profissional atualizar esta etapa do servico.');
-      }
-    }
+    state.assertCanTransition(context);
   }
 }
