@@ -5,9 +5,10 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { UPLOAD_CONFIG } from './modules/uploads/upload.config';
 
 async function bootstrap() {
-  for (const directory of ['images', 'audio']) {
+  for (const { directory } of Object.values(UPLOAD_CONFIG)) {
     const uploadsDir = join(process.cwd(), 'uploads', directory);
 
     if (!existsSync(uploadsDir)) {

@@ -1,32 +1,36 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { Request } from 'express';
+import { UPLOAD_CONFIG } from './upload.config';
+import {
+  UPLOAD_PROVIDER,
+  UploadProvider,
+  UploadType,
+} from './providers/upload-provider.interface';
 
 @Injectable()
 export class UploadsService {
-  buildImageResponse(file: Express.Multer.File, hostUrl: string) {
-    if (!file) {
-      throw new BadRequestException('Imagem nao enviada.');
-    }
+  constructor(
+    @Inject(UPLOAD_PROVIDER)
+    private readonly uploadProvider: UploadProvider,
+  ) {}
 
-    return {
-      filename: file.filename,
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      size: file.size,
-      url: `${hostUrl}/uploads/images/${file.filename}`,
-    };
+  uploadImage(file: Express.Multer.File, request: Request) {
+    return this.upload(file, 'image', request);
   }
 
-  buildAudioResponse(file: Express.Multer.File, hostUrl: string) {
+  uploadAudio(file: Express.Multer.File, request: Request) {
+    return this.upload(file, 'audio', request);
+  }
+
+  private upload(
+    file: Express.Multer.File,
+    type: UploadType,
+    request: Request,
+  ) {
     if (!file) {
-      throw new BadRequestException('Audio nao enviado.');
+      throw new BadRequestException(UPLOAD_CONFIG[type].missingFileMessage);
     }
 
-    return {
-      filename: file.filename,
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      size: file.size,
-      url: `${hostUrl}/uploads/audio/${file.filename}`,
-    };
+    return this.uploadProvider.buildResponse(file, type, request);
   }
 }
