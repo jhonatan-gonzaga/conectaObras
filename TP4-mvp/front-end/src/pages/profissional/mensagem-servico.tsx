@@ -1,5 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Audio } from "expo-av";
+import {
+  RecordingPresets,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+  useAudioRecorder,
+} from "expo-audio";
 import { useEffect, useState } from "react";
 import { Image, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
@@ -42,15 +47,14 @@ export function ServiceMessageScreen({
   const [error, setError] = useState<string | null>(null);
   const [isSendingImage, setIsSendingImage] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const audioPlayer = useAudioPlayer();
+  const audioPlayerStatus = useAudioPlayerStatus(audioPlayer);
   const [recordingState, setRecordingState] = useState<AudioRecordingState>({
     recording: null,
     startedAt: null,
   });
-  const [playingAudio, setPlayingAudio] = useState<{
-    id: string;
-    isPlaying: boolean;
-    sound: Audio.Sound;
-  } | null>(null);
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
 
   const loadMessages = async () => {
     if (!service.conversationId) {
@@ -84,10 +88,10 @@ export function ServiceMessageScreen({
   }, [service.conversationId]);
 
   useEffect(() => {
-    return () => {
-      void playingAudio?.sound.unloadAsync();
-    };
-  }, [playingAudio?.sound]);
+    if (audioPlayerStatus.didJustFinish) {
+      setPlayingAudioId(null);
+    }
+  }, [audioPlayerStatus.didJustFinish]);
 
   const sendMessage = async () => {
     const validation = validateMessage(message);
@@ -134,7 +138,7 @@ export function ServiceMessageScreen({
         return;
       }
 
-      setRecordingState(await startAudioRecording());
+      setRecordingState(await startAudioRecording(audioRecorder));
     } catch (audioError) {
       setRecordingState({ recording: null, startedAt: null });
       setError(
@@ -179,38 +183,25 @@ export function ServiceMessageScreen({
       return;
     }
 
-    if (playingAudio?.id === item.id) {
-      const status = await playingAudio.sound.getStatusAsync();
-
-      if (status.isLoaded && status.isPlaying) {
-        await playingAudio.sound.pauseAsync();
-        setPlayingAudio((current) =>
-          current?.id === item.id ? { ...current, isPlaying: false } : current,
-        );
+    if (playingAudioId === item.id) {
+      if (audioPlayerStatus.playing) {
+        audioPlayer.pause();
         return;
       }
 
-      await playingAudio.sound.playAsync();
-      setPlayingAudio((current) =>
-        current?.id === item.id ? { ...current, isPlaying: true } : current,
-      );
+      if (
+        audioPlayerStatus.duration > 0 &&
+        audioPlayerStatus.currentTime >= audioPlayerStatus.duration
+      ) {
+        await audioPlayer.seekTo(0);
+      }
+      audioPlayer.play();
       return;
     }
 
-    if (playingAudio) {
-      await playingAudio.sound.unloadAsync();
-    }
-
-    const { sound } = await Audio.Sound.createAsync(
-      { uri: item.audioUrl },
-      { shouldPlay: true },
-    );
-    sound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded && status.didJustFinish) {
-        setPlayingAudio((current) => (current?.id === item.id ? null : current));
-      }
-    });
-    setPlayingAudio({ id: item.id, isPlaying: true, sound });
+    audioPlayer.replace(item.audioUrl);
+    audioPlayer.play();
+    setPlayingAudioId(item.id);
   };
 
   return (
@@ -265,7 +256,7 @@ export function ServiceMessageScreen({
                   >
                     <Ionicons
                       name={
-                        playingAudio?.id === item.id && playingAudio.isPlaying
+                        playingAudioId === item.id && audioPlayerStatus.playing
                           ? "pause-circle"
                           : "play-circle"
                       }

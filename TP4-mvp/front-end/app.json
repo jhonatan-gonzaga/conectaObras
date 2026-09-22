@@ -5,10 +5,6 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "backgroundColor": "#fbf6f7"
-    },
     "ios": {
       "supportsTablet": true
     },
@@ -16,12 +12,17 @@
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#fbf6f7"
-      },
-      "edgeToEdgeEnabled": true
+      }
     },
     "plugins": [
-      "@react-native-community/datetimepicker",
-      "expo-font"
+      "expo-font",
+      "expo-audio",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#fbf6f7"
+        }
+      ]
     ]
   }
 }
