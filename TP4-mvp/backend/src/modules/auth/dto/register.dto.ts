@@ -1,5 +1,12 @@
 import { UserRole } from '@prisma/client';
-import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+
+export const PUBLIC_REGISTRATION_ROLES = [
+  UserRole.CLIENTE,
+  UserRole.PROFISSIONAL,
+] as const;
+
+export type PublicRegistrationRole = (typeof PUBLIC_REGISTRATION_ROLES)[number];
 
 export class RegisterDto {
   @IsString()
@@ -18,6 +25,8 @@ export class RegisterDto {
   password: string;
 
   @IsOptional()
-  @IsEnum(UserRole, { message: 'Perfil de usuario invalido.' })
-  role?: UserRole;
+  @IsIn(PUBLIC_REGISTRATION_ROLES, {
+    message: 'Cadastro publico permitido apenas para cliente ou profissional.',
+  })
+  role?: PublicRegistrationRole;
 }

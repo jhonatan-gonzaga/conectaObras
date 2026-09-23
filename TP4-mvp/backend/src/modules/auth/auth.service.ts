@@ -18,7 +18,7 @@ export class AuthService {
 
   async register(registerDto: RegisterDto) {
     const passwordHash = await bcrypt.hash(registerDto.password, 10);
-    const user = await this.usersService.create({
+    const user = await this.usersService.createPublic({
       name: registerDto.name,
       email: registerDto.email.toLowerCase(),
       phone: registerDto.phone,
@@ -54,7 +54,7 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(this.generateTemporaryPassword(), 10);
-    const user = await this.usersService.create({
+    const user = await this.usersService.createPublic({
       name: googleAuthDto.name,
       email,
       avatarUrl: googleAuthDto.avatarUrl,
