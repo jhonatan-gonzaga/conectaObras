@@ -10,7 +10,7 @@ API REST com NestJS, Prisma e MySQL.
 npm install
 ```
 
-2. Copie o arquivo de ambiente:
+2. Copie o arquivo de ambiente
 
 ```bash
 cp .env.example .env
