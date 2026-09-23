@@ -1,8 +1,11 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ContractStatus, DirectRequestStatus, NotificationType, UserRole } from '@prisma/client';
+import { DirectRequestStatus, NotificationType, UserRole } from '@prisma/client';
 import { optionalFutureDate } from '../../common/utils/date';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ContractCreationService } from '../contracts/contract-creation.service';
+import { ConversationsService } from '../conversations/conversations.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { contractInclude, ContractWithRelations } from '../contracts/contract.include';
+import type { ContractWithRelations } from '../contracts/contract.include';
 import { CreateDirectRequestDto } from './dto/create-direct-request.dto';
 
 const directRequestInclude = {
@@ -20,7 +23,12 @@ const directRequestInclude = {
 
 @Injectable()
 export class DirectRequestsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+    private readonly conversations: ConversationsService,
+    private readonly contractCreation: ContractCreationService,
+  ) {}
 
   async create(userId: string, dto: CreateDirectRequestDto) {
     const client = await this.ensureClientProfile(userId);
@@ -55,23 +63,19 @@ export class DirectRequestsService {
         },
       });
 
-      await tx.conversation.create({
-        data: {
-          clientUserId: userId,
-          professionalUserId: professional.userId,
-          directRequestId: request.id,
-        },
-      });
+      await this.conversations.create({
+        clientUserId: userId,
+        professionalUserId: professional.userId,
+        directRequestId: request.id,
+      }, tx);
 
-      await tx.notification.create({
-        data: {
-          userId: professional.userId,
-          type: NotificationType.DIRECT_REQUEST_RECEIVED,
-          title: 'Nova solicitacao direta',
-          body: `Voce recebeu uma solicitacao para ${request.title}.`,
-          data: { directRequestId: request.id },
-        },
-      });
+      await this.notifications.create({
+        userId: professional.userId,
+        type: NotificationType.DIRECT_REQUEST_RECEIVED,
+        title: 'Nova solicitacao direta',
+        body: `Voce recebeu uma solicitacao para ${request.title}.`,
+        data: { directRequestId: request.id },
+      }, tx);
 
       return tx.directRequest.findUniqueOrThrow({
         where: { id: request.id },
@@ -103,63 +107,18 @@ export class DirectRequestsService {
     return { pendingDirectRequests };
   }
 
-  async accept(userId: string, id: string): Promise<ContractWithRelations> {
-    const request = await this.getForProfessional(userId, id);
-
-    if (request.status !== DirectRequestStatus.SENT) {
-      throw new BadRequestException('Solicitacao direta nao esta pendente.');
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      await tx.directRequest.update({
-        where: { id },
-        data: { status: DirectRequestStatus.ACCEPTED },
-      });
-      const contract = await tx.contract.create({
-        data: {
-          clientId: request.clientId,
-          professionalId: request.professionalId,
-          directRequestId: request.id,
-          title: request.title,
-          description: request.description,
-          agreedValue: request.budget,
-          startDate: request.startDate,
-          status: ContractStatus.PENDING_START,
-        },
-      });
-      await tx.contractStatusHistory.create({
-        data: { contractId: contract.id, toStatus: ContractStatus.PENDING_START },
-      });
-      await tx.conversation.updateMany({
-        where: { directRequestId: request.id },
-        data: { contractId: contract.id },
-      });
-      await tx.notification.create({
-        data: {
-          userId: request.client.userId,
-          type: NotificationType.DIRECT_REQUEST_ACCEPTED,
-          title: 'Solicitacao aceita',
-          body: `Sua solicitacao ${request.title} foi aceita.`,
-          data: { directRequestId: request.id, contractId: contract.id },
-        },
-      });
-      return tx.contract.findUniqueOrThrow({
-        where: { id: contract.id },
-        include: contractInclude,
-      });
-    });
+  accept(userId: string, id: string): Promise<ContractWithRelations> {
+    return this.contractCreation.acceptDirectRequest(userId, id);
   }
 
   async reject(userId: string, id: string) {
     const request = await this.getForProfessional(userId, id);
-    await this.prisma.notification.create({
-      data: {
-        userId: request.client.userId,
-        type: NotificationType.DIRECT_REQUEST_REJECTED,
-        title: 'Solicitacao recusada',
-        body: `Sua solicitacao ${request.title} foi recusada.`,
-        data: { directRequestId: request.id },
-      },
+    await this.notifications.create({
+      userId: request.client.userId,
+      type: NotificationType.DIRECT_REQUEST_REJECTED,
+      title: 'Solicitacao recusada',
+      body: `Sua solicitacao ${request.title} foi recusada.`,
+      data: { directRequestId: request.id },
     });
     return this.prisma.directRequest.update({
       where: { id },

@@ -4,6 +4,8 @@ import { BadRequestException } from '@nestjs/common';
 import { ContractStatus } from '@prisma/client';
 import { ContractStatusPolicyService } from '../src/modules/contracts/contract-status-policy.service';
 import { ContractsService } from '../src/modules/contracts/contracts.service';
+import { NotificationsService } from '../src/modules/notifications/notifications.service';
+import { ConversationsService } from '../src/modules/conversations/conversations.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 describe('ContractsService.createReview', () => {
@@ -27,7 +29,12 @@ describe('ContractsService.createReview', () => {
           transactionCalled = true;
         },
       } as unknown as PrismaService;
-      const service = new ContractsService(prisma, new ContractStatusPolicyService());
+      const service = new ContractsService(
+        prisma,
+        new ContractStatusPolicyService(),
+        new NotificationsService(prisma),
+        new ConversationsService(prisma),
+      );
 
       await assert.rejects(
         service.createReview('client-user-1', 'contract-1', {

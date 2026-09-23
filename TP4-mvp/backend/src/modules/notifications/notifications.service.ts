@@ -1,10 +1,23 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RegisterDeviceTokenDto } from './dto/register-device-token.dto';
+
+export type CreateNotificationInput = Pick<
+  Prisma.NotificationUncheckedCreateInput,
+  'userId' | 'type' | 'title' | 'body' | 'data'
+>;
 
 @Injectable()
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  create(
+    data: CreateNotificationInput,
+    db: Pick<Prisma.TransactionClient, 'notification'> = this.prisma,
+  ) {
+    return db.notification.create({ data });
+  }
 
   findAll(userId: string) {
     return this.prisma.notification.findMany({
