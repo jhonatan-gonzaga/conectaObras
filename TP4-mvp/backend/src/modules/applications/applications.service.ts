@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ApplicationStatus, ContractStatus, NotificationType, ServiceAdStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { contractInclude, ContractWithRelations } from '../contracts/contract.include';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { UpdateApplicationDto } from './dto/update-application.dto';
 
@@ -105,7 +106,7 @@ export class ApplicationsService {
     });
   }
 
-  async accept(userId: string, id: string) {
+  async accept(userId: string, id: string): Promise<ContractWithRelations> {
     const application = await this.prisma.application.findUnique({
       where: { id },
       include: {
@@ -176,20 +177,7 @@ export class ApplicationsService {
       });
       return tx.contract.findUniqueOrThrow({
         where: { id: created.id },
-        include: {
-          client: { include: { user: { select: { id: true, name: true, phone: true, avatarUrl: true } } } },
-          professional: {
-            include: {
-              user: { select: { id: true, name: true, phone: true, avatarUrl: true } },
-              specialties: { include: { category: true } },
-            },
-          },
-          ad: { include: { category: true, images: true } },
-          application: true,
-          directRequest: { include: { images: true } },
-          conversations: { include: { messages: { include: { sender: { select: { id: true, name: true } } } } } },
-          review: true,
-        },
+        include: contractInclude,
       });
     });
 

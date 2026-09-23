@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ContractStatus, NotificationType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { contractInclude, ContractWithRelations } from './contract.include';
 import { ContractStatusPolicyService } from './contract-status-policy.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { ReplyReviewDto } from './dto/reply-review.dto';
@@ -12,30 +13,6 @@ import {
   ContractTransitionDeniedError,
 } from './states/contract-state';
 
-const contractInclude = {
-  client: { include: { user: { select: { id: true, name: true, phone: true, avatarUrl: true } } } },
-  professional: {
-    include: {
-      user: { select: { id: true, name: true, phone: true, avatarUrl: true } },
-      specialties: { include: { category: true } },
-    },
-  },
-  ad: { include: { category: true, images: true } },
-  application: true,
-  directRequest: { include: { images: true } },
-  statusHistory: { orderBy: { createdAt: 'desc' as const } },
-  conversations: {
-    include: {
-      messages: {
-        include: { sender: { select: { id: true, name: true } } },
-        orderBy: { createdAt: 'desc' as const },
-        take: 1,
-      },
-    },
-  },
-  review: true,
-};
-
 @Injectable()
 export class ContractsService {
   constructor(
@@ -43,7 +20,7 @@ export class ContractsService {
     private readonly contractStatusPolicy: ContractStatusPolicyService,
   ) {}
 
-  async findMine(userId: string) {
+  async findMine(userId: string): Promise<ContractWithRelations[]> {
     await this.ensureMissingConversations(userId);
 
     return this.prisma.contract.findMany({
@@ -55,12 +32,16 @@ export class ContractsService {
     });
   }
 
-  async findOne(userId: string, id: string) {
+  async findOne(userId: string, id: string): Promise<ContractWithRelations> {
     const contract = await this.getVisibleContract(userId, id);
     return contract;
   }
 
-  async updateStatus(userId: string, id: string, dto: UpdateContractStatusDto) {
+  async updateStatus(
+    userId: string,
+    id: string,
+    dto: UpdateContractStatusDto,
+  ): Promise<ContractWithRelations> {
     const contract = await this.getVisibleContract(userId, id);
     const actor =
       contract.client.userId === userId
@@ -237,7 +218,7 @@ export class ContractsService {
     }
   }
 
-  private async getVisibleContract(userId: string, id: string) {
+  private async getVisibleContract(userId: string, id: string): Promise<ContractWithRelations> {
     const contract = await this.prisma.contract.findUnique({
       where: { id },
       include: contractInclude,
