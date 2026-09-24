@@ -14,6 +14,12 @@ enum UserRole {
   SUPORTE
 }
 
+enum StoreStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+}
+
 enum WeekDay {
   SUNDAY
   MONDAY
@@ -99,6 +105,7 @@ model User {
   role                      UserRole             @default(CLIENTE)
   clientProfile             ClientProfile?
   professionalProfile       ProfessionalProfile?
+  storeProfile              StoreProfile?
   notifications             Notification[]
   deviceTokens              DeviceToken[]
   sentMessages              Message[]
@@ -109,6 +116,62 @@ model User {
   updatedAt                 DateTime             @updatedAt
 
   @@map("users")
+}
+
+model StoreProfile {
+  id           String             @id @default(cuid())
+  ownerId      String             @unique
+  name         String?
+  cnpj         String?            @unique
+  description  String?            @db.Text
+  phone        String?
+  whatsapp     String?
+  logoUrl      String?
+  status       StoreStatus        @default(DRAFT)
+  owner        User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  address      StoreAddress?
+  openingHours StoreOpeningHour[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([status, name])
+  @@map("store_profiles")
+}
+
+model StoreAddress {
+  id           String       @id @default(cuid())
+  storeId      String       @unique
+  street       String?
+  number       String?
+  neighborhood String?
+  city         String?
+  state        String?
+  zipCode      String?
+  complement   String?
+  latitude     Decimal?     @db.Decimal(10, 7)
+  longitude    Decimal?     @db.Decimal(10, 7)
+  store        StoreProfile @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([city, neighborhood])
+  @@map("store_addresses")
+}
+
+model StoreOpeningHour {
+  id          String       @id @default(cuid())
+  storeId     String
+  dayOfWeek   WeekDay
+  openingTime String?
+  closingTime String?
+  closed      Boolean      @default(false)
+  store       StoreProfile @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([storeId, dayOfWeek])
+  @@index([storeId])
+  @@map("store_opening_hours")
 }
 
 model ClientProfile {
