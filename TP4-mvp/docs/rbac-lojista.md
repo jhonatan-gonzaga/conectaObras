@@ -2,7 +2,7 @@
 
 - **Task:** LOJA-002 — Implementar RBAC para LOJISTA
 - **Dependencia:** LOJA-001 — Contrato v1 de loja, catalogo e operacao do lojista
-- **Escopo atual:** infraestrutura de autorizacao e regras obrigatorias para as rotas de loja
+- **Escopo atual:** autorizacao e propriedade aplicadas aos endpoints administrativos de loja
 
 ## Decisao sobre cadastro publico
 
@@ -34,6 +34,10 @@ recebe `403`.
 
 `SUPORTE` nao possui acesso implicito aos dados comerciais. Uma permissao futura
 de suporte deve ser explicita e limitada ao caso de uso correspondente.
+
+Os endpoints `GET /api/stores/me` e `PUT /api/stores/me` aplicam essa protecao
+diretamente no `StoresController`. O primeiro consulta a loja autenticada; o
+segundo cria ou atualiza somente essa mesma loja.
 
 ## Identidade e propriedade
 
@@ -85,7 +89,6 @@ bloqueados e a politica do cadastro publico. A integracao HTTP valida a ordem
 dos guards, a resolucao da loja pelo JWT, o bloqueio de leitura e alteracao
 cruzadas e a rejeicao de `ownerId` e `storeId` no corpo.
 
-Os modelos e endpoints de loja previstos no contrato LOJA-001 ainda nao existem
-nesta base. Quando forem implementados, devem reutilizar esta infraestrutura e
-manter os filtros de propriedade no caso de uso ou service responsavel pela
-consulta.
+A integracao usa o `StoresController` de producao. Os testes do `StoresService`
+tambem verificam que `ownerId` vem do argumento autenticado, que consultas usam
+esse filtro e que campos arbitrarios nao chegam aos comandos Prisma.
