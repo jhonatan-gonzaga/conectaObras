@@ -4,8 +4,57 @@ import { UserRole, WeekDay } from '@prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { UpsertMyStoreDto } from '../src/modules/stores/dto/upsert-my-store.dto';
 import { StoresService } from '../src/modules/stores/stores.service';
+import { BadRequestException } from '@nestjs/common';
 
 describe('StoresService', () => {
+  for (const value of ['', '  ', null]) {
+    it(`persiste CNPJ e CEP vazios como null: ${JSON.stringify(value)}`, async () => {
+      let profile: any;
+      let address: any;
+      const transaction = {
+        storeProfile: {
+          upsert: async (args: any) => { profile = args.create; return { id: 'store' }; },
+          findUniqueOrThrow: async () => ({ status: 'DRAFT' }),
+        },
+        storeAddress: { upsert: async (args: any) => { address = args.create; } },
+      };
+      const service = new StoresService({
+        $transaction: async (callback: any) => callback(transaction),
+      } as unknown as PrismaService);
+      await service.upsertMine('owner', { cnpj: value, address: { zipCode: value } } as UpsertMyStoreDto);
+      assert.equal(profile.cnpj, null);
+      assert.equal(address.zipCode, null);
+    });
+  }
+
+  it('rejeita identificadores parciais mesmo em DRAFT', async () => {
+    const service = new StoresService({
+      $transaction: async (callback: any) => callback({ storeProfile: {
+        upsert: async () => ({ id: 'store' }),
+      }, storeAddress: { upsert: async () => undefined } }),
+    } as unknown as PrismaService);
+    await assert.rejects(service.upsertMine('owner', { cnpj: '123' }), BadRequestException);
+    await assert.rejects(service.upsertMine('owner', { address: { zipCode: '123' } }), BadRequestException);
+  });
+
+  it('propaga cadastro incompleto antes de confirmar a transacao', async () => {
+    let committed = false;
+    const service = new StoresService({
+      $transaction: async (callback: any) => {
+        const result = await callback({ storeProfile: {
+          upsert: async () => ({ id: 'store' }),
+          findUniqueOrThrow: async () => ({
+            status: 'ACTIVE', name: null, cnpj: null, phone: null, address: null, openingHours: [],
+          }),
+        } });
+        committed = true;
+        return result;
+      },
+    } as unknown as PrismaService);
+    await assert.rejects(service.upsertMine('owner', { name: '' }), BadRequestException);
+    assert.equal(committed, false);
+  });
+
   it('consulta a loja exclusivamente pelo userId autenticado', async () => {
     let receivedArguments: unknown;
     const prisma = {
@@ -37,7 +86,7 @@ describe('StoresService', () => {
           storeUpsertArguments = args;
           return { id: 'store-a' };
         },
-        findUniqueOrThrow: async () => ({ id: 'store-a', name: 'Loja A' }),
+        findUniqueOrThrow: async () => ({ id: 'store-a', name: 'Loja A', status: 'DRAFT' }),
       },
       storeAddress: {
         upsert: async (args: Record<string, unknown>) => {
