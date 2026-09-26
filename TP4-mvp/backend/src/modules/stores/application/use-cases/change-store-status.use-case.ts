@@ -33,7 +33,24 @@ export class ChangeStoreStatusUseCase {
       },
     });
 
-    if (!decision.allowed) {
+    if (targetStatus === StoreStatus.ACTIVE) {
+      const address = store.address;
+      if (!address || ![
+        address.street,
+        address.number,
+        address.neighborhood,
+        address.city,
+        address.state,
+        address.zipCode,
+      ].every((value) => value?.trim())) {
+        decision.pending.push('ADDRESS_REQUIRED');
+      }
+      if (!store.openingHours.some((hours) => !hours.closed)) {
+        decision.pending.push('BUSINESS_OPEN_DAY_REQUIRED');
+      }
+    }
+
+    if (decision.pending.length) {
       throw new BadRequestException({
         message: 'A loja nao pode assumir o status solicitado.',
         pending: decision.pending,

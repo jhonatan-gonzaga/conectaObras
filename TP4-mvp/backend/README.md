@@ -2,6 +2,8 @@
 
 API REST com NestJS, Prisma e MySQL.
 
+Persistencia de lojas: [regras, testes SQL e reversao operacional](../docs/persistencia-loja.md).
+
 ## Como rodar
 
 1. Instale as dependencias:

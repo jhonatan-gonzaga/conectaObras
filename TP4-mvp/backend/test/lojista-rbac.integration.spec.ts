@@ -192,6 +192,8 @@ describe('API de administração da loja (integracao HTTP)', () => {
     const incomplete = await incompleteResponse.json() as { pending: string[] };
     assert.equal(incompleteResponse.status, 400);
     assert.ok(incomplete.pending.includes('STORE_NAME_REQUIRED'));
+    assert.ok(incomplete.pending.includes('ADDRESS_REQUIRED'));
+    assert.ok(incomplete.pending.includes('BUSINESS_OPEN_DAY_REQUIRED'));
     assert.equal((await request('/me', token)).status, 200);
 
     await request('/me', token, {
@@ -199,6 +201,10 @@ describe('API de administração da loja (integracao HTTP)', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         name: 'Loja A', cnpj: '11.222.333/0001-81', phone: '92999999999',
+        address: {
+          street: 'Rua A', number: '10', neighborhood: 'Centro',
+          city: 'Manaus', state: 'AM', zipCode: '69000000',
+        },
         openingHours: [{ dayOfWeek: 'MONDAY', openingTime: '08:00', closingTime: '18:00', closed: false }],
       }),
     });

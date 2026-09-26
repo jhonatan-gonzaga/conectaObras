@@ -1,10 +1,85 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
+import { BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { UpsertMyStoreDto } from '../src/modules/stores/dto/upsert-my-store.dto';
 import { PrismaStoreRepository } from '../src/modules/stores/infrastructure/prisma-store.repository';
 
 describe('PrismaStoreRepository', () => {
+  for (const value of ['', '  ', null]) {
+    it(`normaliza CNPJ e CEP vazios para null: ${JSON.stringify(value)}`, async () => {
+      let profile: any;
+      let address: any;
+      const transaction = {
+        storeProfile: {
+          upsert: async (args: any) => { profile = args.create; return { id: 'store-a' }; },
+          findUniqueOrThrow: async () => ({ id: 'store-a', status: 'DRAFT' }),
+        },
+        storeAddress: { upsert: async (args: any) => { address = args.create; } },
+      };
+      const prisma = {
+        $transaction: async (callback: (client: typeof transaction) => Promise<unknown>) => callback(transaction),
+      } as unknown as PrismaService;
+
+      await new PrismaStoreRepository(prisma).upsertProfile('owner-a', {
+        cnpj: value,
+        address: { zipCode: value },
+      } as UpsertMyStoreDto);
+
+      assert.equal(profile.cnpj, null);
+      assert.equal(address.zipCode, null);
+    });
+  }
+
+  it('rejeita CNPJ e CEP parciais em cadastro DRAFT', async () => {
+    let committed = false;
+    const transaction = {
+      storeProfile: {
+        upsert: async () => ({ id: 'store-a' }),
+        findUniqueOrThrow: async () => ({ id: 'store-a', status: 'DRAFT' }),
+      },
+      storeAddress: { upsert: async () => undefined },
+    };
+    const prisma = {
+      $transaction: async (callback: (client: typeof transaction) => Promise<unknown>) => {
+        const result = await callback(transaction);
+        committed = true;
+        return result;
+      },
+    } as unknown as PrismaService;
+    const repository = new PrismaStoreRepository(prisma);
+
+    await assert.rejects(repository.upsertProfile('owner-a', { cnpj: '123' }), BadRequestException);
+    await assert.rejects(repository.upsertProfile('owner-a', { address: { zipCode: '123' } }), BadRequestException);
+    assert.equal(committed, false);
+  });
+
+  it('reverte edicao que deixaria uma loja ACTIVE incompleta', async () => {
+    let committed = false;
+    const transaction = {
+      storeProfile: {
+        upsert: async () => ({ id: 'store-a' }),
+        findUniqueOrThrow: async () => ({
+          id: 'store-a', status: 'ACTIVE', name: null, cnpj: null,
+          phone: null, address: null, openingHours: [],
+        }),
+      },
+    };
+    const prisma = {
+      $transaction: async (callback: (client: typeof transaction) => Promise<unknown>) => {
+        const result = await callback(transaction);
+        committed = true;
+        return result;
+      },
+    } as unknown as PrismaService;
+
+    await assert.rejects(
+      new PrismaStoreRepository(prisma).upsertProfile('owner-a', { name: '' }),
+      BadRequestException,
+    );
+    assert.equal(committed, false);
+  });
+
   it('cria o perfil, endereco e horarios na mesma transacao', async () => {
     const calls: string[] = [];
     const transaction = {
@@ -15,7 +90,7 @@ describe('PrismaStoreRepository', () => {
           assert.equal(args.create.ownerId, 'owner-a');
           return { id: 'store-a' };
         },
-        findUniqueOrThrow: async () => ({ id: 'store-a', ownerId: 'owner-a' }),
+        findUniqueOrThrow: async () => ({ id: 'store-a', ownerId: 'owner-a', status: 'DRAFT' }),
       },
       storeAddress: {
         upsert: async (args: any) => {

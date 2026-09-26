@@ -1,8 +1,9 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { StoreRecord, StoreRepository } from '../application/store.repository';
-import { UpsertMyStoreDto } from '../dto/upsert-my-store.dto';
+import { StoreAddressDto, UpsertMyStoreDto } from '../dto/upsert-my-store.dto';
+import { validateOpeningHours, validatePersistedStore } from '../store-persistence.validation';
 
 export const storeDetailSelect = {
   id: true,
@@ -32,6 +33,7 @@ export class PrismaStoreRepository implements StoreRepository {
   }
 
   async upsertProfile(ownerId: string, dto: UpsertMyStoreDto): Promise<StoreRecord> {
+    if (dto.openingHours) validateOpeningHours(dto.openingHours);
     try {
       return await this.prisma.$transaction(async (transaction) => {
         const store = await transaction.storeProfile.upsert({
@@ -64,10 +66,12 @@ export class PrismaStoreRepository implements StoreRepository {
           }
         }
 
-        return transaction.storeProfile.findUniqueOrThrow({
+        const result = await transaction.storeProfile.findUniqueOrThrow({
           where: { id: store.id },
           select: storeDetailSelect,
-        }) as Promise<StoreRecord>;
+        });
+        validatePersistedStore(result);
+        return result as StoreRecord;
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -96,26 +100,34 @@ export class PrismaStoreRepository implements StoreRepository {
   private storeData(dto: UpsertMyStoreDto) {
     return {
       name: dto.name,
-      cnpj: dto.cnpj === undefined ? undefined : this.onlyDigits(dto.cnpj),
+      cnpj: this.normalizeDigits(dto.cnpj, 14, 'CNPJ'),
       description: dto.description,
       phone: dto.phone,
       whatsapp: dto.whatsapp,
     };
   }
 
-  private addressData(address: NonNullable<UpsertMyStoreDto['address']>) {
+  private addressData(address: StoreAddressDto) {
     return {
       street: address.street,
       number: address.number,
       neighborhood: address.neighborhood,
       city: address.city,
       state: address.state?.toUpperCase(),
-      zipCode: address.zipCode === undefined ? undefined : this.onlyDigits(address.zipCode),
+      zipCode: this.normalizeDigits(address.zipCode, 8, 'CEP'),
       complement: address.complement,
+      latitude: address.latitude,
+      longitude: address.longitude,
     };
   }
 
-  private onlyDigits(value: string) {
-    return value.replace(/\D/g, '');
+  private normalizeDigits(value: string | null | undefined, length: number, field: string) {
+    if (value === undefined || value === null) return value;
+    if (!value.trim()) return null;
+    const digits = value.replace(/\D/g, '');
+    if (digits.length !== length) {
+      throw new BadRequestException(`${field} deve conter ${length} digitos.`);
+    }
+    return digits;
   }
 }

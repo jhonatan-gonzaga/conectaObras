@@ -7,6 +7,8 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  IsLatitude,
+  IsLongitude,
   Matches,
   MaxLength,
   ValidateNested,
@@ -47,6 +49,14 @@ export class StoreAddressDto {
   @IsString()
   @MaxLength(160)
   complement?: string;
+
+  @IsOptional()
+  @IsLatitude()
+  latitude?: number;
+
+  @IsOptional()
+  @IsLongitude()
+  longitude?: number;
 }
 
 export class StoreOpeningHourDto {
@@ -58,14 +68,14 @@ export class StoreOpeningHourDto {
   @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, {
     message: 'Horario de abertura deve estar no formato HH:mm.',
   })
-  openingTime?: string;
+  openingTime?: string | null;
 
   @IsOptional()
   @IsString()
   @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, {
     message: 'Horario de fechamento deve estar no formato HH:mm.',
   })
-  closingTime?: string;
+  closingTime?: string | null;
 
   @IsBoolean()
   closed: boolean;
