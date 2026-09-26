@@ -122,6 +122,7 @@ model StoreProfile {
   id           String             @id @default(cuid())
   ownerId      String             @unique
   name         String?
+  /// Digits only; SQL CHECK constraints live in store_persistence_constraints.
   cnpj         String?            @unique
   description  String?            @db.Text
   phone        String?
@@ -146,6 +147,7 @@ model StoreAddress {
   neighborhood String?
   city         String?
   state        String?
+  /// Eight digits when supplied; nullable for drafts.
   zipCode      String?
   complement   String?
   latitude     Decimal?     @db.Decimal(10, 7)
@@ -162,6 +164,7 @@ model StoreOpeningHour {
   id          String       @id @default(cuid())
   storeId     String
   dayOfWeek   WeekDay
+  /// SQL CHECK: closed => null times; open => ordered HH:mm pair.
   openingTime String?
   closingTime String?
   closed      Boolean      @default(false)
