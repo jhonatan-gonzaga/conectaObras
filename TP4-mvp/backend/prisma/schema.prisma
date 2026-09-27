@@ -20,6 +20,13 @@ enum StoreStatus {
   INACTIVE
 }
 
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
 enum WeekDay {
   SUNDAY
   MONDAY
@@ -132,6 +139,7 @@ model StoreProfile {
   owner        User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   address      StoreAddress?
   openingHours StoreOpeningHour[]
+  products     Product[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
@@ -175,6 +183,61 @@ model StoreOpeningHour {
   @@unique([storeId, dayOfWeek])
   @@index([storeId])
   @@map("store_opening_hours")
+}
+
+model ProductCategory {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?   @db.Text
+  imageUrl    String?
+  active      Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("product_categories")
+}
+
+model Product {
+  id                String          @id @default(cuid())
+  storeId           String
+  categoryId        String
+  sku               String?         @db.VarChar(64)
+  name              String          @db.VarChar(120)
+  description       String?         @db.Text
+  /// SQL CHECK requires a positive price and nonnegative stock.
+  price             Decimal         @db.Decimal(10, 2)
+  stock             Int             @default(0)
+  status            ProductStatus   @default(DRAFT)
+  lastPriceUpdateAt DateTime        @default(now())
+  store             StoreProfile    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  category          ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images            ProductImage[]
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([storeId, sku])
+  @@index([storeId, status])
+  @@index([categoryId, status])
+  @@index([name])
+  @@map("products")
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  url       String   @db.Text
+  objectKey String?  @db.Text
+  altText   String?
+  position  Int      @default(0)
+  isCover   Boolean  @default(false)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId, position])
+  @@map("product_images")
 }
 
 model ClientProfile {
