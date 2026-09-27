@@ -8,6 +8,7 @@ import { ConversationsModule } from './modules/conversations/conversations.modul
 import { DirectRequestsModule } from './modules/direct-requests/direct-requests.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ProfessionalsModule } from './modules/professionals/professionals.module';
+import { ProductsModule } from './modules/products/products.module';
 import { ServiceAdsModule } from './modules/service-ads/service-ads.module';
 import { StoresModule } from './modules/stores/stores.module';
 import { SupportModule } from './modules/support/support.module';
@@ -32,6 +33,7 @@ import { PrismaModule } from './prisma/prisma.module';
     NotificationsModule,
     ConversationsModule,
     StoresModule,
+    ProductsModule,
     UploadsModule,
     SupportModule,
   ],

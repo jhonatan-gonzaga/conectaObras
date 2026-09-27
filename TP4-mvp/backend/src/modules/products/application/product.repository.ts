@@ -1,0 +1,51 @@
+export type ProductStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+
+export interface ProductImageInput {
+  url: string;
+  objectKey?: string;
+  altText?: string;
+  position: number;
+  isCover?: boolean;
+}
+
+export interface CreateProductInput {
+  categoryId: string;
+  sku?: string | null;
+  name: string;
+  description?: string;
+  price: string;
+  stock: number;
+  images?: ProductImageInput[];
+}
+
+export interface ProductRecord {
+  id: string;
+  storeId: string;
+  categoryId: string;
+  sku: string | null;
+  name: string;
+  description: string | null;
+  price: string;
+  stock: number;
+  status: ProductStatus;
+  lastPriceUpdateAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  images: Array<{
+    id: string;
+    url: string;
+    objectKey: string | null;
+    altText: string | null;
+    position: number;
+    isCover: boolean;
+  }>;
+}
+
+// storeId must come from the authenticated owner's store, never an HTTP body.
+export abstract class ProductRepository {
+  abstract create(storeId: string, input: CreateProductInput): Promise<ProductRecord>;
+  abstract findByStore(storeId: string, productId: string): Promise<ProductRecord | null>;
+  abstract listByStore(storeId: string, status?: ProductStatus): Promise<ProductRecord[]>;
+  abstract archive(storeId: string, productId: string): Promise<boolean>;
+  abstract updatePrice(storeId: string, productId: string, price: string): Promise<boolean>;
+}
