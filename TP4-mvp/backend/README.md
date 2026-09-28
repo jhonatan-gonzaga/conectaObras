@@ -35,7 +35,12 @@ O comando equivale a:
 npm run prisma:generate
 npm run prisma:deploy
 npm run seed:categories
+npm run seed:product-categories
 ```
+
+`seed:categories` cadastra as categorias de serviço. `seed:product-categories`
+cadastra as nove categorias iniciais de materiais pelo slug e pode ser
+executado novamente sem duplicá-las.
 
 5. Inicie a API:
 
@@ -54,6 +59,9 @@ Base URL local: `http://localhost:3000/api`
 - `POST /auth/register`: cria usuario e retorna token.
 - `POST /auth/login`: autentica usuario e retorna token.
 - `GET /auth/me`: retorna o usuario autenticado. Envie `Authorization: Bearer <token>`.
+- `GET /product-categories`: lista as categorias de produto ativas, em ordem
+  alfabética. É público e retorna `id`, `name`, `slug`, `description` e
+  `imageUrl`. A API não expõe criação nem edição de categorias de produto.
 
 ## Exemplo de cadastro
 
