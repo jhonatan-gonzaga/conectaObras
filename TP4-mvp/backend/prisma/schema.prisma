@@ -27,6 +27,22 @@ enum ProductStatus {
   ARCHIVED
 }
 
+enum StorePromotionStatus {
+  DRAFT
+  ACTIVE
+  ENDED
+  CANCELED
+}
+
+enum StoreOrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELED
+}
+
 enum WeekDay {
   SUNDAY
   MONDAY
@@ -119,6 +135,7 @@ model User {
   supportTickets            SupportTicket[]
   clientConversations       Conversation[]       @relation("ClientConversationUser")
   professionalConversations Conversation[]       @relation("ProfessionalConversationUser")
+  storeOrders               StoreOrder[]
   createdAt                 DateTime             @default(now())
   updatedAt                 DateTime             @updatedAt
 
@@ -140,6 +157,8 @@ model StoreProfile {
   address      StoreAddress?
   openingHours StoreOpeningHour[]
   products     Product[]
+  promotions   StorePromotion[]
+  orders       StoreOrder[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
@@ -214,6 +233,7 @@ model Product {
   store             StoreProfile    @relation(fields: [storeId], references: [id], onDelete: Restrict)
   category          ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   images            ProductImage[]
+  promotions        StorePromotion[]
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
@@ -222,6 +242,53 @@ model Product {
   @@index([categoryId, status])
   @@index([name])
   @@map("products")
+}
+
+model StorePromotion {
+  id          String               @id @default(cuid())
+  storeId     String
+  productId   String?
+  name        String               @db.VarChar(120)
+  discountPct Decimal              @db.Decimal(5, 2)
+  status      StorePromotionStatus @default(DRAFT)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  store       StoreProfile         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product     Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([storeId, status])
+  @@map("store_promotions")
+}
+
+model StoreOrder {
+  id          String          @id @default(cuid())
+  storeId     String
+  customerId  String?
+  status      StoreOrderStatus @default(PENDING)
+  total       Decimal         @db.Decimal(10, 2)
+  store       StoreProfile    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  customer    User?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  items       StoreOrderItem[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([storeId, status, createdAt])
+  @@map("store_orders")
+}
+
+model StoreOrderItem {
+  id        String     @id @default(cuid())
+  orderId   String
+  name      String     @db.VarChar(120)
+  quantity  Int
+  unitPrice Decimal    @db.Decimal(10, 2)
+  order     StoreOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@index([orderId])
+  @@map("store_order_items")
 }
 
 model ProductImage {

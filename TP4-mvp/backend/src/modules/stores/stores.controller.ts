@@ -4,8 +4,10 @@ import {
   Controller,
   Get,
   Inject,
+  Param,
   Patch,
   Post,
+  Query,
   Put,
   Req,
   UploadedFile,
@@ -28,6 +30,10 @@ import { ChangeStoreStatusUseCase } from './application/use-cases/change-store-s
 import { GetMyStoreUseCase } from './application/use-cases/get-my-store.use-case';
 import { SaveStoreProfileUseCase } from './application/use-cases/save-store-profile.use-case';
 import { SetStoreLogoUseCase } from './application/use-cases/set-store-logo.use-case';
+import { StoreDashboardList, StoreDashboardService } from './store-dashboard.service';
+import { CreateStorePromotionDto } from './dto/create-store-promotion.dto';
+import { CreateStoreOrderDto } from './dto/create-store-order.dto';
+import { ChangeStoreOrderStatusDto } from './dto/change-store-order-status.dto';
 
 @Controller('stores')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -38,12 +44,41 @@ export class StoresController {
     private readonly saveStoreProfile: SaveStoreProfileUseCase,
     private readonly changeStoreStatus: ChangeStoreStatusUseCase,
     private readonly setStoreLogo: SetStoreLogoUseCase,
+    private readonly dashboard: StoreDashboardService,
     @Inject(UPLOAD_PROVIDER) private readonly uploadProvider: UploadProvider,
   ) {}
 
   @Get('me')
   findMine(@CurrentUser() user: AuthenticatedUser) {
     return this.getMyStore.execute(user.id);
+  }
+
+  @Get('me/dashboard')
+  dashboardSummary(@CurrentUser() user: AuthenticatedUser) {
+    return this.dashboard.summary(user.id);
+  }
+
+  @Get('me/dashboard/:kind')
+  dashboardList(@CurrentUser() user: AuthenticatedUser, @Param('kind') kind: string, @Query('status') status?: string) {
+    const allowed: StoreDashboardList[] = ['active-products', 'low-stock', 'promotions', 'orders', 'messages'];
+    if (!allowed.includes(kind as StoreDashboardList)) throw new BadRequestException('Filtro de painel invalido.');
+    if (status && !['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELED'].includes(status)) throw new BadRequestException('Status de pedido invalido.');
+    return this.dashboard.list(user.id, kind as StoreDashboardList, status);
+  }
+
+  @Post('me/promotions')
+  createPromotion(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateStorePromotionDto) {
+    return this.dashboard.createPromotion(user.id, dto);
+  }
+
+  @Post('me/orders')
+  createOrder(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateStoreOrderDto) {
+    return this.dashboard.createOrder(user.id, dto);
+  }
+
+  @Patch('me/orders/:id/status')
+  changeOrderStatus(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: ChangeStoreOrderStatusDto) {
+    return this.dashboard.changeOrderStatus(user.id, id, dto.status);
   }
 
   @Put('me')

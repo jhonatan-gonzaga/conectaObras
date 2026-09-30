@@ -31,13 +31,15 @@ export type ClientScreen =
   | "clientProfile";
 
 export type ProfessionalScreen = "professionalSetup" | "professionalHome";
+export type StoreOwnerScreen = "storeOwnerSetup" | "storeOwnerDashboard" | "storeOwnerList";
 
 export type Screen =
   | AuthScreen
   | "profileChoice"
   | "accountProfile"
   | ClientScreen
-  | ProfessionalScreen;
+  | ProfessionalScreen
+  | StoreOwnerScreen;
 
 export type { ClientWorkService };
 
@@ -73,4 +75,8 @@ export function isProfessionalContextScreen(
   screen: Screen,
 ): screen is ProfessionalScreen {
   return screen === "professionalSetup" || screen === "professionalHome";
+}
+
+export function isStoreOwnerContextScreen(screen: Screen): screen is StoreOwnerScreen {
+  return screen === "storeOwnerSetup" || screen === "storeOwnerDashboard" || screen === "storeOwnerList";
 }

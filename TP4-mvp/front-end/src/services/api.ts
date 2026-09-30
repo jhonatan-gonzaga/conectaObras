@@ -1,3 +1,6 @@
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
+
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000/api";
 
 let accessToken: string | null = null;
@@ -79,6 +82,16 @@ export type AuthResponse = {
   accessToken: string;
   user: AuthUser;
 };
+
+export type StoreDashboardSummary = {
+  hasStore: boolean;
+  activeProducts: number;
+  lowStockProducts: number;
+  activePromotions: number;
+  ordersByStatus: Partial<Record<"PENDING" | "CONFIRMED" | "PREPARING" | "READY" | "COMPLETED" | "CANCELED", number>>;
+  unreadMessages: number;
+};
+export type StoreDashboardList = "active-products" | "low-stock" | "promotions" | "orders" | "messages";
 
 export type Category = {
   id: string;
@@ -280,8 +293,23 @@ export type Conversation = {
   updatedAt: string;
 };
 
-export function setAccessToken(token: string | null) {
+export async function setAccessToken(token: string | null) {
   accessToken = token;
+  if (Platform.OS === "web") {
+    try {
+      if (token) globalThis.sessionStorage?.setItem("accessToken", token);
+      else globalThis.sessionStorage?.removeItem("accessToken");
+    } catch { /* Storage can be disabled by the browser. */ }
+  } else if (token) await SecureStore.setItemAsync("accessToken", token).catch(() => undefined);
+  else await SecureStore.deleteItemAsync("accessToken").catch(() => undefined);
+}
+
+export async function restoreAccessToken() {
+  if (Platform.OS === "web") {
+    try { accessToken = globalThis.sessionStorage?.getItem("accessToken") ?? null; }
+    catch { accessToken = null; }
+  } else accessToken = await SecureStore.getItemAsync("accessToken").catch(() => null);
+  return accessToken;
 }
 
 export const api = {
@@ -291,7 +319,7 @@ export const api = {
       auth: false,
       body: JSON.stringify({ email, password }),
     });
-    setAccessToken(response.accessToken);
+    await setAccessToken(response.accessToken);
     return response;
   },
 
@@ -307,7 +335,7 @@ export const api = {
       auth: false,
       body: JSON.stringify(input),
     });
-    setAccessToken(response.accessToken);
+    await setAccessToken(response.accessToken);
     return response;
   },
 
@@ -317,7 +345,7 @@ export const api = {
       auth: false,
       body: JSON.stringify(input),
     });
-    setAccessToken(response.accessToken);
+    await setAccessToken(response.accessToken);
     return response;
   },
 
@@ -334,6 +362,11 @@ export const api = {
     }),
 
   me: () => request<AuthUser>("/auth/me"),
+  myStore: () => request<{ id: string; name: string | null; status: string }>("/stores/me"),
+  saveMyStore: (input: unknown) => request<{ id: string; name: string | null; status: string }>("/stores/me", { method: "PUT", body: JSON.stringify(input) }),
+  storeDashboard: () => request<StoreDashboardSummary>("/stores/me/dashboard"),
+  storeDashboardList: (kind: StoreDashboardList, status?: string) => request<unknown[]>(`/stores/me/dashboard/${kind}${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+  logout: async () => { await setAccessToken(null); },
   updateMe: (input: Partial<Pick<AuthUser, "name" | "email" | "phone" | "avatarUrl">>) =>
     request<AuthUser>("/users/me", {
       method: "PATCH",
@@ -343,7 +376,7 @@ export const api = {
     const response = await request<{ deleted: true }>("/users/me", {
       method: "DELETE",
     });
-    setAccessToken(null);
+    await setAccessToken(null);
     return response;
   },
   uploadImage: async (file: { uri: string; name: string; type: string }) => {
