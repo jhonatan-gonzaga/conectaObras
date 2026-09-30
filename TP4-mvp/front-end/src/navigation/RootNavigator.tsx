@@ -1,11 +1,15 @@
 import { AccountProfileScreen } from "../pages";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { AuthNavigator } from "./AuthNavigator";
 import { ClientNavigator } from "./ClientNavigator";
 import { ProfessionalNavigator } from "./ProfessionalNavigator";
+import { StoreOwnerNavigator } from "./StoreOwnerNavigator";
+import { guardPersonaScreen } from "./persona-routing";
 import {
   isAuthContextScreen,
   isClientContextScreen,
   isProfessionalContextScreen,
+  isStoreOwnerContextScreen,
 } from "./types";
 import type { AppNavigation } from "./useAppNavigation";
 
@@ -24,7 +28,14 @@ export function RootNavigator({
   isDarkMode,
   onToggleDarkMode,
 }: RootNavigatorProps) {
-  const { screen, setScreen, profileReturnScreen } = navigation;
+  const { screen: currentScreen, setScreen, profileReturnScreen } = navigation;
+  if (!navigation.isSessionReady) {
+    return <View className="flex-1 items-center justify-center"><ActivityIndicator accessibilityLabel="Restaurando sessao" /><Text className="mt-3 text-sm text-muted-foreground">Restaurando sessao...</Text></View>;
+  }
+  if (navigation.sessionError) {
+    return <View className="flex-1 items-center justify-center gap-4 px-8"><Text accessibilityRole="alert" className="text-center text-primary">{navigation.sessionError}</Text><Pressable accessibilityRole="button" onPress={navigation.retrySessionRestore} className="rounded-xl bg-primary px-5 py-3"><Text className="font-bold text-white">Tentar novamente</Text></Pressable><Pressable accessibilityRole="button" onPress={() => { void navigation.signOut(); }}><Text className="font-semibold text-muted-foreground">Sair da sessao</Text></Pressable></View>;
+  }
+  const screen = guardPersonaScreen(currentScreen, navigation.authUser?.role ?? null, navigation.hasStore);
 
   if (screen === "accountProfile") {
     return (
@@ -32,7 +43,7 @@ export function RootNavigator({
         isDarkMode={isDarkMode}
         onBack={() => setScreen(profileReturnScreen)}
         onSave={() => setScreen(profileReturnScreen)}
-        onSignOut={() => setScreen("login")}
+        onSignOut={() => { void navigation.signOut(); }}
         onDeleteAccount={() => setScreen("signup")}
       />
     );
@@ -68,6 +79,10 @@ export function RootNavigator({
         onToggleDarkMode={onToggleDarkMode}
       />
     );
+  }
+
+  if (isStoreOwnerContextScreen(screen)) {
+    return <StoreOwnerNavigator screen={screen} navigation={navigation} />;
   }
 
   return null;

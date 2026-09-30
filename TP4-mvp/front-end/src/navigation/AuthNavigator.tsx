@@ -24,6 +24,7 @@ export function AuthNavigator({
     setLegalReturnScreen,
     openAccountProfile,
     openProfessionalArea,
+    authenticate,
   } = navigation;
 
   switch (screen) {
@@ -39,7 +40,7 @@ export function AuthNavigator({
             setLegalReturnScreen("login");
             setScreen("terms");
           }}
-          onSuccess={() => setScreen("profileChoice")}
+          onSuccess={() => { void authenticate(); }}
         />
       );
 
@@ -55,7 +56,7 @@ export function AuthNavigator({
             setLegalReturnScreen("signup");
             setScreen("terms");
           }}
-          onSuccess={() => setScreen("profileChoice")}
+          onSuccess={() => { void authenticate(); }}
         />
       );
 

@@ -10,6 +10,7 @@ import { SetStoreLogoUseCase } from './application/use-cases/set-store-logo.use-
 import { PrismaStoreRepository } from './infrastructure/prisma-store.repository';
 import { LocalUploadProvider } from '../uploads/providers/local-upload.provider';
 import { UPLOAD_PROVIDER } from '../uploads/providers/upload-provider.interface';
+import { StoreDashboardService } from './store-dashboard.service';
 
 @Module({
   imports: [PrismaModule, AuthModule],
@@ -19,6 +20,7 @@ import { UPLOAD_PROVIDER } from '../uploads/providers/upload-provider.interface'
     SaveStoreProfileUseCase,
     ChangeStoreStatusUseCase,
     SetStoreLogoUseCase,
+    StoreDashboardService,
     PrismaStoreRepository,
     { provide: STORE_REPOSITORY, useExisting: PrismaStoreRepository },
     LocalUploadProvider,

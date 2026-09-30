@@ -15,6 +15,7 @@ import { UPLOAD_PROVIDER } from '../src/modules/uploads/providers/upload-provide
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../src/modules/auth/guards/roles.guard';
 import { AuthenticatedUser } from '../src/common/types/authenticated-user';
+import { StoreDashboardService } from '../src/modules/stores/store-dashboard.service';
 
 const JWT_SECRET = 'lojista-rbac-integration-test';
 const now = new Date('2026-09-24T12:00:00.000Z');
@@ -100,6 +101,7 @@ describe('API de administração da loja (integracao HTTP)', () => {
         SaveStoreProfileUseCase,
         ChangeStoreStatusUseCase,
         SetStoreLogoUseCase,
+        { provide: StoreDashboardService, useValue: { summary: async () => ({ hasStore: false }), list: async () => [] } },
         { provide: STORE_REPOSITORY, useValue: repository },
         {
           provide: UPLOAD_PROVIDER,

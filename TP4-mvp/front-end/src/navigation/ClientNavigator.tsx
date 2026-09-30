@@ -92,7 +92,7 @@ export function ClientNavigator({
           onNavigate={(tab) => openClientTab(tab)}
           onBack={() => setScreen("clientHome")}
           onProfilePress={() => openAccountProfile("clientSettings")}
-          onSignOut={() => setScreen("login")}
+          onSignOut={() => { void navigation.signOut(); }}
           isDarkMode={isDarkMode}
           onToggleDarkMode={onToggleDarkMode}
         />
