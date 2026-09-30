@@ -22,16 +22,16 @@ export function AuthNavigator({
     setScreen,
     legalReturnScreen,
     setLegalReturnScreen,
-    openAccountProfile,
-    openProfessionalArea,
     authenticate,
+    signupRole,
+    setSignupRole,
   } = navigation;
 
   switch (screen) {
     case "login":
       return (
         <LoginScreen
-          onCreateAccount={() => setScreen("signup")}
+          onCreateAccount={() => setScreen("profileChoice")}
           onOpenPrivacy={() => {
             setLegalReturnScreen("login");
             setScreen("privacy");
@@ -47,6 +47,7 @@ export function AuthNavigator({
     case "signup":
       return (
         <SignupScreen
+          role={signupRole}
           onLogin={() => setScreen("login")}
           onOpenPrivacy={() => {
             setLegalReturnScreen("signup");
@@ -82,13 +83,9 @@ export function AuthNavigator({
           onBack={() => setScreen("login")}
           isDarkMode={isDarkMode}
           onContinue={(profile) => {
-            if (profile === "profissional") {
-              void openProfessionalArea();
-            } else {
-              setScreen("clientHome");
-            }
+            setSignupRole(profile === "profissional" ? "PROFISSIONAL" : "CLIENTE");
+            setScreen("signup");
           }}
-          onProfilePress={() => openAccountProfile("profileChoice")}
         />
       );
 

@@ -22,7 +22,7 @@ export function initialScreenForRole(role: UserRole, hasStore: boolean): Screen 
 }
 
 export function guardPersonaScreen(screen: Screen, role: UserRole | null, hasStore = false): Screen {
-  if (!role) return screen === "login" || screen === "signup" || screen === "terms" || screen === "privacy" ? screen : "login";
+  if (!role) return screen === "login" || screen === "signup" || screen === "profileChoice" || screen === "terms" || screen === "privacy" ? screen : "login";
   if (screen === "login" || screen === "signup" || screen === "profileChoice") return initialScreenForRole(role, hasStore);
   const isClientScreen = screen.startsWith("client");
   const isProfessionalScreen = screen.startsWith("professional");

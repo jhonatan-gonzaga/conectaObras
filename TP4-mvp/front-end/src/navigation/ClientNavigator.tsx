@@ -51,7 +51,7 @@ export function ClientNavigator({
             setScreen("clientProfile");
           }}
           onProfilePress={() => openAccountProfile("clientHome")}
-          onBack={() => setScreen("profileChoice")}
+          onBack={() => setScreen("clientHome")}
         />
       );
 

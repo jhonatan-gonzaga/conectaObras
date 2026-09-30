@@ -3,7 +3,6 @@ import type { ClientWorkService } from "../pages";
 export type ReturnScreen = "login" | "signup";
 
 export type ProfileReturnScreen =
-  | "profileChoice"
   | "professionalSetup"
   | "professionalHome"
   | "clientHome"

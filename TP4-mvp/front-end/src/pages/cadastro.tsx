@@ -14,7 +14,7 @@ import {
   isValidPassword,
   isValidPhone,
 } from "../services/validators";
-import { ApiError, api } from "../services/api";
+import { ApiError, api, type UserRole } from "../services/api";
 
 const validationStatus = (
   isTouched: boolean,
@@ -32,11 +32,13 @@ export function SignupScreen({
   onOpenPrivacy,
   onOpenTerms,
   onSuccess,
+  role,
 }: {
   onLogin: () => void;
   onOpenPrivacy: () => void;
   onOpenTerms: () => void;
   onSuccess: () => void;
+  role: Extract<UserRole, "CLIENTE" | "PROFISSIONAL">;
 }) {
   const { height } = useWindowDimensions();
   const [name, setName] = useState("");
@@ -74,7 +76,7 @@ export function SignupScreen({
         phone,
         email,
         password,
-        role: "CLIENTE",
+        role,
       });
       onSuccess();
     } catch (error) {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import type { ClientNavKey } from "../components/cliente";
 import { ApiError, api, restoreAccessToken, type AuthUser, type StoreDashboardList } from "../services/api";
+import type { UserRole } from "../services/api";
 import type {
   ClientProfileReturnScreen,
   ClientWorkReturnScreen,
@@ -15,12 +16,13 @@ export function useAppNavigation() {
   const [screen, setScreen] = useState<Screen>("login");
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [hasStore, setHasStore] = useState(false);
+  const [signupRole, setSignupRole] = useState<Extract<UserRole, "CLIENTE" | "PROFISSIONAL">>("CLIENTE");
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [storeListKind, setStoreListKind] = useState<StoreDashboardList>("active-products");
   const [storeListStatus, setStoreListStatus] = useState<string | undefined>();
   const [profileReturnScreen, setProfileReturnScreen] =
-    useState<ProfileReturnScreen>("profileChoice");
+    useState<ProfileReturnScreen>("clientHome");
   const [clientWorkReturnScreen, setClientWorkReturnScreen] =
     useState<ClientWorkReturnScreen>("clientHome");
   const [clientProfileReturnScreen, setClientProfileReturnScreen] =
@@ -70,7 +72,7 @@ export function useAppNavigation() {
     await api.logout();
     setAuthUser(null); setHasStore(false); setSelectedClientService(null); setSelectedProfessionalId(null);
     setContractedClientServices([]); setStoreListKind("active-products"); setStoreListStatus(undefined);
-    setProfileReturnScreen("profileChoice"); setClientWorkReturnScreen("clientHome");
+    setProfileReturnScreen("clientHome"); setClientWorkReturnScreen("clientHome");
     setClientProfileReturnScreen("clientHome"); setLegalReturnScreen("login"); setScreen("login");
   };
 
@@ -93,15 +95,6 @@ export function useAppNavigation() {
   useEffect(() => {
     void restoreSession();
   }, []);
-
-  const openProfessionalArea = async () => {
-    try {
-      await api.professionalMe();
-      setScreen("professionalHome");
-    } catch {
-      setScreen("professionalSetup");
-    }
-  };
 
   const openClientTab = (
     tab: ClientNavKey,
@@ -128,6 +121,8 @@ export function useAppNavigation() {
     setScreen,
     authUser,
     hasStore,
+    signupRole,
+    setSignupRole,
     markStoreRegistered: () => setHasStore(true),
     markStoreMissing: () => setHasStore(false),
     isSessionReady,
@@ -152,7 +147,6 @@ export function useAppNavigation() {
     contractedClientServices,
     setContractedClientServices,
     openAccountProfile,
-    openProfessionalArea,
     openClientTab,
   };
 }

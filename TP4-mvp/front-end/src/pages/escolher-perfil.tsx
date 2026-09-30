@@ -1,9 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Image, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 
 import { ProfileCard } from "../components/app-components";
-import { api } from "../services/api";
 
 const logo = require("../../assets/logotipo.png");
 
@@ -12,23 +11,14 @@ type ProfileType = "cliente" | "profissional";
 export function ProfileChoiceScreen({
   onBack,
   onContinue,
-  onProfilePress,
   isDarkMode = false,
 }: {
   onBack: () => void;
   onContinue: (profile: ProfileType) => void;
-  onProfilePress: () => void;
   isDarkMode?: boolean;
 }) {
   const { height } = useWindowDimensions();
   const [selectedProfile, setSelectedProfile] = useState<ProfileType>("cliente");
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    api.me()
-      .then((user) => setAvatarUrl(user.avatarUrl ?? null))
-      .catch(() => setAvatarUrl(null));
-  }, []);
 
   return (
     <ScrollView
@@ -42,10 +32,10 @@ export function ProfileChoiceScreen({
           onPress={onBack}
           className="h-9 w-9 items-center justify-center"
           accessibilityRole="button"
-          accessibilityLabel="Sair da escolha de perfil"
+          accessibilityLabel="Voltar para entrar"
         >
           <Ionicons
-            name="log-out-outline"
+            name="arrow-back"
             size={22}
             color={isDarkMode ? "#eb747a" : "#0f1720"}
           />
@@ -58,23 +48,7 @@ export function ProfileChoiceScreen({
           accessibilityLabel="Conecta Obras Itacoatiara"
         />
 
-        <Pressable
-          onPress={onProfilePress}
-          className="h-10 w-10 items-center justify-center rounded-full border-2 border-primary bg-card"
-          accessibilityRole="button"
-          accessibilityLabel="Abrir perfil"
-        >
-          {avatarUrl ? (
-            <Image
-              source={{ uri: avatarUrl }}
-              className="h-full w-full rounded-full"
-              resizeMode="cover"
-              accessibilityLabel="Foto do perfil"
-            />
-          ) : (
-            <Ionicons name="person" size={20} color="#b94b50" />
-          )}
-        </Pressable>
+        <View className="h-10 w-10" />
       </View>
 
       <View className="h-px bg-muted" />
