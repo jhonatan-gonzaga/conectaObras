@@ -84,8 +84,8 @@ export function ProfileChoiceScreen({
         </Text>
         <Text className="mb-8 text-center text-base leading-7 text-muted-foreground">
           {isAuthenticated
-            ? "Alterne entre sua experiencia como cliente e profissional. Seu cadastro e seus dados profissionais continuam salvos."
-            : "Selecione o tipo de conta que melhor descreve voce para personalizarmos sua experiencia."}
+            ? "Voce pode usar o perfil Cliente sem criar perfil profissional ou loja. Profissional e Lojista sao opcionais e iniciam cadastros especificos; os perfis concluidos continuam salvos."
+            : "Comece como Cliente sem cadastros adicionais. Profissional e Lojista sao opcionais e so iniciam seus cadastros especificos se voce escolher um deles."}
         </Text>
 
         <View
