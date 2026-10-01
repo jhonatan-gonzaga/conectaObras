@@ -74,6 +74,10 @@ export class UsersService {
     });
   }
 
+  updateRole(id: string, role: typeof UserRole.CLIENTE | typeof UserRole.PROFISSIONAL): Promise<User> {
+    return this.prisma.user.update({ where: { id }, data: { role } });
+  }
+
   async deleteMe(id: string) {
     const user = await this.findById(id);
 

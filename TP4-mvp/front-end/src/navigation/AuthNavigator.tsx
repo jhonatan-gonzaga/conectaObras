@@ -25,6 +25,9 @@ export function AuthNavigator({
     authenticate,
     signupRole,
     setSignupRole,
+    authUser,
+    profileReturnScreen,
+    selectPersona,
   } = navigation;
 
   switch (screen) {
@@ -40,7 +43,7 @@ export function AuthNavigator({
             setLegalReturnScreen("login");
             setScreen("terms");
           }}
-          onSuccess={() => { void authenticate(); }}
+          onSuccess={() => { void authenticate(true); }}
         />
       );
 
@@ -80,12 +83,11 @@ export function AuthNavigator({
     case "profileChoice":
       return (
         <ProfileChoiceScreen
-          onBack={() => setScreen("login")}
+          activeRole={authUser?.role === "PROFISSIONAL" ? "profissional" : "cliente"}
+          isAuthenticated={Boolean(authUser)}
+          onBack={() => setScreen(authUser ? profileReturnScreen : "login")}
           isDarkMode={isDarkMode}
-          onContinue={(profile) => {
-            setSignupRole(profile === "profissional" ? "PROFISSIONAL" : "CLIENTE");
-            setScreen("signup");
-          }}
+          onContinue={(profile) => selectPersona(profile === "profissional" ? "PROFISSIONAL" : "CLIENTE")}
         />
       );
 

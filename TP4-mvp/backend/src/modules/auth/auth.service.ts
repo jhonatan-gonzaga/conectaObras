@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { User, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -8,6 +8,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { SwitchRoleDto } from './dto/switch-role.dto';
 
 @Injectable()
 export class AuthService {
@@ -90,6 +91,21 @@ export class AuthService {
     }
 
     return this.sanitizeUser(user);
+  }
+
+  async switchRole(userId: string, dto: SwitchRoleDto) {
+    const currentUser = await this.usersService.findById(userId);
+
+    if (!currentUser) {
+      throw new NotFoundException('Usuario nao encontrado.');
+    }
+
+    if (currentUser.role !== UserRole.CLIENTE && currentUser.role !== UserRole.PROFISSIONAL) {
+      throw new ForbiddenException('A troca de perfil esta disponivel para clientes e profissionais.');
+    }
+
+    const user = await this.usersService.updateRole(userId, dto.role);
+    return this.buildAuthResponse(user);
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto) {

@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { ClientNavKey } from "../components/cliente";
-import { ApiError, api, restoreAccessToken, type AuthUser, type StoreDashboardList } from "../services/api";
-import type { UserRole } from "../services/api";
+import { ApiError, api, restoreAccessToken, type AuthUser, type SelectableUserRole, type StoreDashboardList } from "../services/api";
 import type {
   ClientProfileReturnScreen,
   ClientWorkReturnScreen,
@@ -16,7 +15,7 @@ export function useAppNavigation() {
   const [screen, setScreen] = useState<Screen>("login");
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [hasStore, setHasStore] = useState(false);
-  const [signupRole, setSignupRole] = useState<Extract<UserRole, "CLIENTE" | "PROFISSIONAL">>("CLIENTE");
+  const [signupRole, setSignupRole] = useState<SelectableUserRole>("CLIENTE");
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [storeListKind, setStoreListKind] = useState<StoreDashboardList>("active-products");
@@ -63,9 +62,30 @@ export function useAppNavigation() {
     await api.logout(); setAuthUser(null); setScreen("login");
   };
 
-  const authenticate = async () => {
-    try { await routeForAuthenticatedUser(await api.me()); }
+  const authenticate = async (showProfileChoice = false) => {
+    try {
+      const user = await api.me();
+      if (showProfileChoice && (user.role === "CLIENTE" || user.role === "PROFISSIONAL")) {
+        setAuthUser(user);
+        setHasStore(false);
+        setScreen("profileChoice");
+        return;
+      }
+      await routeForAuthenticatedUser(user);
+    }
     catch { await signOut(); }
+  };
+
+  const selectPersona = async (role: SelectableUserRole) => {
+    if (!authUser) {
+      setSignupRole(role);
+      setScreen("signup");
+      return;
+    }
+
+    const response = await api.switchRole(role);
+    setAuthUser(response.user);
+    await routeForAuthenticatedUser(response.user);
   };
 
   const signOut = async () => {
@@ -123,6 +143,7 @@ export function useAppNavigation() {
     hasStore,
     signupRole,
     setSignupRole,
+    selectPersona,
     markStoreRegistered: () => setHasStore(true),
     markStoreMissing: () => setHasStore(false),
     isSessionReady,

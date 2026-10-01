@@ -68,6 +68,7 @@ function toQuery(params: Record<string, string | number | undefined>) {
 }
 
 export type UserRole = "CLIENTE" | "PROFISSIONAL" | "LOJISTA" | "SUPORTE";
+export type SelectableUserRole = Extract<UserRole, "CLIENTE" | "PROFISSIONAL">;
 
 export type AuthUser = {
   id: string;
@@ -334,6 +335,15 @@ export const api = {
       method: "POST",
       auth: false,
       body: JSON.stringify(input),
+    });
+    await setAccessToken(response.accessToken);
+    return response;
+  },
+
+  async switchRole(role: SelectableUserRole) {
+    const response = await request<AuthResponse>("/auth/switch-role", {
+      method: "POST",
+      body: JSON.stringify({ role }),
     });
     await setAccessToken(response.accessToken);
     return response;

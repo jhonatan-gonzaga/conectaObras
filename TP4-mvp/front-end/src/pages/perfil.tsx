@@ -35,12 +35,16 @@ export function AccountProfileScreen({
   onDeleteAccount,
   onSave,
   onSignOut,
+  onSwitchProfile,
+  canSwitchProfile = false,
 }: {
   isDarkMode?: boolean;
   onBack: () => void;
   onDeleteAccount: () => void;
   onSave: () => void;
   onSignOut: () => void;
+  onSwitchProfile: () => void;
+  canSwitchProfile?: boolean;
 }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -245,6 +249,16 @@ export function AccountProfileScreen({
       </View>
 
       <View className="z-10 items-center gap-3 px-5 py-6">
+        {canSwitchProfile ? (
+          <Pressable
+            onPress={onSwitchProfile}
+            className="min-h-[48px] w-full flex-row items-center justify-center gap-2 rounded-[16px] border border-input-border bg-card px-6"
+            accessibilityRole="button"
+          >
+            <Ionicons name="swap-horizontal-outline" size={18} color={iconColor} />
+            <Text className="text-base font-semibold text-foreground">Trocar perfil</Text>
+          </Pressable>
+        ) : null}
         <Pressable accessibilityRole="button">
           <Text className="text-sm text-muted-foreground">Alterar senha</Text>
         </Pressable>

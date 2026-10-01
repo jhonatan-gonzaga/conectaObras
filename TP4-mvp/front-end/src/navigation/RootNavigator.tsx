@@ -45,6 +45,8 @@ export function RootNavigator({
         onSave={() => setScreen(profileReturnScreen)}
         onSignOut={() => { void navigation.signOut(); }}
         onDeleteAccount={() => setScreen("signup")}
+        canSwitchProfile={navigation.authUser?.role === "CLIENTE" || navigation.authUser?.role === "PROFISSIONAL"}
+        onSwitchProfile={() => setScreen("profileChoice")}
       />
     );
   }

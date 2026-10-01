@@ -24,7 +24,7 @@ export function ProfessionalNavigator({
     case "professionalSetup":
       return (
         <ProfessionalSetupScreen
-          onBack={() => setScreen("professionalHome")}
+          onBack={() => setScreen("profileChoice")}
           onProfilePress={() => openAccountProfile("professionalSetup")}
           onSave={() => setScreen("professionalHome")}
         />
@@ -33,7 +33,7 @@ export function ProfessionalNavigator({
     case "professionalHome":
       return (
         <ProfessionalHomeScreen
-          onBack={() => setScreen("professionalHome")}
+          onBack={() => setScreen("profileChoice")}
           onProfilePress={() => openAccountProfile("professionalHome")}
           onSignOut={() => { void navigation.signOut(); }}
           isDarkMode={isDarkMode}
