@@ -7,7 +7,7 @@ export type PublicUserCreateInput = Pick<
   Prisma.UserCreateInput,
   'name' | 'email' | 'phone' | 'avatarUrl' | 'passwordHash'
 > & {
-  role: typeof UserRole.CLIENTE | typeof UserRole.PROFISSIONAL;
+  role: typeof UserRole.CLIENTE | typeof UserRole.PROFISSIONAL | typeof UserRole.LOJISTA;
 };
 
 @Injectable()
@@ -74,7 +74,10 @@ export class UsersService {
     });
   }
 
-  updateRole(id: string, role: typeof UserRole.CLIENTE | typeof UserRole.PROFISSIONAL): Promise<User> {
+  updateRole(
+    id: string,
+    role: typeof UserRole.CLIENTE | typeof UserRole.PROFISSIONAL | typeof UserRole.LOJISTA,
+  ): Promise<User> {
     return this.prisma.user.update({ where: { id }, data: { role } });
   }
 

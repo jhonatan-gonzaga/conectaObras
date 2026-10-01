@@ -4,6 +4,7 @@ import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator'
 export const PUBLIC_REGISTRATION_ROLES = [
   UserRole.CLIENTE,
   UserRole.PROFISSIONAL,
+  UserRole.LOJISTA,
 ] as const;
 
 export type PublicRegistrationRole = (typeof PUBLIC_REGISTRATION_ROLES)[number];

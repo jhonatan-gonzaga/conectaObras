@@ -68,7 +68,7 @@ function toQuery(params: Record<string, string | number | undefined>) {
 }
 
 export type UserRole = "CLIENTE" | "PROFISSIONAL" | "LOJISTA" | "SUPORTE";
-export type SelectableUserRole = Extract<UserRole, "CLIENTE" | "PROFISSIONAL">;
+export type SelectableUserRole = Extract<UserRole, "CLIENTE" | "PROFISSIONAL" | "LOJISTA">;
 
 export type AuthUser = {
   id: string;

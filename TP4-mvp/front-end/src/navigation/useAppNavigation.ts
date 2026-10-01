@@ -65,7 +65,7 @@ export function useAppNavigation() {
   const authenticate = async (showProfileChoice = false) => {
     try {
       const user = await api.me();
-      if (showProfileChoice && (user.role === "CLIENTE" || user.role === "PROFISSIONAL")) {
+      if (showProfileChoice && (user.role === "CLIENTE" || user.role === "PROFISSIONAL" || user.role === "LOJISTA")) {
         setAuthUser(user);
         setHasStore(false);
         setScreen("profileChoice");

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { ApiError, api } from "../../services/api";
 
-export function StoreOwnerSetupScreen({ onComplete, onSignOut }: { onComplete: () => void; onSignOut: () => void }) {
+export function StoreOwnerSetupScreen({ onComplete, onSwitchProfile, onSignOut }: { onComplete: () => void; onSwitchProfile: () => void; onSignOut: () => void }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [description, setDescription] = useState("");
@@ -20,6 +20,7 @@ export function StoreOwnerSetupScreen({ onComplete, onSignOut }: { onComplete: (
 
   return <ScrollView className="w-full max-w-[480px] flex-1 bg-background px-5" contentContainerStyle={{ justifyContent: "center", flexGrow: 1, paddingVertical: 32 }}>
     <View className="mb-2 flex-row items-center justify-between"><Text className="text-2xl font-bold text-foreground">Cadastre sua loja</Text><Pressable onPress={onSignOut} accessibilityRole="button" accessibilityLabel="Sair da conta" className="rounded-xl bg-card px-3 py-2"><Text className="font-semibold text-primary">Sair</Text></Pressable></View>
+    <Pressable onPress={onSwitchProfile} accessibilityRole="button" className="mb-4 self-start rounded-xl bg-card px-3 py-2"><Text className="font-semibold text-primary">Trocar perfil</Text></Pressable>
     <Text className="mb-6 text-sm leading-6 text-muted-foreground">Preencha os dados iniciais para acessar o painel. Voce podera completar o cadastro depois.</Text>
     {[{ label: "Nome da loja", value: name, change: setName, placeholder: "Ex.: Materiais do Centro" }, { label: "Telefone", value: phone, change: setPhone, placeholder: "(92) 99999-9999" }, { label: "Descricao", value: description, change: setDescription, placeholder: "O que sua loja oferece?" }].map((field) => <View key={field.label} className="mb-4"><Text className="mb-2 text-sm font-semibold text-foreground">{field.label}</Text><TextInput value={field.value} onChangeText={field.change} placeholder={field.placeholder} multiline={field.label === "Descricao"} className="min-h-12 rounded-xl border border-input-border bg-card px-4 py-3 text-foreground" placeholderTextColor="#7a6568" /></View>)}
     {error ? <Text accessibilityRole="alert" className="mb-4 text-sm text-primary">{error}</Text> : null}

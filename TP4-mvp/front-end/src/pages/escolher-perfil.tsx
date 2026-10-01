@@ -6,7 +6,7 @@ import { ProfileCard } from "../components/app-components";
 
 const logo = require("../../assets/logotipo.png");
 
-type ProfileType = "cliente" | "profissional";
+type ProfileType = "cliente" | "profissional" | "lojista";
 
 export function ProfileChoiceScreen({
   onBack,
@@ -105,6 +105,13 @@ export function ProfileChoiceScreen({
             icon="color-palette-outline"
             selected={selectedProfile === "profissional"}
             onPress={() => setSelectedProfile("profissional")}
+          />
+          <ProfileCard
+            label="Lojista"
+            description="Cadastre sua loja e venda produtos locais"
+            icon="storefront-outline"
+            selected={selectedProfile === "lojista"}
+            onPress={() => setSelectedProfile("lojista")}
           />
         </View>
       </View>

@@ -100,8 +100,12 @@ export class AuthService {
       throw new NotFoundException('Usuario nao encontrado.');
     }
 
-    if (currentUser.role !== UserRole.CLIENTE && currentUser.role !== UserRole.PROFISSIONAL) {
-      throw new ForbiddenException('A troca de perfil esta disponivel para clientes e profissionais.');
+    if (
+      currentUser.role !== UserRole.CLIENTE &&
+      currentUser.role !== UserRole.PROFISSIONAL &&
+      currentUser.role !== UserRole.LOJISTA
+    ) {
+      throw new ForbiddenException('A troca de perfil nao esta disponivel para esta conta.');
     }
 
     const user = await this.usersService.updateRole(userId, dto.role);

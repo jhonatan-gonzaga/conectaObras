@@ -38,7 +38,7 @@ export function SignupScreen({
   onOpenPrivacy: () => void;
   onOpenTerms: () => void;
   onSuccess: () => void;
-  role: Extract<UserRole, "CLIENTE" | "PROFISSIONAL">;
+  role: Extract<UserRole, "CLIENTE" | "PROFISSIONAL" | "LOJISTA">;
 }) {
   const { height } = useWindowDimensions();
   const [name, setName] = useState("");

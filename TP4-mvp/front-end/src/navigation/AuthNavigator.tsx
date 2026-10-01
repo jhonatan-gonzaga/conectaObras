@@ -83,11 +83,13 @@ export function AuthNavigator({
     case "profileChoice":
       return (
         <ProfileChoiceScreen
-          activeRole={authUser?.role === "PROFISSIONAL" ? "profissional" : "cliente"}
+          activeRole={authUser?.role === "PROFISSIONAL" ? "profissional" : authUser?.role === "LOJISTA" ? "lojista" : "cliente"}
           isAuthenticated={Boolean(authUser)}
           onBack={() => setScreen(authUser ? profileReturnScreen : "login")}
           isDarkMode={isDarkMode}
-          onContinue={(profile) => selectPersona(profile === "profissional" ? "PROFISSIONAL" : "CLIENTE")}
+          onContinue={(profile) => selectPersona(
+            profile === "profissional" ? "PROFISSIONAL" : profile === "lojista" ? "LOJISTA" : "CLIENTE",
+          )}
         />
       );
 
