@@ -93,7 +93,9 @@ export type StoreDashboardSummary = {
   activePromotions: number;
   ordersByStatus: Partial<Record<"PENDING" | "CONFIRMED" | "PREPARING" | "READY" | "COMPLETED" | "CANCELED", number>>;
   unreadMessages: number;
+  latestOrder?: { id: string; status: string; total: string | number; createdAt: string; itemName: string | null } | null;
 };
+export type StoreIdentity = { name: string | null; status: string };
 export type StoreDashboardList = "active-products" | "low-stock" | "promotions" | "orders" | "messages";
 
 export type Category = {
@@ -375,6 +377,7 @@ export const api = {
 
   me: () => request<AuthUser>("/auth/me"),
   myStore: () => request<StoreProfile>("/stores/me"),
+  storeIdentity: () => request<StoreIdentity>("/stores/me/identity"),
   saveMyStore: (input: unknown) => request<StoreProfile>("/stores/me", { method: "PUT", body: JSON.stringify(input) }),
   storeActivationReadiness: () => request<{ allowed: boolean; pending: string[] }>("/stores/me/activation-readiness"),
   changeMyStoreStatus: (status: "ACTIVE" | "INACTIVE") => request<StoreProfile>("/stores/me/status", { method: "PATCH", body: JSON.stringify({ status }) }),

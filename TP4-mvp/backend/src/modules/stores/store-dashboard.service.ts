@@ -13,7 +13,7 @@ export class StoreDashboardService {
 
   async summary(ownerId: string) {
     const store = await this.prisma.storeProfile.findUnique({ where: { ownerId }, select: { id: true } });
-    if (!store) return { hasStore: false, activeProducts: 0, lowStockProducts: 0, activePromotions: 0, ordersByStatus: {}, unreadMessages: 0 };
+    if (!store) return { hasStore: false, activeProducts: 0, lowStockProducts: 0, activePromotions: 0, ordersByStatus: {}, unreadMessages: 0, latestOrder: null };
 
     const now = new Date();
     const activePromotionWhere = {
@@ -24,12 +24,13 @@ export class StoreDashboardService {
         { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
       ],
     };
-    const [activeProducts, lowStockProducts, activePromotions, ordersByStatus, unreadMessages] = await Promise.all([
+    const [activeProducts, lowStockProducts, activePromotions, ordersByStatus, unreadMessages, latestOrder] = await Promise.all([
       this.prisma.product.count({ where: { storeId: store.id, status: 'ACTIVE' } }),
       this.prisma.product.count({ where: { storeId: store.id, status: 'ACTIVE', stock: { lte: LOW_STOCK_LIMIT } } }),
       this.prisma.storePromotion.count({ where: activePromotionWhere }),
       this.prisma.storeOrder.groupBy({ by: ['status'], where: { storeId: store.id }, _count: { _all: true } }),
       this.prisma.notification.count({ where: { userId: ownerId, type: 'NEW_MESSAGE', readAt: null } }),
+      this.prisma.storeOrder.findFirst({ where: { storeId: store.id }, orderBy: { createdAt: 'desc' }, select: { id: true, status: true, total: true, createdAt: true, items: { take: 1, select: { name: true } } } }),
     ]);
 
     return {
@@ -39,6 +40,7 @@ export class StoreDashboardService {
       activePromotions,
       ordersByStatus: Object.fromEntries(ordersByStatus.map(({ status, _count }) => [status, _count._all])),
       unreadMessages,
+      latestOrder: latestOrder ? { id: latestOrder.id, status: latestOrder.status, total: latestOrder.total, createdAt: latestOrder.createdAt, itemName: latestOrder.items[0]?.name ?? null } : null,
     };
   }
 
