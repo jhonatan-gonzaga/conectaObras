@@ -89,6 +89,11 @@ export class StoresController {
     return this.saveStoreProfile.execute(user.id, dto);
   }
 
+  @Get('me/activation-readiness')
+  activationReadiness(@CurrentUser() user: AuthenticatedUser) {
+    return this.changeStoreStatus.readiness(user.id);
+  }
+
   @Patch('me/status')
   changeMineStatus(
     @CurrentUser() user: AuthenticatedUser,
