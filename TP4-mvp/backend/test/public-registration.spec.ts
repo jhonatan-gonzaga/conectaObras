@@ -13,13 +13,13 @@ const registration = (role?: UserRole) => plainToInstance(RegisterDto, {
 });
 
 describe('politica de cadastro publico', () => {
-  for (const role of [undefined, UserRole.CLIENTE, UserRole.PROFISSIONAL]) {
+  for (const role of [undefined, UserRole.CLIENTE, UserRole.PROFISSIONAL, UserRole.LOJISTA]) {
     it(`permite o papel ${role ?? 'padrao CLIENTE'}`, async () => {
       assert.equal((await validate(registration(role))).length, 0);
     });
   }
 
-  for (const role of [UserRole.LOJISTA, UserRole.SUPORTE]) {
+  for (const role of [UserRole.SUPORTE]) {
     it(`proibe o papel privilegiado ${role}`, async () => {
       const errors = await validate(registration(role));
       assert.equal(errors.some((error) => error.property === 'role'), true);
