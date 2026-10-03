@@ -147,6 +147,20 @@ describe('API de administração da loja (integracao HTTP)', () => {
     assert.equal((await request('/me', tokenFor('client-a', UserRole.CLIENTE))).status, 403);
   });
 
+  it('consulta prontidao sem mutacao, autenticada e limitada ao dono', async () => {
+    assert.equal((await request('/me/activation-readiness')).status, 401);
+    assert.equal((await request('/me/activation-readiness', tokenFor('client', UserRole.CLIENTE))).status, 403);
+    assert.equal((await request('/me/activation-readiness', tokenFor('missing', UserRole.LOJISTA))).status, 404);
+    repository.stores.set('owner-a', emptyStore('owner-a'));
+    repository.stores.set('owner-b', { ...emptyStore('owner-b'), name: 'Outra loja' });
+    const response = await request('/me/activation-readiness?ownerId=owner-b', tokenFor('owner-a', UserRole.LOJISTA));
+    const readiness = await response.json() as { allowed: boolean; pending: string[] };
+    assert.equal(response.status, 200);
+    assert.equal(readiness.allowed, false);
+    assert.ok(readiness.pending.includes('STORE_NAME_REQUIRED'));
+    assert.equal(repository.stores.get('owner-a')?.status, StoreStatus.DRAFT);
+  });
+
   it('cria e edita a loja do dono identificado pelo JWT', async () => {
     const token = tokenFor('owner-a', UserRole.LOJISTA);
     const createdResponse = await request('/me', token, {
@@ -210,6 +224,8 @@ describe('API de administração da loja (integracao HTTP)', () => {
         openingHours: [{ dayOfWeek: 'MONDAY', openingTime: '08:00', closingTime: '18:00', closed: false }],
       }),
     });
+    const readinessResponse = await request('/me/activation-readiness', token);
+    assert.deepEqual(await readinessResponse.json(), { allowed: true, pending: [] });
     const activeResponse = await request('/me/status', token, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },

@@ -18,7 +18,7 @@ export class ChangeStoreStatusUseCase {
     @Inject(STORE_REPOSITORY) private readonly stores: StoreRepository,
   ) {}
 
-  async execute(ownerId: string, targetStatus: StoreStatus) {
+  async readiness(ownerId: string, targetStatus: StoreStatus = StoreStatus.ACTIVE) {
     const store = await this.stores.findByOwner(ownerId);
     if (!store) throw new NotFoundException('Loja nao encontrada.');
 
@@ -50,6 +50,11 @@ export class ChangeStoreStatusUseCase {
       }
     }
 
+    return { allowed: decision.pending.length === 0, pending: decision.pending };
+  }
+
+  async execute(ownerId: string, targetStatus: StoreStatus) {
+    const decision = await this.readiness(ownerId, targetStatus);
     if (decision.pending.length) {
       throw new BadRequestException({
         message: 'A loja nao pode assumir o status solicitado.',
