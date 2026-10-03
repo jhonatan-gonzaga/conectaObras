@@ -30,7 +30,7 @@ export type ClientScreen =
   | "clientProfile";
 
 export type ProfessionalScreen = "professionalSetup" | "professionalHome";
-export type StoreOwnerScreen = "storeOwnerSetup" | "storeOwnerDashboard" | "storeOwnerList";
+export type StoreOwnerScreen = "storeOwnerSetup" | "storeOwnerEdit" | "storeOwnerDashboard" | "storeOwnerList";
 
 export type Screen =
   | AuthScreen
@@ -77,5 +77,5 @@ export function isProfessionalContextScreen(
 }
 
 export function isStoreOwnerContextScreen(screen: Screen): screen is StoreOwnerScreen {
-  return screen === "storeOwnerSetup" || screen === "storeOwnerDashboard" || screen === "storeOwnerList";
+  return screen === "storeOwnerSetup" || screen === "storeOwnerEdit" || screen === "storeOwnerDashboard" || screen === "storeOwnerList";
 }
