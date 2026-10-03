@@ -13,7 +13,9 @@ describe("StoreOwner screens", () => {
     const openList = jest.fn();
     const openOrders = jest.fn();
     const editStore = jest.fn();
-    const screen = render(<StoreOwnerScreen userName="Mariana Silva" onEditStore={editStore} onOpenList={openList} onOpenOrders={openOrders} onStoreMissing={jest.fn()} onSignOut={jest.fn()} />);
+    const openProfile = jest.fn();
+    const switchProfile = jest.fn();
+    const screen = render(<StoreOwnerScreen userName="Mariana Silva" onEditStore={editStore} onOpenProfile={openProfile} onSwitchProfile={switchProfile} onOpenList={openList} onOpenOrders={openOrders} onStoreMissing={jest.fn()} onSignOut={jest.fn()} />);
     await screen.findByText("7 ativos");
     expect(screen.getByText("Olá, Mariana!")).toBeTruthy();
     expect(screen.getByText("Vitrine Loja Central")).toBeTruthy();
@@ -25,6 +27,9 @@ describe("StoreOwner screens", () => {
     fireEvent.press(screen.getByLabelText("Mensagens não lidas: 4"));
     fireEvent.press(screen.getByLabelText("Editar loja"));
     fireEvent.press(screen.getByLabelText("Ver último pedido"));
+    fireEvent.press(screen.getByLabelText("Abrir informações do perfil"));
+    expect(openProfile).toHaveBeenCalledTimes(1);
+    expect(switchProfile).not.toHaveBeenCalled();
     expect(openList).toHaveBeenCalledWith("low-stock");
     expect(openList).toHaveBeenCalledWith("promotions");
     expect(openList).toHaveBeenCalledWith("messages");
@@ -37,7 +42,7 @@ describe("StoreOwner screens", () => {
     jest.spyOn(api, "storeIdentity").mockResolvedValue({ name: "Loja", status: "DRAFT" });
     let rejectRequest!: (reason: Error) => void;
     jest.spyOn(api, "storeDashboard").mockImplementation(() => new Promise((_, reject) => { rejectRequest = reject; }));
-    const screen = render(<StoreOwnerScreen onOpenList={jest.fn()} onOpenOrders={jest.fn()} onStoreMissing={jest.fn()} onSignOut={jest.fn()} />);
+    const screen = render(<StoreOwnerScreen onOpenList={jest.fn()} onOpenOrders={jest.fn()} onStoreMissing={jest.fn()} onOpenProfile={jest.fn()} onSwitchProfile={jest.fn()} onSignOut={jest.fn()} />);
     expect(screen.getByText("Carregando indicadores...")).toBeTruthy();
     await act(async () => rejectRequest(new Error("network")));
     expect(await screen.findByText("Não foi possível carregar o painel.")).toBeTruthy();
@@ -47,7 +52,7 @@ describe("StoreOwner screens", () => {
     jest.spyOn(api, "storeIdentity").mockRejectedValue(new ApiError("Loja não encontrada", 404));
     jest.spyOn(api, "storeDashboard").mockResolvedValue({ hasStore: false, activeProducts: 0, lowStockProducts: 0, activePromotions: 0, ordersByStatus: {}, unreadMessages: 0 });
     const storeMissing = jest.fn();
-    const screen = render(<StoreOwnerScreen onOpenList={jest.fn()} onOpenOrders={jest.fn()} onStoreMissing={storeMissing} onSignOut={jest.fn()} />);
+    const screen = render(<StoreOwnerScreen onOpenList={jest.fn()} onOpenOrders={jest.fn()} onStoreMissing={storeMissing} onOpenProfile={jest.fn()} onSwitchProfile={jest.fn()} onSignOut={jest.fn()} />);
     await waitFor(() => expect(storeMissing).toHaveBeenCalledTimes(1));
     expect(screen.queryByText("Produtos ativos")).toBeNull();
   });

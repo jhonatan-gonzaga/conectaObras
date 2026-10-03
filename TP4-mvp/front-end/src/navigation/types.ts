@@ -11,7 +11,8 @@ export type ProfileReturnScreen =
   | "clientServiceDetails"
   | "clientServiceMessage"
   | "clientSettings"
-  | "clientProfile";
+  | "clientProfile"
+  | "storeOwnerDashboard";
 
 export type ClientWorkReturnScreen = "clientHome" | "clientSearch" | "clientAds";
 

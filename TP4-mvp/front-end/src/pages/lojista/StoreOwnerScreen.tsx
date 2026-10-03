@@ -29,12 +29,13 @@ function BottomTab({ label, icon, selected, onPress }: { label: string; icon: Ic
   </Pressable>;
 }
 
-export function StoreOwnerScreen({ onOpenList, onOpenOrders, onStoreMissing, onSwitchProfile, onSignOut, onEditStore, userName, avatarUrl }: {
+export function StoreOwnerScreen({ onOpenList, onOpenOrders, onStoreMissing, onSwitchProfile, onOpenProfile, onSignOut, onEditStore, userName, avatarUrl }: {
   onEditStore?: () => void;
   onOpenList: (kind: StoreDashboardList) => void;
   onOpenOrders: (status: string) => void;
   onStoreMissing: () => void;
-  onSwitchProfile?: () => void;
+  onSwitchProfile: () => void;
+  onOpenProfile: () => void;
   onSignOut: () => void;
   userName?: string;
   avatarUrl?: string | null;
@@ -71,7 +72,7 @@ export function StoreOwnerScreen({ onOpenList, onOpenOrders, onStoreMissing, onS
       <View className="flex-row items-center justify-between bg-card px-5 py-3">
         <Pressable onPress={onSwitchProfile} accessibilityRole="button" accessibilityLabel="Trocar perfil" className="h-10 w-10 items-center justify-center rounded-full bg-background"><Ionicons name="arrow-back" size={20} color="#141c25" /></Pressable>
         <Image source={logo} className="h-9 w-[145px]" resizeMode="contain" accessibilityLabel="Conecta Obras Itacoatiara" />
-        <Pressable onPress={onSwitchProfile} accessibilityRole="button" accessibilityLabel="Escolher perfil" className="h-10 w-10 items-center justify-center rounded-full border-2 border-primary bg-[#fbe7e8]">
+        <Pressable onPress={onOpenProfile} accessibilityRole="button" accessibilityLabel="Abrir informações do perfil" className="h-10 w-10 items-center justify-center rounded-full border-2 border-primary bg-[#fbe7e8]">
           {avatarUrl ? <Image source={{ uri: avatarUrl }} className="h-9 w-9 rounded-full" /> : <Ionicons name="person-outline" size={21} color="#99333a" />}
         </Pressable>
       </View>
