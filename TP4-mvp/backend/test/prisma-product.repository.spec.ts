@@ -70,7 +70,7 @@ describe('Product persistence adapter', () => {
     const { repository, calls } = setup();
     assert.equal(await repository.archive('store-b', 'product-a'), false);
     assert.deepEqual(calls, [{ operation: 'updateMany', args: {
-      where: { id: 'product-a', storeId: 'store-b' }, data: { status: 'ARCHIVED' },
+      where: { id: 'product-a', storeId: 'store-b', status: { not: 'ARCHIVED' } }, data: { status: 'ARCHIVED' },
     } }]);
   });
 

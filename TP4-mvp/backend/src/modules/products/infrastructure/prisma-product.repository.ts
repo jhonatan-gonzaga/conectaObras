@@ -107,7 +107,7 @@ export class PrismaProductRepository implements ProductRepository {
 
   async archive(storeId: string, productId: string): Promise<boolean> {
     const result = await this.prisma.product.updateMany({
-      where: { id: productId, storeId },
+      where: { id: productId, storeId, status: { not: 'ARCHIVED' } },
       data: { status: 'ARCHIVED' },
     });
     return result.count > 0;
