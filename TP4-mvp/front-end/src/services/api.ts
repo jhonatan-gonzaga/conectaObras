@@ -1,3 +1,4 @@
+import type { StoreProfile } from "./store-form";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
@@ -9,6 +10,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    public readonly details?: { pending?: string[]; message?: string | string[] },
   ) {
     super(message);
     this.name = "ApiError";
@@ -48,7 +50,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     const message = Array.isArray(data?.message)
       ? data.message.join("\n")
       : data?.message || "A requisicao falhou.";
-    throw new ApiError(message, response.status);
+    throw new ApiError(message, response.status, data);
   }
 
   return data as T;
@@ -372,8 +374,10 @@ export const api = {
     }),
 
   me: () => request<AuthUser>("/auth/me"),
-  myStore: () => request<{ id: string; name: string | null; status: string }>("/stores/me"),
-  saveMyStore: (input: unknown) => request<{ id: string; name: string | null; status: string }>("/stores/me", { method: "PUT", body: JSON.stringify(input) }),
+  myStore: () => request<StoreProfile>("/stores/me"),
+  saveMyStore: (input: unknown) => request<StoreProfile>("/stores/me", { method: "PUT", body: JSON.stringify(input) }),
+  storeActivationReadiness: () => request<{ allowed: boolean; pending: string[] }>("/stores/me/activation-readiness"),
+  changeMyStoreStatus: (status: "ACTIVE" | "INACTIVE") => request<StoreProfile>("/stores/me/status", { method: "PATCH", body: JSON.stringify({ status }) }),
   storeDashboard: () => request<StoreDashboardSummary>("/stores/me/dashboard"),
   storeDashboardList: (kind: StoreDashboardList, status?: string) => request<unknown[]>(`/stores/me/dashboard/${kind}${status ? `?status=${encodeURIComponent(status)}` : ""}`),
   logout: async () => { await setAccessToken(null); },

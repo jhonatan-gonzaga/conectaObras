@@ -16,7 +16,10 @@ function setup() {
     findFirst: async (args: any) => { calls.push({ operation: 'findFirst', args }); return null; },
     findMany: async (args: any) => { calls.push({ operation: 'findMany', args }); return [product]; },
     updateMany: async (args: any) => { calls.push({ operation: 'updateMany', args }); return { count: 0 }; },
-  } };
+    count: async (args: any) => { calls.push({ operation: 'count', args }); return 1; },
+  }, productCategory: {
+    count: async (args: any) => { calls.push({ operation: 'categoryCount', args }); return 1; },
+  }, $transaction: async (queries: Promise<unknown>[]) => Promise.all(queries) };
   return { calls, repository: new PrismaProductRepository(prisma as unknown as PrismaService) };
 }
 
@@ -80,7 +83,7 @@ describe('Product persistence adapter', () => {
     const { repository, calls } = setup();
     assert.equal(await repository.archive('store-b', 'product-a'), false);
     assert.deepEqual(calls, [{ operation: 'updateMany', args: {
-      where: { id: 'product-a', storeId: 'store-b' }, data: { status: 'ARCHIVED' },
+      where: { id: 'product-a', storeId: 'store-b', status: { not: 'ARCHIVED' } }, data: { status: 'ARCHIVED' },
     } }]);
   });
 
@@ -94,5 +97,38 @@ describe('Product persistence adapter', () => {
     assert.equal(where.price.not.toFixed(2), '12.30');
     assert.equal(data.price.toFixed(2), '12.30');
     assert(data.lastPriceUpdateAt instanceof Date);
+  });
+
+  it('pagina e filtra por loja, busca, categoria, status e estoque', async () => {
+    const { repository, calls } = setup();
+    const page = await repository.listPage('store-a', {
+      page: 2, limit: 10, q: 'cimento', categoryId: 'category', status: 'ACTIVE', stock: 'IN_STOCK',
+    });
+    assert.deepEqual({ total: page.total, page: page.page, limit: page.limit }, { total: 1, page: 2, limit: 10 });
+    assert.equal(page.items[0].price, '49.90');
+    const list = calls.find((call) => call.operation === 'findMany')!.args;
+    assert.deepEqual(list.where, {
+      storeId: 'store-a', status: 'ACTIVE', categoryId: 'category', stock: { gt: 0 },
+      OR: [{ name: { contains: 'cimento' } }, { sku: { contains: 'cimento' } }],
+    });
+    assert.equal(list.skip, 10);
+    assert.equal(list.take, 10);
+    assert.deepEqual(calls.find((call) => call.operation === 'count')!.args.where, list.where);
+    await repository.listPage('store-a', { page: 1, limit: 20, stock: 'OUT_OF_STOCK' });
+    assert.equal(calls.filter((call) => call.operation === 'findMany')[1].args.where.stock, 0);
+  });
+
+  it('edita e muda status com filtro de loja e status anterior', async () => {
+    const { repository, calls } = setup();
+    assert.equal(await repository.categoryIsActive('category'), true);
+    assert.deepEqual(calls[0].args.where, { id: 'category', active: true });
+    await repository.update('store-a', 'product-a', 'DRAFT', { sku: ' abc ', price: '20.00', stock: 0 }, true);
+    assert.deepEqual(calls[1].args.where, { id: 'product-a', storeId: 'store-a', status: 'DRAFT' });
+    assert.equal(calls[1].args.data.sku, 'ABC');
+    assert.equal(calls[1].args.data.price.toFixed(2), '20.00');
+    assert(calls[1].args.data.lastPriceUpdateAt instanceof Date);
+    await repository.changeStatus('store-a', 'product-a', 'DRAFT', 'ACTIVE');
+    assert.deepEqual(calls[2].args.where, { id: 'product-a', storeId: 'store-a', status: 'DRAFT' });
+    assert.deepEqual(calls[2].args.data, { status: 'ACTIVE' });
   });
 });

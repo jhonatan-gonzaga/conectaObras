@@ -20,7 +20,7 @@ describe("useAppNavigation", () => {
     const { result } = await renderNavigation();
 
     expect(result.current.screen).toBe("login");
-    expect(result.current.profileReturnScreen).toBe("profileChoice");
+    expect(result.current.profileReturnScreen).toBe("clientHome");
     expect(result.current.clientWorkReturnScreen).toBe("clientHome");
     expect(result.current.clientProfileReturnScreen).toBe("clientHome");
     expect(result.current.legalReturnScreen).toBe("login");
@@ -68,13 +68,14 @@ describe("useAppNavigation", () => {
   });
 
   it("opens the existing professional area when the profile lookup succeeds", async () => {
+    jest.spyOn(api, "me").mockResolvedValue({ id: "p1", role: "PROFISSIONAL" } as never);
     const professionalMe = jest
       .spyOn(api, "professionalMe")
       .mockResolvedValue({} as Awaited<ReturnType<typeof api.professionalMe>>);
     const { result } = await renderNavigation();
 
     await act(async () => {
-      await result.current.openProfessionalArea();
+      await result.current.authenticate();
     });
 
     expect(professionalMe).toHaveBeenCalledTimes(1);
@@ -82,13 +83,14 @@ describe("useAppNavigation", () => {
   });
 
   it("opens professional setup when the profile lookup fails", async () => {
+    jest.spyOn(api, "me").mockResolvedValue({ id: "p1", role: "PROFISSIONAL" } as never);
     const professionalMe = jest
       .spyOn(api, "professionalMe")
       .mockRejectedValue(new Error("profile not found"));
     const { result } = await renderNavigation();
 
     await act(async () => {
-      await result.current.openProfessionalArea();
+      await result.current.authenticate();
     });
 
     expect(professionalMe).toHaveBeenCalledTimes(1);
