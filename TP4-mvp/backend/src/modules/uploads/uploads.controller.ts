@@ -9,7 +9,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { LocalUploadProvider } from './providers/local-upload.provider';
+import { createUploadOptions } from './upload.config';
 import { UploadsService } from './uploads.service';
 
 @UseGuards(JwtAuthGuard)
@@ -19,17 +19,17 @@ export class UploadsController {
 
   @Post('image')
   @UseInterceptors(
-    FileInterceptor('file', LocalUploadProvider.createMulterOptions('image')),
+    FileInterceptor('file', createUploadOptions('image')),
   )
   uploadImage(@UploadedFile() file: Express.Multer.File, @Req() request: Request) {
-    return this.uploadsService.uploadImage(file, request);
+    return this.uploadsService.uploadImage(file, `${request.protocol}://${request.get('host')}`);
   }
 
   @Post('audio')
   @UseInterceptors(
-    FileInterceptor('file', LocalUploadProvider.createMulterOptions('audio')),
+    FileInterceptor('file', createUploadOptions('audio')),
   )
   uploadAudio(@UploadedFile() file: Express.Multer.File, @Req() request: Request) {
-    return this.uploadsService.uploadAudio(file, request);
+    return this.uploadsService.uploadAudio(file, `${request.protocol}://${request.get('host')}`);
   }
 }
