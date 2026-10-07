@@ -8,7 +8,10 @@ test('store dashboard returns aggregated counts from the store and never reads p
     storeProfile: { findUnique: async () => ({ id: 'store-1' }) },
     product: { count: async ({ where }: { where: { stock?: { lte: number } } }) => where.stock ? 2 : 8 },
     storePromotion: { count: async () => 3 },
-    storeOrder: { groupBy: async () => [{ status: 'PENDING', _count: { _all: 4 } }, { status: 'READY', _count: { _all: 1 } }] },
+    storeOrder: {
+      groupBy: async () => [{ status: 'PENDING', _count: { _all: 4 } }, { status: 'READY', _count: { _all: 1 } }],
+      findFirst: async () => ({ id: 'order-1', status: 'PENDING', total: '349.00', createdAt: new Date('2026-10-03T12:00:00.000Z'), items: [{ name: 'Produto A' }] }),
+    },
     notification: { count: async () => 5 },
   };
   const service = new StoreDashboardService(prisma as never);
@@ -20,6 +23,7 @@ test('store dashboard returns aggregated counts from the store and never reads p
     activePromotions: 3,
     ordersByStatus: { PENDING: 4, READY: 1 },
     unreadMessages: 5,
+    latestOrder: { id: 'order-1', status: 'PENDING', total: '349.00', createdAt: new Date('2026-10-03T12:00:00.000Z'), itemName: 'Produto A' },
   });
 });
 

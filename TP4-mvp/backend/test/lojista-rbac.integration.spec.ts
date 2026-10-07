@@ -147,6 +147,20 @@ describe('API de administração da loja (integracao HTTP)', () => {
     assert.equal((await request('/me', tokenFor('client-a', UserRole.CLIENTE))).status, 403);
   });
 
+  it('mostra somente a identidade da loja do usuario em qualquer perfil selecionavel', async () => {
+    repository.stores.set('owner-a', { ...emptyStore('owner-a'), name: 'Loja Central', status: StoreStatus.ACTIVE, cnpj: '11222333000181' });
+    repository.stores.set('owner-b', { ...emptyStore('owner-b'), name: 'Outra loja' });
+    assert.equal((await request('/me/identity')).status, 401);
+    assert.equal((await request('/me/identity', tokenFor('owner-b', UserRole.SUPORTE))).status, 403);
+
+    for (const role of [UserRole.CLIENTE, UserRole.PROFISSIONAL, UserRole.LOJISTA]) {
+      const response = await request('/me/identity?ownerId=owner-b', tokenFor('owner-a', role));
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { name: 'Loja Central', status: StoreStatus.ACTIVE });
+    }
+    assert.equal((await request('/me/identity', tokenFor('missing', UserRole.CLIENTE))).status, 404);
+  });
+
   it('consulta prontidao sem mutacao, autenticada e limitada ao dono', async () => {
     assert.equal((await request('/me/activation-readiness')).status, 401);
     assert.equal((await request('/me/activation-readiness', tokenFor('client', UserRole.CLIENTE))).status, 403);

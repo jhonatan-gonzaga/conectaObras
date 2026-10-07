@@ -48,6 +48,13 @@ export class StoresController {
     @Inject(UPLOAD_PROVIDER) private readonly uploadProvider: UploadProvider,
   ) {}
 
+  @Get('me/identity')
+  @Roles(UserRole.CLIENTE, UserRole.PROFISSIONAL, UserRole.LOJISTA)
+  async identity(@CurrentUser() user: AuthenticatedUser) {
+    const store = await this.getMyStore.execute(user.id);
+    return { name: store.name, status: store.status };
+  }
+
   @Get('me')
   findMine(@CurrentUser() user: AuthenticatedUser) {
     return this.getMyStore.execute(user.id);

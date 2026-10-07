@@ -1,19 +1,47 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
-import { ApiError, api, type StoreDashboardSummary } from "../../services/api";
+import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { ApiError, api, formatMoney, type StoreDashboardList, type StoreDashboardSummary, type StoreIdentity } from "../../services/api";
 
+const logo = require("../../../assets/logotipo.png");
 const orderStatuses = ["PENDING", "CONFIRMED", "PREPARING", "READY", "COMPLETED", "CANCELED"] as const;
 const statusLabels: Record<(typeof orderStatuses)[number], string> = {
-  PENDING: "Pendentes", CONFIRMED: "Confirmados", PREPARING: "Em preparo", READY: "Prontos", COMPLETED: "Concluidos", CANCELED: "Cancelados",
+  PENDING: "Pendentes", CONFIRMED: "Confirmados", PREPARING: "Em preparo", READY: "Prontos", COMPLETED: "Concluídos", CANCELED: "Cancelados",
 };
+type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
-function DashboardCard({ label, value, icon, onPress }: { label: string; value: number; icon: React.ComponentProps<typeof Ionicons>["name"]; onPress: () => void }) {
-  return <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}: ${value}`} className="min-h-28 flex-1 justify-between rounded-2xl border border-input-border bg-card p-4"><Ionicons name={icon} size={22} color="#b94b50" /><Text className="text-2xl font-bold text-foreground">{value}</Text><Text className="text-sm text-muted-foreground">{label}</Text></Pressable>;
+function DashboardCard({ title, detail, icon, badge, accessibilityLabel, onPress }: {
+  title: string; detail: string; icon: IconName; badge?: number; accessibilityLabel: string; onPress: () => void;
+}) {
+  return <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel} className="min-h-[148px] flex-1 justify-between rounded-[18px] bg-card p-4 shadow-sm shadow-primary/10">
+    <View className="flex-row items-start justify-between">
+      <View className="h-10 w-10 items-center justify-center rounded-full bg-[#fbe7e8]"><Ionicons name={icon} size={22} color="#b94b50" /></View>
+      {badge ? <View className="min-w-[22px] items-center rounded-full bg-primary px-1.5 py-0.5"><Text className="text-xs font-semibold text-white">{badge}</Text></View> : null}
+    </View>
+    <View><Text className="text-lg font-semibold text-foreground">{title}</Text><Text className="mt-0.5 text-sm text-muted-foreground">{detail}</Text></View>
+  </Pressable>;
 }
 
-export function StoreOwnerScreen({ onOpenList, onOpenOrders, onStoreMissing, onSwitchProfile, onSignOut, onEditStore }: { onEditStore?: () => void; onOpenList: (kind: "active-products" | "low-stock" | "promotions" | "orders" | "messages") => void; onOpenOrders: (status: string) => void; onStoreMissing: () => void; onSwitchProfile: () => void; onSignOut: () => void }) {
+function BottomTab({ label, icon, selected, onPress }: { label: string; icon: IconName; selected?: boolean; onPress: () => void }) {
+  return <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: Boolean(selected) }} className="min-h-[58px] flex-1 items-center justify-center px-0.5">
+    <Ionicons name={icon} size={22} color={selected ? "#99333a" : "#766a70"} />
+    <Text numberOfLines={1} className={`mt-0.5 text-[10px] ${selected ? "font-semibold text-primary" : "text-muted-foreground"}`}>{label}</Text>
+  </Pressable>;
+}
+
+export function StoreOwnerScreen({ onOpenList, onOpenOrders, onStoreMissing, onSwitchProfile, onOpenProfile, onSignOut, onEditStore, userName, avatarUrl }: {
+  onEditStore?: () => void;
+  onOpenList: (kind: StoreDashboardList) => void;
+  onOpenOrders: (status: string) => void;
+  onStoreMissing: () => void;
+  onSwitchProfile: () => void;
+  onOpenProfile: () => void;
+  onSignOut: () => void;
+  userName?: string;
+  avatarUrl?: string | null;
+}) {
   const [summary, setSummary] = useState<StoreDashboardSummary | null>(null);
+  const [store, setStore] = useState<StoreIdentity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const onStoreMissingRef = useRef(onStoreMissing);
@@ -21,24 +49,79 @@ export function StoreOwnerScreen({ onOpenList, onOpenOrders, onStoreMissing, onS
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const result = await api.storeDashboard();
+      const [identity, result] = await Promise.all([
+        api.storeIdentity().catch(() => null),
+        api.storeDashboard(),
+      ]);
       if (!result.hasStore) { onStoreMissingRef.current(); return; }
+      setStore(identity);
       setSummary(result);
-    }
-    catch (cause) { setError(cause instanceof ApiError ? cause.message : "Nao foi possivel carregar o painel."); }
-    finally { setLoading(false); }
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Não foi possível carregar o painel.");
+    } finally { setLoading(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  return <ScrollView className="w-full max-w-[560px] flex-1 bg-background px-5" contentContainerStyle={{ paddingTop: 24, paddingBottom: 40 }}>
-    <View className="mb-6 flex-row items-center justify-between"><View><Text className="text-2xl font-bold text-foreground">Painel da loja</Text><Text className="mt-1 text-sm text-muted-foreground">Resumo atualizado pela sua loja</Text></View><Pressable onPress={onSignOut} accessibilityRole="button" accessibilityLabel="Sair da conta" className="rounded-full bg-card p-3"><Ionicons name="log-out-outline" size={22} color="#b94b50" /></Pressable></View>
-    <Pressable onPress={onSwitchProfile} accessibilityRole="button" className="mb-5 self-start rounded-xl bg-card px-3 py-2"><Text className="font-semibold text-primary">Trocar perfil</Text></Pressable>
-    {onEditStore ? <Pressable accessibilityRole="button" onPress={onEditStore} className="mb-4 rounded-xl bg-card p-3"><Text className="font-semibold text-primary">Editar loja</Text></Pressable> : null}
-    {loading ? <Text accessibilityRole="alert" className="py-12 text-center text-muted-foreground">Carregando indicadores...</Text> : error ? <View className="items-center gap-3 rounded-2xl bg-card p-6"><Text accessibilityRole="alert" className="text-center text-primary">{error}</Text><Pressable onPress={() => void load()} accessibilityRole="button" className="rounded-xl bg-primary px-5 py-3"><Text className="font-bold text-white">Tentar novamente</Text></Pressable></View> : summary ? <>
-      <View className="flex-row gap-3"><DashboardCard label="Produtos ativos" value={summary.activeProducts} icon="cube-outline" onPress={() => onOpenList("active-products")} /><DashboardCard label="Estoque baixo" value={summary.lowStockProducts} icon="alert-circle-outline" onPress={() => onOpenList("low-stock")} /></View>
-      <View className="mt-3 flex-row gap-3"><DashboardCard label="Promocoes ativas" value={summary.activePromotions} icon="pricetag-outline" onPress={() => onOpenList("promotions")} /><DashboardCard label="Mensagens nao lidas" value={summary.unreadMessages} icon="chatbubble-ellipses-outline" onPress={() => onOpenList("messages")} /></View>
-      <Text className="mb-3 mt-7 text-lg font-bold text-foreground">Pedidos por status</Text>
-      <View className="flex-row flex-wrap gap-3">{orderStatuses.map((status) => <View key={status} className="w-[47%]"><DashboardCard label={statusLabels[status]} value={summary.ordersByStatus[status] ?? 0} icon="receipt-outline" onPress={() => onOpenOrders(status)} /></View>)}</View>
-    </> : null}
-  </ScrollView>;
+  const storeName = store?.name?.trim() || "sua loja";
+  const firstName = userName?.trim().split(/\s+/)[0];
+  const storeStatus = store?.status === "ACTIVE" ? "Loja ativa" : store?.status === "DRAFT" ? "Cadastro em rascunho" : store?.status === "INACTIVE" ? "Loja inativa" : "Painel da loja";
+  const pendingOrders = summary?.ordersByStatus.PENDING ?? 0;
+
+  return <View className="w-full max-w-[560px] flex-1 bg-background">
+    <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+      <View className="flex-row items-center justify-between bg-card px-5 py-3">
+        <Pressable onPress={onSwitchProfile} accessibilityRole="button" accessibilityLabel="Trocar perfil" className="h-10 w-10 items-center justify-center rounded-full bg-background"><Ionicons name="arrow-back" size={20} color="#141c25" /></Pressable>
+        <Image source={logo} className="h-9 w-[145px]" resizeMode="contain" accessibilityLabel="Conecta Obras Itacoatiara" />
+        <Pressable onPress={onOpenProfile} accessibilityRole="button" accessibilityLabel="Abrir informações do perfil" className="h-10 w-10 items-center justify-center rounded-full border-2 border-primary bg-[#fbe7e8]">
+          {avatarUrl ? <Image source={{ uri: avatarUrl }} className="h-9 w-9 rounded-full" /> : <Ionicons name="person-outline" size={21} color="#99333a" />}
+        </Pressable>
+      </View>
+
+      <View className="px-5 pt-5">
+        <View className="mb-2 flex-row items-center gap-2"><View className={`h-2.5 w-2.5 rounded-full ${store?.status === "ACTIVE" ? "bg-[#3d7a5a]" : "bg-[#b98542]"}`} /><Text className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{storeStatus}</Text></View>
+        <Text className="text-[26px] font-semibold text-foreground">{firstName ? `Olá, ${firstName}!` : "Olá!"}</Text>
+        <Text className="mb-6 mt-1 text-sm leading-5 text-muted-foreground">{storeName === "sua loja" ? "Acompanhe sua loja em um só lugar." : `${storeName} está pronta para você acompanhar.`}</Text>
+
+        <View className="mb-6 rounded-[18px] bg-card p-4 shadow-sm shadow-primary/10">
+          <View className="flex-row items-center gap-2"><Ionicons name="storefront" size={20} color="#b94b50" /><Text numberOfLines={1} className="min-w-0 flex-1 text-lg font-semibold text-foreground">Vitrine {storeName}</Text></View>
+          <Text className="mt-1 text-sm leading-5 text-muted-foreground">Atualize informações, horários e aparência da sua vitrine.</Text>
+          {onEditStore ? <Pressable onPress={onEditStore} accessibilityRole="button" accessibilityLabel="Editar loja" className="mt-4 min-h-12 flex-row items-center justify-center gap-2 rounded-full bg-primary"><Ionicons name="create-outline" size={20} color="#ffffff" /><Text className="text-sm font-semibold text-white">Editar Loja</Text></Pressable> : null}
+        </View>
+
+        {loading ? <Text accessibilityRole="alert" className="py-12 text-center text-muted-foreground">Carregando indicadores...</Text> : error ? <View className="items-center gap-3 rounded-2xl bg-card p-6"><Text accessibilityRole="alert" className="text-center text-primary">{error}</Text><Pressable onPress={() => void load()} accessibilityRole="button" className="rounded-xl bg-primary px-5 py-3"><Text className="font-bold text-white">Tentar novamente</Text></Pressable></View> : summary ? <>
+          <View className="mb-6 gap-4">
+            <View className="flex-row gap-4">
+              <DashboardCard title="Produtos" detail={`${summary.activeProducts} ativos`} icon="cube-outline" accessibilityLabel={`Produtos ativos: ${summary.activeProducts}`} onPress={() => onOpenList("active-products")} />
+              <DashboardCard title="Promoções" detail={`${summary.activePromotions} ativas`} icon="pricetag-outline" accessibilityLabel={`Promoções ativas: ${summary.activePromotions}`} onPress={() => onOpenList("promotions")} />
+            </View>
+            <View className="flex-row gap-4">
+              <DashboardCard title="Mensagens" detail={`${summary.unreadMessages} não lidas`} icon="chatbubble-ellipses-outline" badge={summary.unreadMessages} accessibilityLabel={`Mensagens não lidas: ${summary.unreadMessages}`} onPress={() => onOpenList("messages")} />
+              <DashboardCard title="Pedidos" detail={`${pendingOrders} aguardando confirmação`} icon="bag-handle-outline" badge={pendingOrders} accessibilityLabel={`Pedidos pendentes: ${pendingOrders}`} onPress={() => onOpenList("orders")} />
+            </View>
+          </View>
+
+          {summary.lowStockProducts > 0 ? <Pressable onPress={() => onOpenList("low-stock")} accessibilityRole="button" accessibilityLabel={`Estoque baixo: ${summary.lowStockProducts}`} className="mb-6 flex-row items-center gap-3 rounded-[18px] bg-card p-4"><View className="h-10 w-10 items-center justify-center rounded-full bg-[#fbe7e8]"><Ionicons name="alert-circle-outline" size={21} color="#b94b50" /></View><View className="flex-1"><Text className="font-semibold text-foreground">Estoque baixo</Text><Text className="text-sm text-muted-foreground">{summary.lowStockProducts} {summary.lowStockProducts === 1 ? "produto precisa" : "produtos precisam"} de atenção</Text></View><Ionicons name="chevron-forward" size={18} color="#897171" /></Pressable> : null}
+
+          <View className="mb-2 flex-row items-center justify-between"><Text className="text-lg font-semibold text-foreground">Pedidos por status</Text><Text className="text-xs text-muted-foreground">Visão geral</Text></View>
+          <View className="rounded-[18px] bg-card px-4 py-1 shadow-sm shadow-primary/10">
+            {orderStatuses.map((status, index) => <Pressable key={status} onPress={() => onOpenOrders(status)} accessibilityRole="button" accessibilityLabel={`${statusLabels[status]}: ${summary.ordersByStatus[status] ?? 0}`} className={`min-h-12 flex-row items-center justify-between ${index < orderStatuses.length - 1 ? "border-b border-input-border" : ""}`}><Text className="text-sm text-foreground">{statusLabels[status]}</Text><View className="flex-row items-center gap-2"><Text className="font-semibold text-primary">{summary.ordersByStatus[status] ?? 0}</Text><Ionicons name="chevron-forward" size={16} color="#897171" /></View></Pressable>)}
+          </View>
+          <View className="mb-2 mt-6 flex-row items-center justify-between"><Text className="text-lg font-semibold text-foreground">Última atividade</Text><Text className="text-xs text-muted-foreground">Pedidos</Text></View>
+          {summary.latestOrder ? <Pressable onPress={() => onOpenOrders(summary.latestOrder!.status)} accessibilityRole="button" accessibilityLabel="Ver último pedido" className="flex-row items-center gap-3 rounded-[18px] bg-card p-4 shadow-sm shadow-primary/10">
+            <View className="h-10 w-10 items-center justify-center rounded-full bg-[#e7eefc]"><Ionicons name="car-outline" size={21} color="#b94b50" /></View>
+            <View className="min-w-0 flex-1"><Text numberOfLines={1} className="font-semibold text-foreground">Pedido #{summary.latestOrder.id.slice(-6).toUpperCase()}</Text><Text numberOfLines={1} className="text-xs text-muted-foreground">{summary.latestOrder.itemName || "Pedido da loja"} · {formatMoney(summary.latestOrder.total)}</Text></View>
+            <Text className="text-xs font-semibold text-primary">{statusLabels[summary.latestOrder.status as keyof typeof statusLabels] ?? summary.latestOrder.status}</Text>
+          </Pressable> : <View className="rounded-[18px] bg-card p-4"><Text className="text-sm text-muted-foreground">Os pedidos recentes aparecerão aqui.</Text></View>}
+        </> : null}
+        <Pressable onPress={onSignOut} accessibilityRole="button" accessibilityLabel="Sair da conta" className="mt-6 self-center flex-row items-center gap-2 py-2"><Ionicons name="log-out-outline" size={18} color="#897171" /><Text className="text-sm text-muted-foreground">Sair da conta</Text></Pressable>
+      </View>
+    </ScrollView>
+    <View className="flex-row border-t border-input-border bg-card px-1 shadow-sm shadow-primary/10">
+      <BottomTab label="Painel" icon="storefront-outline" selected onPress={() => {}} />
+      <BottomTab label="Pedidos" icon="receipt-outline" onPress={() => onOpenList("orders")} />
+      <BottomTab label="Produtos" icon="cube-outline" onPress={() => onOpenList("active-products")} />
+      <BottomTab label="Promoções" icon="pricetag-outline" onPress={() => onOpenList("promotions")} />
+      <BottomTab label="Configurações" icon="settings-outline" onPress={() => onEditStore?.()} />
+    </View>
+  </View>;
 }

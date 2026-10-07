@@ -67,6 +67,17 @@ describe("useAppNavigation", () => {
     expect(result.current.profileReturnScreen).toBe("clientServiceMessage");
   });
 
+  it("returns to the store dashboard after opening the account profile", async () => {
+    const { result } = await renderNavigation();
+
+    act(() => result.current.openAccountProfile("storeOwnerDashboard"));
+    expect(result.current.screen).toBe("accountProfile");
+    expect(result.current.profileReturnScreen).toBe("storeOwnerDashboard");
+
+    act(() => result.current.setScreen(result.current.profileReturnScreen));
+    expect(result.current.screen).toBe("storeOwnerDashboard");
+  });
+
   it("opens the existing professional area when the profile lookup succeeds", async () => {
     jest.spyOn(api, "me").mockResolvedValue({ id: "p1", role: "PROFISSIONAL" } as never);
     const professionalMe = jest
