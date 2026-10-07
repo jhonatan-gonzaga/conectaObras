@@ -1,64 +1,15 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, BackHandler, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
+import { useEffect } from "react";
+import { ActivityIndicator, BackHandler, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import { NativeDateTimeField } from "../../components/native-date-time-field";
-import { ApiError, api } from "../../services/api";
-import { emptyStoreForm, maskCep, maskCnpj, maskPhone, pendingLabels, resumeStore, storeDays, storeFieldLabel, storePayload, validateStore, type StoreErrors, type StoreForm } from "../../services/store-form";
+import { useStoreForm } from "./useStoreForm";
+import { maskCep, maskCnpj, maskPhone, pendingLabels, storeDays, storeFieldLabel, validateStore, type StoreForm } from "../../services/store-form";
 
 type Props = { onComplete: () => void; onSwitchProfile: () => void; onSignOut: () => void };
 const steps = ["Dados comerciais", "Endereço", "Horários", "Revisão"];
 
 export function StoreOwnerSetupScreen({ onComplete, onSwitchProfile, onSignOut }: Props) {
-  const [form, setForm] = useState<StoreForm>(emptyStoreForm);
-  const [saved, setSaved] = useState(JSON.stringify(emptyStoreForm()));
-  const [exists, setExists] = useState(false);
-  const [status, setStatus] = useState("DRAFT");
-  const [step, setStep] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [loadAttempt, setLoadAttempt] = useState(0);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [errors, setErrors] = useState<StoreErrors>({});
-  const [pending, setPending] = useState<string[]>([]);
-  const [ready, setReady] = useState(false);
-  const dirty = JSON.stringify(form) !== saved;
-
-  useEffect(() => {
-    let current = true;
-    setLoading(true); setLoadError(null);
-    async function load() {
-      let foundStore = false;
-      try {
-        const store = await api.myStore();
-        foundStore = true;
-        if (!current) return;
-        const restored = resumeStore(store);
-        setForm(restored); setSaved(JSON.stringify(restored)); setExists(true); setStatus(store.status);
-        if (store.status !== "ACTIVE") {
-          const decision = await api.storeActivationReadiness();
-          if (current) { setPending(decision.pending); setReady(decision.allowed && !decision.pending.length); }
-        }
-      } catch (cause) {
-        if (!current) return;
-        if (!foundStore && cause instanceof ApiError && cause.status === 404) {
-          const empty = emptyStoreForm();
-          setForm(empty); setSaved(JSON.stringify(empty)); setExists(false); setReady(false);
-        } else setLoadError(cause instanceof ApiError ? cause.message : "Não foi possível carregar a loja.");
-      } finally { if (current) setLoading(false); }
-    }
-    void load();
-    return () => { current = false; };
-  }, [loadAttempt]);
-
-  function leave(action: () => void) {
-    if (busy) return;
-    if (!dirty) { action(); return; }
-    Alert.alert("Alterações não salvas", "Salve o rascunho antes de sair para retomar estas alterações depois.", [
-      { text: "Continuar editando", style: "cancel" },
-      { text: "Descartar alterações", style: "destructive", onPress: action },
-    ]);
-  }
+  const { form, exists, status, step, setStep, loading, busy, loadError, error, success,
+    errors, pending, ready, dirty, change, save, activate, leave, retryLoad } = useStoreForm();
   useEffect(() => {
     const handler = BackHandler.addEventListener("hardwareBackPress", () => {
       leave(onSwitchProfile); return true;
@@ -66,52 +17,6 @@ export function StoreOwnerSetupScreen({ onComplete, onSwitchProfile, onSignOut }
     return () => handler.remove();
   });
 
-  function change(update: (value: StoreForm) => StoreForm) {
-    setForm(update); setErrors({}); setError(null); setSuccess(null); setReady(false);
-  }
-  function showApiError(cause: unknown) {
-    setError(cause instanceof ApiError ? cause.message : "Não foi possível salvar a loja.");
-    if (cause instanceof ApiError && cause.details?.pending?.length) {
-      setPending(cause.details.pending); setReady(false); setStep(3);
-      const fields: StoreErrors = {};
-      for (const code of cause.details.pending) {
-        const key = code.startsWith("CNPJ") ? "cnpj" : code.startsWith("PHONE") ? "phone" : code === "STORE_NAME_REQUIRED" ? "name" : code === "ADDRESS_REQUIRED" ? "address.street" : "openingHours";
-        fields[key] = pendingLabels[code] ?? code;
-      }
-      setErrors(fields);
-    }
-  }
-  async function save() {
-    if (busy) return;
-    const invalid = validateStore(form, status !== "DRAFT");
-    setErrors(invalid);
-    if (Object.keys(invalid).length) {
-      const first = Object.keys(invalid)[0];
-      setStep(first.startsWith("address.") ? 1 : first === "openingHours" || first.includes("Time") ? 2 : 0);
-      setError("Revise os campos indicados antes de salvar."); return;
-    }
-    setBusy(true); setError(null); setSuccess(null); setReady(false);
-    try {
-      const store = await api.saveMyStore(storePayload(form));
-      const restored = resumeStore(store);
-      setForm(restored); setSaved(JSON.stringify(restored)); setExists(true); setStatus(store.status);
-      setSuccess(store.status === "DRAFT" ? "Rascunho salvo. Você pode retomar o cadastro depois." : "Dados da loja salvos com sucesso.");
-      if (store.status !== "ACTIVE") {
-        const decision = await api.storeActivationReadiness();
-        setPending(decision.pending); setReady(decision.allowed && !decision.pending.length);
-      }
-    } catch (cause) { showApiError(cause); }
-    finally { setBusy(false); }
-  }
-  async function activate() {
-    if (busy || dirty || !ready || pending.length || status === "ACTIVE") return;
-    setBusy(true); setError(null);
-    try {
-      const store = await api.changeMyStoreStatus("ACTIVE");
-      setStatus(store.status); setReady(false); setSuccess("Loja ativada com sucesso.");
-    } catch (cause) { setReady(false); showApiError(cause); }
-    finally { setBusy(false); }
-  }
   function field(key: string, label: string, value: string, onChange: (text: string) => void, numeric = false, maxLength?: number) {
     return <View key={key} className="mb-4">
       <Text className="mb-2 text-sm font-semibold text-foreground">{label}</Text>
@@ -132,7 +37,7 @@ export function StoreOwnerSetupScreen({ onComplete, onSwitchProfile, onSignOut }
 
   if (loading) return <View className="flex-1 items-center justify-center"><ActivityIndicator /><Text>Carregando loja...</Text></View>;
   if (loadError) return <View className="flex-1 justify-center gap-3 px-5"><Text accessibilityRole="alert">{loadError}</Text>
-    {button("Tentar novamente", () => setLoadAttempt((value) => value + 1))}{button("Trocar perfil", onSwitchProfile)}</View>;
+    {button("Tentar novamente", retryLoad)}{button("Trocar perfil", onSwitchProfile)}</View>;
 
   const activationErrors = validateStore(form, true);
   return <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}><ScrollView keyboardShouldPersistTaps="handled" className="w-full max-w-[560px] flex-1 bg-background px-5"
