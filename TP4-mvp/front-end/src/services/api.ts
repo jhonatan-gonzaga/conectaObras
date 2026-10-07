@@ -1,10 +1,17 @@
 import type { StoreProfile } from "./store-form";
 import * as SecureStore from "expo-secure-store";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 import type { ImagePickerAsset } from "expo-image-picker";
 import type { ProductCategory, ProductFilters, ProductImage, ProductPage, ProductStatus, StoreProduct } from "./store-products";
+import { resolveApiUrl } from "./api-url";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000/api";
+const API_URL = resolveApiUrl(
+  process.env.EXPO_PUBLIC_API_URL,
+  Platform.OS,
+  Constants.expoConfig?.hostUri,
+  typeof window !== "undefined" ? window.location?.hostname : undefined,
+);
 
 let accessToken: string | null = null;
 
