@@ -1,5 +1,7 @@
 import { ProductRecord, ProductStatus } from './product.repository';
 
+export const MAX_PRODUCT_STOCK = 2_147_483_647;
+
 export function activationPending(product: ProductRecord, categoryActive: boolean): string[] {
   const pending: string[] = [];
   if (!product.name.trim()) pending.push('NAME_REQUIRED');

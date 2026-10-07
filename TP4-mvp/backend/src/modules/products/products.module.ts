@@ -8,12 +8,18 @@ import { ProductGalleryRepository } from './application/product-gallery.reposito
 import { ProductGalleryService } from './application/product-gallery.service';
 import { PrismaProductGalleryRepository } from './infrastructure/prisma-product-gallery.repository';
 import { ProductGalleryController } from './presentation/product-gallery.controller';
+import { StoresModule } from '../stores/stores.module';
+import { ProductUseCases } from './application/product.use-cases';
+import { ProductsController } from './products.controller';
+import { UpdateInventoryUseCase } from './application/update-inventory.use-case';
 
 @Module({
-  imports: [PrismaModule, AuthModule, UploadsModule],
-  controllers: [ProductGalleryController],
+  imports: [PrismaModule, AuthModule, UploadsModule, StoresModule],
+  controllers: [ProductsController, ProductGalleryController],
   providers: [
     { provide: ProductRepository, useClass: PrismaProductRepository },
+    ProductUseCases,
+    UpdateInventoryUseCase,
     { provide: ProductGalleryRepository, useClass: PrismaProductGalleryRepository },
     ProductGalleryService,
   ],

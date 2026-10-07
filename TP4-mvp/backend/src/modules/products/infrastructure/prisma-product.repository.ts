@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateProductInput, InventoryUpdateInput, ProductListQuery, ProductPage, ProductRecord, ProductRepository, ProductStatus, UpdateProductInput } from '../application/product.repository';
 import { MAX_PRODUCT_IMAGES } from '../domain/gallery.policy';
+import { MAX_PRODUCT_STOCK } from '../application/product.policy';
 
 export const productInclude = {
   images: { orderBy: [{ position: 'asc' }, { id: 'asc' }] },
@@ -131,7 +132,7 @@ export class PrismaProductRepository implements ProductRepository {
   async updateInventory(storeId: string, actorId: string, expected: ProductRecord, input: InventoryUpdateInput): Promise<ProductRecord | null> {
     if (expected.status === 'ARCHIVED') return null;
     const nextPrice = input.price === undefined ? undefined : this.price(input.price);
-    if (input.stock !== undefined && (!Number.isInteger(input.stock) || input.stock < 0)) {
+    if (input.stock !== undefined && (!Number.isInteger(input.stock) || input.stock < 0 || input.stock > MAX_PRODUCT_STOCK)) {
       throw new RangeError('Estoque deve ser inteiro e nao negativo.');
     }
     const priceChanged = nextPrice !== undefined && !nextPrice.eq(expected.price);

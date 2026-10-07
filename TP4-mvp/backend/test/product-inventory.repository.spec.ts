@@ -138,7 +138,7 @@ describe('Inventory persistence', () => {
     for (const price of ['0', '-1', 'abc', '1.001']) {
       await assert.rejects(state.repository.updateInventory('store-a', 'owner-a', original, { price }), RangeError);
     }
-    for (const stock of [-1, 1.5, Number.NaN]) {
+    for (const stock of [-1, 1.5, 2_147_483_648, Number.NaN]) {
       await assert.rejects(state.repository.updateInventory('store-a', 'owner-a', original, { stock }), RangeError);
     }
     assert.equal(state.current().stock, 4);
