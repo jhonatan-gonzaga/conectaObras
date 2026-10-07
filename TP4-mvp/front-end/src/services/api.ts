@@ -376,6 +376,11 @@ export const api = {
   me: () => request<AuthUser>("/auth/me"),
   myStore: () => request<StoreProfile>("/stores/me"),
   saveMyStore: (input: unknown) => request<StoreProfile>("/stores/me", { method: "PUT", body: JSON.stringify(input) }),
+  uploadStoreLogo: (file: { uri: string; name: string; type: string }) => {
+    const data = new FormData();
+    data.append("file", file as unknown as Blob);
+    return request<StoreProfile>("/stores/me/logo", { method: "POST", body: data });
+  },
   storeActivationReadiness: () => request<{ allowed: boolean; pending: string[] }>("/stores/me/activation-readiness"),
   changeMyStoreStatus: (status: "ACTIVE" | "INACTIVE") => request<StoreProfile>("/stores/me/status", { method: "PATCH", body: JSON.stringify({ status }) }),
   storeDashboard: () => request<StoreDashboardSummary>("/stores/me/dashboard"),
