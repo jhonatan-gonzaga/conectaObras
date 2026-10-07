@@ -29,10 +29,11 @@ function BottomTab({ label, icon, selected, onPress }: { label: string; icon: Ic
   </Pressable>;
 }
 
-export function StoreOwnerScreen({ onOpenList, onOpenOrders, onStoreMissing, onSwitchProfile, onOpenProfile, onSignOut, onEditStore, userName, avatarUrl }: {
+export function StoreOwnerScreen({ onOpenList, onOpenOrders, onOpenProducts, onStoreMissing, onSwitchProfile, onOpenProfile, onSignOut, onEditStore, userName, avatarUrl }: {
   onEditStore?: () => void;
   onOpenList: (kind: StoreDashboardList) => void;
   onOpenOrders: (status: string) => void;
+  onOpenProducts: () => void;
   onStoreMissing: () => void;
   onSwitchProfile: () => void;
   onOpenProfile: () => void;
@@ -91,7 +92,7 @@ export function StoreOwnerScreen({ onOpenList, onOpenOrders, onStoreMissing, onS
         {loading ? <Text accessibilityRole="alert" className="py-12 text-center text-muted-foreground">Carregando indicadores...</Text> : error ? <View className="items-center gap-3 rounded-2xl bg-card p-6"><Text accessibilityRole="alert" className="text-center text-primary">{error}</Text><Pressable onPress={() => void load()} accessibilityRole="button" className="rounded-xl bg-primary px-5 py-3"><Text className="font-bold text-white">Tentar novamente</Text></Pressable></View> : summary ? <>
           <View className="mb-6 gap-4">
             <View className="flex-row gap-4">
-              <DashboardCard title="Produtos" detail={`${summary.activeProducts} ativos`} icon="cube-outline" accessibilityLabel={`Produtos ativos: ${summary.activeProducts}`} onPress={() => onOpenList("active-products")} />
+              <DashboardCard title="Produtos" detail={`${summary.activeProducts} ativos`} icon="cube-outline" accessibilityLabel={`Produtos ativos: ${summary.activeProducts}`} onPress={onOpenProducts} />
               <DashboardCard title="Promoções" detail={`${summary.activePromotions} ativas`} icon="pricetag-outline" accessibilityLabel={`Promoções ativas: ${summary.activePromotions}`} onPress={() => onOpenList("promotions")} />
             </View>
             <View className="flex-row gap-4">
@@ -119,7 +120,7 @@ export function StoreOwnerScreen({ onOpenList, onOpenOrders, onStoreMissing, onS
     <View className="flex-row border-t border-input-border bg-card px-1 shadow-sm shadow-primary/10">
       <BottomTab label="Painel" icon="storefront-outline" selected onPress={() => {}} />
       <BottomTab label="Pedidos" icon="receipt-outline" onPress={() => onOpenList("orders")} />
-      <BottomTab label="Produtos" icon="cube-outline" onPress={() => onOpenList("active-products")} />
+      <BottomTab label="Produtos" icon="cube-outline" onPress={onOpenProducts} />
       <BottomTab label="Promoções" icon="pricetag-outline" onPress={() => onOpenList("promotions")} />
       <BottomTab label="Configurações" icon="settings-outline" onPress={() => onEditStore?.()} />
     </View>

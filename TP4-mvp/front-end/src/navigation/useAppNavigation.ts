@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { ClientNavKey } from "../components/cliente";
+import type { ProductFilters } from "../services/store-products";
 import { ApiError, api, restoreAccessToken, type AuthUser, type SelectableUserRole, type StoreDashboardList } from "../services/api";
 import type {
   ClientProfileReturnScreen,
@@ -20,6 +21,9 @@ export function useAppNavigation() {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [storeListKind, setStoreListKind] = useState<StoreDashboardList>("active-products");
   const [storeListStatus, setStoreListStatus] = useState<string | undefined>();
+  const [productFilters, setProductFilters] = useState<ProductFilters>({ q: "", categoryId: "", status: "", stock: "" });
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [productNotice, setProductNotice] = useState<string | null>(null);
   const [profileReturnScreen, setProfileReturnScreen] =
     useState<ProfileReturnScreen>("clientHome");
   const [clientWorkReturnScreen, setClientWorkReturnScreen] =
@@ -92,6 +96,8 @@ export function useAppNavigation() {
     await api.logout();
     setAuthUser(null); setHasStore(false); setSelectedClientService(null); setSelectedProfessionalId(null);
     setContractedClientServices([]); setStoreListKind("active-products"); setStoreListStatus(undefined);
+    setProductFilters({ q: "", categoryId: "", status: "", stock: "" }); setSelectedProductId(null);
+    setProductNotice(null);
     setProfileReturnScreen("clientHome"); setClientWorkReturnScreen("clientHome");
     setClientProfileReturnScreen("clientHome"); setLegalReturnScreen("login"); setScreen("login");
   };
@@ -155,6 +161,12 @@ export function useAppNavigation() {
     setStoreListKind,
     storeListStatus,
     setStoreListStatus,
+    productFilters,
+    setProductFilters,
+    selectedProductId,
+    setSelectedProductId,
+    productNotice,
+    setProductNotice,
     profileReturnScreen,
     clientWorkReturnScreen,
     clientProfileReturnScreen,
