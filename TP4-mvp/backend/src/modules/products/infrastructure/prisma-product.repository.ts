@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { CreateProductInput, ProductRecord, ProductRepository, ProductStatus } from '../application/product.repository';
+import { CreateProductInput, InventoryUpdateInput, ProductListQuery, ProductPage, ProductRecord, ProductRepository, ProductStatus, UpdateProductInput } from '../application/product.repository';
 import { MAX_PRODUCT_IMAGES } from '../domain/gallery.policy';
+import { MAX_PRODUCT_STOCK } from '../application/product.policy';
 
 export const productInclude = {
   images: { orderBy: [{ position: 'asc' }, { id: 'asc' }] },
@@ -126,6 +127,57 @@ export class PrismaProductRepository implements ProductRepository {
       data: { price: value, lastPriceUpdateAt: new Date() },
     });
     return result.count > 0;
+  }
+
+  async updateInventory(storeId: string, actorId: string, expected: ProductRecord, input: InventoryUpdateInput): Promise<ProductRecord | null> {
+    if (expected.status === 'ARCHIVED') return null;
+    const nextPrice = input.price === undefined ? undefined : this.price(input.price);
+    if (input.stock !== undefined && (!Number.isInteger(input.stock) || input.stock < 0 || input.stock > MAX_PRODUCT_STOCK)) {
+      throw new RangeError('Estoque deve ser inteiro e nao negativo.');
+    }
+    const priceChanged = nextPrice !== undefined && !nextPrice.eq(expected.price);
+    const stockChanged = input.stock !== undefined && input.stock !== expected.stock;
+    if (!priceChanged && !stockChanged) {
+      const unchanged = await this.prisma.product.findFirst({
+        where: {
+          id: expected.id,
+          storeId,
+          status: expected.status,
+          updatedAt: expected.updatedAt,
+          price: new Prisma.Decimal(expected.price),
+          stock: expected.stock,
+        },
+        include: productInclude,
+      });
+      return unchanged ? this.record(unchanged) : null;
+    }
+
+    return this.prisma.$transaction(async (transaction) => {
+      const result = await transaction.product.updateMany({
+        where: {
+          id: expected.id,
+          storeId,
+          status: expected.status,
+          updatedAt: expected.updatedAt,
+          price: new Prisma.Decimal(expected.price),
+          stock: expected.stock,
+        },
+        data: {
+          price: priceChanged ? nextPrice : undefined,
+          stock: stockChanged ? input.stock : undefined,
+          lastPriceUpdateAt: priceChanged ? new Date() : undefined,
+        },
+      });
+      if (result.count !== 1) return null;
+      await transaction.productInventoryEvent.create({
+        data: { productId: expected.id, storeId, actorId, priceChanged, stockChanged },
+      });
+      const updated = await transaction.product.findUniqueOrThrow({
+        where: { id: expected.id },
+        include: productInclude,
+      });
+      return this.record(updated);
+    });
   }
 
   private price(value: string): Prisma.Decimal {

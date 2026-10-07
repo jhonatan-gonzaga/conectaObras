@@ -9,7 +9,8 @@ import { AuthenticatedUser } from '../src/common/types/authenticated-user';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../src/modules/auth/guards/roles.guard';
 import { ProductUseCases } from '../src/modules/products/application/product.use-cases';
-import { CreateProductInput, ProductListQuery, ProductPage, ProductRecord, ProductRepository, ProductStatus, UpdateProductInput } from '../src/modules/products/application/product.repository';
+import { UpdateInventoryUseCase } from '../src/modules/products/application/update-inventory.use-case';
+import { CreateProductInput, InventoryUpdateInput, ProductListQuery, ProductPage, ProductRecord, ProductRepository, ProductStatus, UpdateProductInput } from '../src/modules/products/application/product.repository';
 import { ProductsController } from '../src/modules/products/products.controller';
 import { GetMyStoreUseCase } from '../src/modules/stores/application/use-cases/get-my-store.use-case';
 
@@ -91,6 +92,18 @@ class MemoryProducts implements ProductRepository {
     row.price = price;
     return true;
   }
+
+  async updateInventory(storeId: string, _actorId: string, expected: ProductRecord, input: InventoryUpdateInput) {
+    const row = await this.findByStore(storeId, expected.id);
+    if (!row || row.status === 'ARCHIVED' || row.updatedAt !== expected.updatedAt) return null;
+    if (input.price !== undefined && input.price !== row.price) {
+      row.price = Number(input.price).toFixed(2);
+      row.lastPriceUpdateAt = new Date();
+    }
+    if (input.stock !== undefined) row.stock = input.stock;
+    row.updatedAt = new Date();
+    return row;
+  }
 }
 
 describe('Store products API', () => {
@@ -105,7 +118,7 @@ describe('Store products API', () => {
       imports: [JwtModule.register({ secret: 'store-products-test' })],
       controllers: [ProductsController],
       providers: [
-        JwtAuthGuard, RolesGuard, ProductUseCases,
+        JwtAuthGuard, RolesGuard, ProductUseCases, UpdateInventoryUseCase,
         { provide: ProductRepository, useValue: products },
         { provide: GetMyStoreUseCase, useValue: {
           execute: async (ownerId: string) => ({ id: `store-${ownerId}` }),
@@ -223,5 +236,48 @@ describe('Store products API', () => {
     assert.equal((await activate()).status, 200);
     await request('a', `/${created.id}`, 'DELETE');
     assert.equal((await activate()).status, 409);
+  });
+
+  it('validates quick price and stock changes without mutating rejected input', async () => {
+    const created = await (await request('a', '', 'POST', valid)).json() as ProductRecord;
+    const path = `/${created.id}/inventory`;
+    for (const body of [
+      {}, { price: null }, { price: 10 }, { price: '0' }, { price: '-1' },
+      { price: 'abc' }, { price: '1.234' }, { stock: null }, { stock: -1 },
+      { stock: 1.5 }, { stock: 2_147_483_648 }, { stock: '2' }, { storeId: 'store-b', price: '10.00' },
+    ]) {
+      const response = await request('a', path, 'PATCH', body);
+      assert.equal(response.status, 400, JSON.stringify(body));
+    }
+    assert.equal(products.rows.get(created.id)!.price, '29.90');
+    assert.equal(products.rows.get(created.id)!.stock, 3);
+    assert.equal((await request('b', path, 'PATCH', { stock: 0 })).status, 404);
+    assert.equal((await request(null, path, 'PATCH', { stock: 0 })).status, 401);
+  });
+
+  it('saves quick updates immediately and derives catalog availability', async () => {
+    const created = await (await request('a', '', 'POST', valid)).json() as ProductRecord;
+    const path = `/${created.id}/inventory`;
+    const oldDate = new Date('2020-01-01T00:00:00.000Z');
+    const row = products.rows.get(created.id)!;
+    row.status = 'ACTIVE';
+    row.lastPriceUpdateAt = oldDate;
+    const emptiedResponse = await request('a', path, 'PATCH', { stock: 0 });
+    const emptied = await emptiedResponse.json() as ProductRecord & { available: boolean };
+    assert.equal(emptiedResponse.status, 200);
+    assert.equal(emptied.stock, 0);
+    assert.equal(emptied.available, false);
+    assert.deepEqual(row.lastPriceUpdateAt, oldDate);
+    const restocked = await (await request('a', path, 'PATCH', { stock: 5 })).json() as ProductRecord & { available: boolean };
+    assert.equal(restocked.available, true);
+    assert.deepEqual(row.lastPriceUpdateAt, oldDate);
+    const repriced = await (await request('a', path, 'PATCH', { price: '30.25' })).json() as ProductRecord & { available: boolean };
+    assert.equal(repriced.price, '30.25');
+    assert.equal(repriced.available, true);
+    assert(row.lastPriceUpdateAt > oldDate);
+    const listed = await (await request('a')).json() as ProductPage;
+    assert.equal(listed.items[0].price, '30.25');
+    await request('a', `/${created.id}`, 'DELETE');
+    assert.equal((await request('a', path, 'PATCH', { stock: 1 })).status, 409);
   });
 });
