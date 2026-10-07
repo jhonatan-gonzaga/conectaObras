@@ -9,7 +9,7 @@ import { AuthenticatedUser } from '../src/common/types/authenticated-user';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../src/modules/auth/guards/roles.guard';
 import { ProductUseCases } from '../src/modules/products/application/product.use-cases';
-import { CreateProductInput, ProductListQuery, ProductPage, ProductRecord, ProductRepository, ProductStatus, UpdateProductInput } from '../src/modules/products/application/product.repository';
+import { CreateProductInput, InventoryUpdateInput, ProductListQuery, ProductPage, ProductRecord, ProductRepository, ProductStatus, UpdateProductInput } from '../src/modules/products/application/product.repository';
 import { ProductsController } from '../src/modules/products/products.controller';
 import { GetMyStoreUseCase } from '../src/modules/stores/application/use-cases/get-my-store.use-case';
 
@@ -90,6 +90,18 @@ class MemoryProducts implements ProductRepository {
     if (!row) return false;
     row.price = price;
     return true;
+  }
+
+  async updateInventory(storeId: string, _actorId: string, expected: ProductRecord, input: InventoryUpdateInput) {
+    const row = await this.findByStore(storeId, expected.id);
+    if (!row || row.status === 'ARCHIVED' || row.updatedAt !== expected.updatedAt) return null;
+    if (input.price !== undefined && input.price !== row.price) {
+      row.price = Number(input.price).toFixed(2);
+      row.lastPriceUpdateAt = new Date();
+    }
+    if (input.stock !== undefined) row.stock = input.stock;
+    row.updatedAt = new Date();
+    return row;
   }
 }
 
