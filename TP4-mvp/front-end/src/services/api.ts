@@ -1,6 +1,8 @@
 import type { StoreProfile } from "./store-form";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import type { ImagePickerAsset } from "expo-image-picker";
+import type { ProductCategory, ProductFilters, ProductImage, ProductPage, ProductStatus, StoreProduct } from "./store-products";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000/api";
 
@@ -10,7 +12,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
-    public readonly details?: { pending?: string[]; message?: string | string[] },
+    public readonly details?: { pending?: string[]; message?: string | string[]; field?: string },
   ) {
     super(message);
     this.name = "ApiError";
@@ -383,6 +385,20 @@ export const api = {
   changeMyStoreStatus: (status: "ACTIVE" | "INACTIVE") => request<StoreProfile>("/stores/me/status", { method: "PATCH", body: JSON.stringify({ status }) }),
   storeDashboard: () => request<StoreDashboardSummary>("/stores/me/dashboard"),
   storeDashboardList: (kind: StoreDashboardList, status?: string) => request<unknown[]>(`/stores/me/dashboard/${kind}${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+  productCategories: () => request<ProductCategory[]>("/product-categories", { auth: false }),
+  storeProducts: (filters: Partial<ProductFilters> & { page?: number; limit?: number } = {}) =>
+    request<ProductPage>(`/store-products${toQuery(filters as Record<string, string | number | undefined>)}`),
+  storeProduct: (id: string) => request<StoreProduct>(`/store-products/${encodeURIComponent(id)}`),
+  createStoreProduct: (input: unknown) => request<StoreProduct>("/store-products", { method: "POST", body: JSON.stringify(input) }),
+  updateStoreProduct: (id: string, input: unknown) => request<StoreProduct>(`/store-products/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
+  updateStoreProductInventory: (id: string, input: { price?: string; stock?: number }) => request<StoreProduct>(`/store-products/${encodeURIComponent(id)}/inventory`, { method: "PATCH", body: JSON.stringify(input) }),
+  setStoreProductStatus: (id: string, status: ProductStatus) => request<StoreProduct>(`/store-products/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  archiveStoreProduct: (id: string) => request<StoreProduct>(`/store-products/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  reorderStoreProductImages: (id: string, imageIds: string[]) => request<ProductImage[]>(`/store-products/${encodeURIComponent(id)}/images/order`, { method: "PATCH", body: JSON.stringify({ imageIds }) }),
+  setStoreProductCover: (id: string, imageId: string) => request<ProductImage[]>(`/store-products/${encodeURIComponent(id)}/images/cover`, { method: "PATCH", body: JSON.stringify({ imageId }) }),
+  removeStoreProductImage: (id: string, imageId: string) => request<void>(`/store-products/${encodeURIComponent(id)}/images/${encodeURIComponent(imageId)}`, { method: "DELETE" }),
+  uploadStoreProductImage: (id: string, asset: ImagePickerAsset, onProgress: (percent: number) => void) =>
+    uploadStoreProductImage(id, asset, onProgress),
   logout: async () => { await setAccessToken(null); },
   updateMe: (input: Partial<Pick<AuthUser, "name" | "email" | "phone" | "avatarUrl">>) =>
     request<AuthUser>("/users/me", {
@@ -544,6 +560,38 @@ export const api = {
     }),
   mySupportTickets: () => request<SupportTicket[]>("/support-tickets/my"),
 };
+
+function uploadStoreProductImage(id: string, asset: ImagePickerAsset, onProgress: (percent: number) => void): Promise<ProductImage> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const form = new FormData();
+    const name = asset.fileName || asset.uri.split("/").pop() || "produto.jpg";
+    const type = asset.mimeType || (name.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg");
+    if (asset.file) form.append("file", asset.file, name);
+    else form.append("file", { uri: asset.uri, name, type } as unknown as Blob);
+    xhr.open("POST", `${API_URL}/store-products/${encodeURIComponent(id)}/images`);
+    if (accessToken) xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onProgress(Math.round(event.loaded * 100 / event.total));
+    };
+    xhr.onerror = () => reject(new ApiError("Nao foi possivel enviar a foto.", 0));
+    xhr.onabort = () => reject(new ApiError("Envio da foto cancelado.", 0));
+    xhr.onload = () => {
+      let data: unknown;
+      try { data = xhr.responseText ? JSON.parse(xhr.responseText) : null; }
+      catch { reject(new ApiError("Resposta invalida ao enviar a foto.", xhr.status)); return; }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        const error = data as { message?: string | string[] } | null;
+        reject(new ApiError(Array.isArray(error?.message) ? error.message.join("\n") : error?.message || "Falha ao enviar a foto.", xhr.status));
+        return;
+      }
+      onProgress(100);
+      resolve(data as ProductImage);
+    };
+    onProgress(0);
+    xhr.send(form);
+  });
+}
 
 export function formatMoney(value?: string | number | null) {
   const numericValue = Number(value ?? 0);
