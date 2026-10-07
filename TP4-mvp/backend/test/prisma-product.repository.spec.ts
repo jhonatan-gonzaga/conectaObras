@@ -45,6 +45,19 @@ describe('Product persistence adapter', () => {
     assert(calls.every((call) => call.args.data.sku === null));
   });
 
+  it('normaliza ordem e capa de imagens criadas com o produto', async () => {
+    const { repository, calls } = setup();
+    await repository.create('store-a', { categoryId: 'category', name: 'Cimento', price: '49.90', stock: 1,
+      images: [
+        { url: '/b', position: 5, isCover: true },
+        { url: '/a', position: 1, isCover: true },
+      ],
+    });
+    assert.deepEqual(calls[0].args.data.images.create.map((image: any) => [image.url, image.position, image.isCover]), [
+      ['/a', 0, true], ['/b', 1, false],
+    ]);
+  });
+
   for (const price of ['0', '-1', '1.001', '100000000', '1e2', 'NaN', '1,50', '']) {
     it(`rejeita preco invalido antes de gravar: ${price}`, async () => {
       const { repository, calls } = setup();

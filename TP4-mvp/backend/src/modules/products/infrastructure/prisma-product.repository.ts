@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { CreateProductInput, ProductListQuery, ProductPage, ProductRecord, ProductRepository, ProductStatus, UpdateProductInput } from '../application/product.repository';
+import { CreateProductInput, ProductRecord, ProductRepository, ProductStatus } from '../application/product.repository';
+import { MAX_PRODUCT_IMAGES } from '../domain/gallery.policy';
 
 export const productInclude = {
   images: { orderBy: [{ position: 'asc' }, { id: 'asc' }] },
@@ -14,6 +15,10 @@ export class PrismaProductRepository implements ProductRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(storeId: string, input: CreateProductInput): Promise<ProductRecord> {
+    const images = input.images?.map((image, index) => ({ image, index }))
+      .sort((a, b) => a.image.position - b.image.position || a.index - b.index);
+    if (images && images.length > MAX_PRODUCT_IMAGES) throw new RangeError('Limite de 8 imagens por produto.');
+    const coverIndex = images?.findIndex(({ image }) => image.isCover) ?? -1;
     const product = await this.prisma.product.create({
       data: {
         storeId,
@@ -23,12 +28,12 @@ export class PrismaProductRepository implements ProductRepository {
         description: input.description,
         price: this.price(input.price),
         stock: input.stock,
-        images: input.images ? { create: input.images.map((image) => ({
+        images: images ? { create: images.map(({ image }, position) => ({
           url: image.url,
           objectKey: image.objectKey,
           altText: image.altText,
-          position: image.position,
-          isCover: image.isCover,
+          position,
+          isCover: position === (coverIndex < 0 ? 0 : coverIndex),
         })) } : undefined,
       },
       include: productInclude,

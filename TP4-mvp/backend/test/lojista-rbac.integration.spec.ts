@@ -11,7 +11,7 @@ import { GetMyStoreUseCase } from '../src/modules/stores/application/use-cases/g
 import { SaveStoreProfileUseCase } from '../src/modules/stores/application/use-cases/save-store-profile.use-case';
 import { SetStoreLogoUseCase } from '../src/modules/stores/application/use-cases/set-store-logo.use-case';
 import { StoresController } from '../src/modules/stores/stores.controller';
-import { UPLOAD_PROVIDER } from '../src/modules/uploads/providers/upload-provider.interface';
+import { UploadsService } from '../src/modules/uploads/uploads.service';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../src/modules/auth/guards/roles.guard';
 import { AuthenticatedUser } from '../src/common/types/authenticated-user';
@@ -104,8 +104,8 @@ describe('API de administração da loja (integracao HTTP)', () => {
         { provide: StoreDashboardService, useValue: { summary: async () => ({ hasStore: false }), list: async () => [] } },
         { provide: STORE_REPOSITORY, useValue: repository },
         {
-          provide: UPLOAD_PROVIDER,
-          useValue: { buildResponse: () => ({ url: 'http://localhost/uploads/images/logo.png' }) },
+          provide: UploadsService,
+          useValue: { uploadImage: async () => ({ url: 'http://localhost/uploads/images/logo.png' }), remove: async () => {} },
         },
       ],
     }).compile();

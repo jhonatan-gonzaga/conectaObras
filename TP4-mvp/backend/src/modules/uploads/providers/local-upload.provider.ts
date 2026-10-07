@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { Request } from 'express';
-import { createFileFilter, UPLOAD_CONFIG } from '../upload.config';
+import { randomUUID } from 'crypto';
+import { mkdir, unlink, writeFile } from 'fs/promises';
+import { join, resolve, sep } from 'path';
+import { UPLOAD_CONFIG } from '../upload.config';
 import {
+  UploadFile,
   UploadProvider,
   UploadResponse,
   UploadType,
@@ -12,36 +12,39 @@ import {
 
 @Injectable()
 export class LocalUploadProvider implements UploadProvider {
-  static createMulterOptions(type: UploadType): MulterOptions {
-    const config = UPLOAD_CONFIG[type];
+  private readonly root = resolve(process.cwd(), 'uploads');
 
-    return {
-      storage: diskStorage({
-        destination: join(process.cwd(), 'uploads', config.directory),
-        filename: (_request, file, callback) => {
-          const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-          callback(null, `${unique}${extname(file.originalname).toLowerCase()}`);
-        },
-      }),
-      fileFilter: createFileFilter(type),
-      limits: { fileSize: config.maxFileSize },
-    };
-  }
-
-  buildResponse(
-    file: Express.Multer.File,
-    type: UploadType,
-    request: Request,
-  ): UploadResponse {
+  async save(file: UploadFile, type: UploadType, publicBaseUrl: string): Promise<UploadResponse> {
     const { directory } = UPLOAD_CONFIG[type];
-    const hostUrl = `${request.protocol}://${request.get('host')}`;
-
+    const audioExtensions: Record<string, string> = {
+      'audio/mpeg': '.mp3', 'audio/wav': '.wav', 'audio/x-wav': '.wav',
+      'audio/ogg': '.ogg', 'audio/mp4': '.m4a', 'audio/webm': '.webm',
+    };
+    const extension = type === 'image'
+      ? (file.mimetype === 'image/png' ? '.png' : '.jpg')
+      : audioExtensions[file.mimetype] ?? '.bin';
+    const filename = `${randomUUID()}${extension}`;
+    const objectKey = `${directory}/${filename}`;
+    const destination = join(this.root, directory);
+    await mkdir(destination, { recursive: true });
+    await writeFile(join(destination, filename), file.buffer, { flag: 'wx' });
     return {
-      filename: file.filename,
+      filename,
       originalName: file.originalname,
       mimeType: file.mimetype,
       size: file.size,
-      url: `${hostUrl}/uploads/${directory}/${file.filename}`,
+      url: `${publicBaseUrl.replace(/\/$/, '')}/uploads/${objectKey}`,
+      objectKey,
     };
+  }
+
+  async remove(objectKey: string): Promise<void> {
+    const path = resolve(this.root, objectKey);
+    if (!path.startsWith(`${this.root}${sep}`)) throw new Error('Chave de upload invalida.');
+    try {
+      await unlink(path);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
   }
 }

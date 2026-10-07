@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Get,
-  Inject,
   Param,
   Patch,
   Post,
@@ -22,8 +21,8 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { AuthenticatedUser } from '../../common/types/authenticated-user';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { LocalUploadProvider } from '../uploads/providers/local-upload.provider';
-import { UPLOAD_PROVIDER, UploadProvider } from '../uploads/providers/upload-provider.interface';
+import { createUploadOptions } from '../uploads/upload.config';
+import { UploadsService } from '../uploads/uploads.service';
 import { ChangeStoreStatusDto } from './dto/change-store-status.dto';
 import { UpsertMyStoreDto } from './dto/upsert-my-store.dto';
 import { ChangeStoreStatusUseCase } from './application/use-cases/change-store-status.use-case';
@@ -45,7 +44,7 @@ export class StoresController {
     private readonly changeStoreStatus: ChangeStoreStatusUseCase,
     private readonly setStoreLogo: SetStoreLogoUseCase,
     private readonly dashboard: StoreDashboardService,
-    @Inject(UPLOAD_PROVIDER) private readonly uploadProvider: UploadProvider,
+    private readonly uploads: UploadsService,
   ) {}
 
   @Get('me/identity')
@@ -111,7 +110,7 @@ export class StoresController {
 
   @Post('me/logo')
   @UseInterceptors(
-    FileInterceptor('file', LocalUploadProvider.createMulterOptions('image')),
+    FileInterceptor('file', createUploadOptions('image')),
   )
   async uploadLogo(
     @CurrentUser() user: AuthenticatedUser,
@@ -119,7 +118,12 @@ export class StoresController {
     @Req() request: Request,
   ) {
     if (!file) throw new BadRequestException('Envie um arquivo de imagem.');
-    const upload = this.uploadProvider.buildResponse(file, 'image', request);
-    return this.setStoreLogo.execute(user.id, upload.url);
+    const upload = await this.uploads.uploadImage(file, `${request.protocol}://${request.get('host')}`);
+    try {
+      return await this.setStoreLogo.execute(user.id, upload.url);
+    } catch (error) {
+      await this.uploads.remove(upload.objectKey);
+      throw error;
+    }
   }
 }

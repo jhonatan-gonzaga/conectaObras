@@ -1,56 +1,57 @@
 import { strict as assert } from 'node:assert';
 import { BadRequestException } from '@nestjs/common';
 import { describe, it } from 'node:test';
-import { Request } from 'express';
-import {
-  UploadProvider,
-  UploadResponse,
-} from '../src/modules/uploads/providers/upload-provider.interface';
+import { UploadFile, UploadProvider, UploadResponse } from '../src/modules/uploads/providers/upload-provider.interface';
 import { UploadsService } from '../src/modules/uploads/uploads.service';
 
+const jpeg: UploadFile = {
+  originalname: 'foto.txt', mimetype: 'image/jpeg',
+  buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]), size: 4,
+};
+
 describe('UploadsService', () => {
-  it('delega a resposta de imagem ao provedor configurado', () => {
-    const expectedResponse: UploadResponse = {
-      filename: 'arquivo.jpeg',
-      originalName: 'perfil.jpeg',
-      mimeType: 'image/jpeg',
-      size: 42,
-      url: 'https://api.example.com/uploads/images/arquivo.jpeg',
+  it('persiste bytes pelo provider, sem depender da extensao', async () => {
+    const expected: UploadResponse = {
+      filename: 'arquivo.jpg', originalName: 'foto.txt', mimeType: 'image/jpeg',
+      size: 4, url: 'https://api.example.com/uploads/images/arquivo.jpg', objectKey: 'images/arquivo.jpg',
     };
-    let receivedType: string | undefined;
+    let received: unknown;
     const provider: UploadProvider = {
-      buildResponse: (_file, type) => {
-        receivedType = type;
-        return expectedResponse;
+      save: async (file, type, baseUrl) => {
+        received = { file, type, baseUrl };
+        return expected;
       },
+      remove: async () => {},
     };
-    const service = new UploadsService(provider);
-
-    const result = service.uploadImage(
-      {
-        filename: 'arquivo.jpeg',
-        originalname: 'perfil.jpeg',
-        mimetype: 'image/jpeg',
-        size: 42,
-      } as Express.Multer.File,
-      {} as Request,
-    );
-
-    assert.equal(receivedType, 'image');
-    assert.deepEqual(result, expectedResponse);
+    const result = await new UploadsService(provider).uploadImage(jpeg, 'https://api.example.com');
+    assert.deepEqual(received, { file: jpeg, type: 'image', baseUrl: 'https://api.example.com' });
+    assert.deepEqual(result, expected);
   });
 
-  it('rejeita upload sem arquivo antes de chamar o provedor', () => {
+  it('rejeita arquivo ausente, MIME falso, assinatura falsa e tamanho acima de 5 MB', async () => {
+    let calls = 0;
     const service = new UploadsService({
-      buildResponse: () => {
-        throw new Error('O provedor nao deveria ser chamado.');
-      },
+      save: async () => { calls++; throw new Error('Nao deveria persistir.'); },
+      remove: async () => {},
     });
+    for (const file of [
+      undefined,
+      { ...jpeg, mimetype: 'image/gif' },
+      { ...jpeg, buffer: Buffer.from('fake'), size: 4 },
+      { ...jpeg, size: 5 * 1024 * 1024 + 1 },
+    ]) {
+      assert.throws(() => service.uploadImage(file, 'http://localhost'), BadRequestException);
+    }
+    assert.equal(calls, 0);
+  });
 
-    assert.throws(
-      () => service.uploadAudio(undefined as unknown as Express.Multer.File, {} as Request),
-      (error: unknown) =>
-        error instanceof BadRequestException && error.message === 'Audio nao enviado.',
-    );
+  it('aceita PNG pela assinatura e MIME correspondentes', async () => {
+    const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+    const service = new UploadsService({
+      save: async (file) => ({ filename: 'x.png', originalName: file.originalname, mimeType: file.mimetype,
+        size: file.size, url: '/x.png', objectKey: 'images/x.png' }),
+      remove: async () => {},
+    });
+    assert.equal((await service.uploadImage({ ...jpeg, mimetype: 'image/png', buffer: png, size: png.length }, '')).mimeType, 'image/png');
   });
 });

@@ -342,7 +342,7 @@ Regras: nome `2..120`, descrição até `1000`, telefone/WhatsApp em E.164 após
 
 `UpdateStoreStatusDto`: `{ "status": "ACTIVE" | "INACTIVE" }`.
 
-Logo usa `multipart/form-data`, campo `file`, somente JPEG/PNG, máximo 5 MB. O adapter retorna URL pública; o caso de uso recebe um arquivo abstrato e não conhece Multer.
+Logo usa `multipart/form-data`, campo `file`, somente JPEG/PNG, máximo 5 MB. O provider de upload persiste os bytes e retorna URL pública e chave privada do objeto; o caso de uso da loja recebe somente a URL.
 
 ### 4.2 Produto
 
@@ -366,6 +366,10 @@ Regras: nome `2..120`, SKU normalizado e até `64`, descrição até `1000`, pre
 - `AddProductImageDto`: multipart `file` e campo opcional `altText`; JPEG/PNG, 5 MB.
 - `ReorderProductImagesDto`: `{ "imageIds": ["id-1", "id-2"] }`, contendo exatamente todas as imagens do produto uma vez.
 - `SetCoverImageDto`: `{ "imageId": "id-1" }`.
+
+A galeria aceita no máximo 8 imagens por produto. O upload exige `image/jpeg` ou `image/png`, assinatura binária correspondente e até 5 MB; a extensão do nome enviado não determina o formato persistido. Imagens novas são acrescentadas ao fim (`position` começando em zero), e a primeira é capa. Reordenação exige todos os IDs atuais uma vez, e a capa não muda com a ordem. Ao excluir a capa, a primeira imagem restante passa a ser capa. Todas as alterações de metadados são transacionais e serializadas por bloqueio do produto. `objectKey` é interno e não aparece em `ProductImageResponse`.
+
+O armazenamento é uma porta com `save` e `remove`, usada após validar propriedade pelo JWT. Se a associação falhar, o upload recém-salvo é removido. Na exclusão, o registro é removido em transação antes da tentativa de apagar o objeto, e objetos ainda referenciados por outra imagem são preservados. Falhas de limpeza são registradas com a chave para reconciliação; a rotina operacional deve comparar chaves de `uploads/images` com `product_images.objectKey` e URLs em outras entidades (inclusive logos), preservar arquivos referenciados e apagar apenas órfãos antigos após período de segurança. Para trocar o armazenamento local por S3/Cloudinary, substituir o provider e a entrega pública das URLs, sem alterar as rotas nem o serviço da galeria.
 
 ### 4.3 Promoção
 

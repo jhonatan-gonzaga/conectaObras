@@ -1,8 +1,8 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import { Request } from 'express';
-import { UPLOAD_CONFIG } from './upload.config';
+import { Inject, Injectable } from '@nestjs/common';
+import { validateUpload } from './upload.config';
 import {
   UPLOAD_PROVIDER,
+  UploadFile,
   UploadProvider,
   UploadType,
 } from './providers/upload-provider.interface';
@@ -14,23 +14,20 @@ export class UploadsService {
     private readonly uploadProvider: UploadProvider,
   ) {}
 
-  uploadImage(file: Express.Multer.File, request: Request) {
-    return this.upload(file, 'image', request);
+  uploadImage(file: UploadFile | undefined, publicBaseUrl: string) {
+    return this.upload(file, 'image', publicBaseUrl);
   }
 
-  uploadAudio(file: Express.Multer.File, request: Request) {
-    return this.upload(file, 'audio', request);
+  uploadAudio(file: UploadFile | undefined, publicBaseUrl: string) {
+    return this.upload(file, 'audio', publicBaseUrl);
   }
 
-  private upload(
-    file: Express.Multer.File,
-    type: UploadType,
-    request: Request,
-  ) {
-    if (!file) {
-      throw new BadRequestException(UPLOAD_CONFIG[type].missingFileMessage);
-    }
+  remove(objectKey: string) {
+    return this.uploadProvider.remove(objectKey);
+  }
 
-    return this.uploadProvider.buildResponse(file, type, request);
+  private upload(file: UploadFile | undefined, type: UploadType, publicBaseUrl: string) {
+    validateUpload(file, type);
+    return this.uploadProvider.save(file, type, publicBaseUrl);
   }
 }
