@@ -36,7 +36,7 @@ function FilterChip({ label, selected, onPress }: { label: string; selected: boo
 function ProductCard({ product, onChanged, onEdit, onArchive, onSuccess, onDetails, onImage }: {
   product: StoreProduct; onChanged: (value: StoreProduct) => void; onEdit: () => void;
   onArchive: () => void; onSuccess: (message: string) => void;
-  onDetails: () => void; onImage: (uri: string) => void;
+  onDetails: () => void; onImage: (images: string[], initialIndex: number) => void;
 }) {
   const [price, setPrice] = useState(product.price.replace(".", ","));
   const [stock, setStock] = useState(String(product.stock));
@@ -76,7 +76,7 @@ function ProductCard({ product, onChanged, onEdit, onArchive, onSuccess, onDetai
   const cover = product.images.find((image) => image.isCover) ?? product.images[0];
   return <View className="mb-3 rounded-[18px] bg-card p-4 shadow-sm shadow-primary/10">
     <View className="flex-row gap-3">
-      {cover ? <Pressable accessibilityRole="button" accessibilityLabel={`Ampliar foto de ${product.name}`} onPress={() => onImage(cover.url)}><Image source={{ uri: cover.url }} className="h-16 w-16 rounded-xl bg-[#e7eefc]" resizeMode="cover" /></Pressable>
+      {cover ? <Pressable accessibilityRole="button" accessibilityLabel={`Ampliar foto de ${product.name}`} onPress={() => onImage(product.images.map((image) => image.url), Math.max(0, product.images.findIndex((image) => image.id === cover.id)))}><Image source={{ uri: cover.url }} className="h-16 w-16 rounded-xl bg-[#e7eefc]" resizeMode="cover" /></Pressable>
         : <View className="h-16 w-16 items-center justify-center rounded-xl bg-[#e7eefc]"><Ionicons name="cube-outline" size={26} color="#897171" /></View>}
       <View className="min-w-0 flex-1">
         <View className="flex-row items-start justify-between gap-1">
@@ -129,7 +129,8 @@ export function StoreProductsScreen({ filters, onChangeFilters, initialNotice, o
   const [notice, setNotice] = useState<string | null>(initialNotice ?? null);
   const [archiveTarget, setArchiveTarget] = useState<StoreProduct | null>(null);
   const [detailsId, setDetailsId] = useState<string | null>(null);
-  const [viewImage, setViewImage] = useState<string | null>(null);
+  const [viewImages, setViewImages] = useState<string[]>([]);
+  const [viewIndex, setViewIndex] = useState(0);
   const [archiving, setArchiving] = useState(false);
   const archiveRef = useRef(false);
   const requestId = useRef(0);
@@ -205,7 +206,7 @@ export function StoreProductsScreen({ filters, onChangeFilters, initialNotice, o
         {loading ? <View className="items-center py-12"><ActivityIndicator color="#b94b50" /><Text className="mt-3 text-sm text-muted-foreground">Carregando produtos...</Text></View>
           : error && !items.length ? <View className="items-center rounded-2xl bg-card p-6"><Text accessibilityRole="alert" className="text-center text-primary">{error}</Text><Pressable accessibilityRole="button" onPress={() => void load(1)} className="mt-3 rounded-full bg-primary px-5 py-2"><Text className="font-semibold text-white">Tentar novamente</Text></Pressable></View>
           : items.length === 0 ? <View className="items-center rounded-2xl bg-card p-7"><Ionicons name="cube-outline" size={32} color="#b94b50" /><Text className="mt-3 text-center font-semibold text-foreground">Nenhum produto encontrado</Text><Text className="mt-1 text-center text-sm text-muted-foreground">Ajuste os filtros ou cadastre um produto.</Text></View>
-          : items.map((product) => <ProductCard key={product.id} product={product} onChanged={(updated) => setItems((old) => old.map((item) => item.id === updated.id ? updated : item))} onEdit={() => onEdit(product.id)} onArchive={() => setArchiveTarget(product)} onSuccess={setNotice} onDetails={() => setDetailsId(product.id)} onImage={setViewImage} />)}
+          : items.map((product) => <ProductCard key={product.id} product={product} onChanged={(updated) => setItems((old) => old.map((item) => item.id === updated.id ? updated : item))} onEdit={() => onEdit(product.id)} onArchive={() => setArchiveTarget(product)} onSuccess={setNotice} onDetails={() => setDetailsId(product.id)} onImage={(images, index) => { setViewImages(images); setViewIndex(index); }} />)}
         {error && items.length > 0 ? <Text accessibilityRole="alert" className="mb-3 text-sm text-primary">{error}</Text> : null}
         {!loading && items.length < total ? <Pressable accessibilityRole="button" disabled={loadingMore} onPress={() => void load(page + 1, true)} className="min-h-11 items-center justify-center rounded-full bg-card"><Text className="font-semibold text-primary">{loadingMore ? "Carregando..." : "Carregar mais"}</Text></Pressable> : null}
       </View>
@@ -217,14 +218,14 @@ export function StoreProductsScreen({ filters, onChangeFilters, initialNotice, o
         {details ? <ScrollView showsVerticalScrollIndicator={false}>
           <Text className="text-xl font-semibold text-foreground">{details.name}</Text>
           <Text className="mt-1 text-sm font-semibold" style={{ color: availability(details).color }}>● {availability(details).label}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="my-4">{details.images.map((image, index) => <Pressable key={image.id} accessibilityRole="button" accessibilityLabel={`Ampliar foto ${index + 1} de ${details.name}`} onPress={() => setViewImage(image.url)} className="mr-2"><Image source={{ uri: image.url }} className="h-28 w-28 rounded-xl bg-[#e7eefc]" resizeMode="cover" /></Pressable>)}</ScrollView>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="my-4">{details.images.map((image, index) => <Pressable key={image.id} accessibilityRole="button" accessibilityLabel={`Ampliar foto ${index + 1} de ${details.name}`} onPress={() => { setViewImages(details.images.map((entry) => entry.url)); setViewIndex(index); }} className="mr-2"><Image source={{ uri: image.url }} className="h-28 w-28 rounded-xl bg-[#e7eefc]" resizeMode="cover" /></Pressable>)}</ScrollView>
           <View className="rounded-xl bg-[#fbf6f7] p-4"><Text className="text-sm text-foreground">Preço: R$ {details.price.replace(".", ",")}</Text><Text className="mt-2 text-sm text-foreground">Estoque: {details.stock} unidades</Text><Text className="mt-2 text-sm text-foreground">Categoria: {categories.find((category) => category.id === details.categoryId)?.name ?? "Categoria indisponível"}</Text><Text className="mt-2 text-sm text-foreground">Status: {statusLabels[details.status]}</Text>{details.sku ? <Text className="mt-2 text-sm text-foreground">SKU: {details.sku}</Text> : null}</View>
           <Text className="mt-4 text-sm font-semibold text-foreground">Descrição</Text><Text className="mt-1 text-sm leading-5 text-muted-foreground">{details.description || "Sem descrição."}</Text>
           <Pressable accessibilityRole="button" accessibilityLabel={`${details.status === "ARCHIVED" ? "Restaurar" : "Editar detalhes de"} ${details.name}`} onPress={() => { setDetailsId(null); onEdit(details.id); }} className="mt-5 min-h-12 items-center justify-center rounded-full bg-primary"><Text className="font-semibold text-white">{details.status === "ARCHIVED" ? "Restaurar produto" : "Editar produto"}</Text></Pressable>
         </ScrollView> : null}
       </View></View>
     </Modal>
-    <ProductImageViewer uri={viewImage} onClose={() => setViewImage(null)} />
+    <ProductImageViewer images={viewImages} initialIndex={viewIndex} onClose={() => setViewImages([])} />
     <Modal visible={Boolean(archiveTarget)} transparent animationType="fade" onRequestClose={() => { if (!archiving) setArchiveTarget(null); }}>
       <View className="flex-1 justify-center bg-black/40 px-6"><View className="rounded-[22px] bg-card p-6">
         <View className="h-12 w-12 items-center justify-center rounded-full bg-[#ffdad6]"><Ionicons name="archive-outline" size={25} color="#ba1a1a" /></View>

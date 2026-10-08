@@ -42,7 +42,8 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
   const [confirmExit, setConfirmExit] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [viewImage, setViewImage] = useState<string | null>(null);
+  const [viewImages, setViewImages] = useState<string[]>([]);
+  const [viewIndex, setViewIndex] = useState(0);
   const [galleryChanged, setGalleryChanged] = useState(false);
   const currentId = useRef<string | null>(productId);
   const initialForm = useRef<ProductForm>(emptyProductForm());
@@ -259,7 +260,7 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
       <Text className="mb-3 text-xs text-muted-foreground">Foto de capa obrigatória para ativar.</Text>
       <View className="mb-3 flex-row flex-wrap gap-2">
         {images.map((image, index) => <View key={image.id} className={`w-[31%] overflow-hidden rounded-xl border-2 bg-card ${image.isCover ? "border-primary" : "border-[#f1e5e7]"}`}>
-          <Pressable accessibilityRole="button" accessibilityLabel={`Ampliar foto ${index + 1}`} onPress={() => setViewImage(image.url)}><Image source={{ uri: image.url }} className="h-24 w-full bg-[#e7eefc]" resizeMode="cover" /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Ampliar foto ${index + 1}`} onPress={() => { setViewImages([...images.map((entry) => entry.url), ...pending.map((entry) => entry.asset.uri)]); setViewIndex(index); }}><Image source={{ uri: image.url }} className="h-24 w-full bg-[#e7eefc]" resizeMode="cover" /></Pressable>
           <Text numberOfLines={1} className="px-2 pt-1 text-[10px] font-semibold text-foreground">{image.isCover ? "CAPA" : `Foto ${index + 1}`}</Text>
           <View className="flex-row justify-between px-1 pb-1">
             <Pressable accessibilityRole="button" accessibilityLabel={`Mover foto ${index + 1} para esquerda`} disabled={busyGallery || index === 0} onPress={() => void moveImage(index, -1)} className="p-1"><Ionicons name="arrow-back" size={16} color="#897171" /></Pressable>
@@ -269,7 +270,7 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
           </View>
         </View>)}
         {pending.map((item, index) => <View key={item.key} className={`w-[31%] overflow-hidden rounded-xl border-2 bg-card ${selectedCover === item.key ? "border-primary" : "border-[#f1e5e7]"}`}>
-          <Pressable accessibilityRole="button" accessibilityLabel={`Ampliar foto pendente ${index + 1}`} onPress={() => setViewImage(item.asset.uri)}><Image source={{ uri: item.asset.uri }} className="h-24 w-full bg-[#e7eefc]" resizeMode="cover" /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Ampliar foto pendente ${index + 1}`} onPress={() => { setViewImages([...images.map((entry) => entry.url), ...pending.map((entry) => entry.asset.uri)]); setViewIndex(images.length + index); }}><Image source={{ uri: item.asset.uri }} className="h-24 w-full bg-[#e7eefc]" resizeMode="cover" /></Pressable>
           <Text numberOfLines={1} className="px-2 pt-1 text-[10px] text-foreground">{item.asset.fileName || `Foto ${index + 1}`}</Text>
           {item.uploading ? <Text className="px-2 pb-1 text-[10px] text-primary">Enviando {item.progress}%</Text>
             : item.error ? <View className="flex-row items-center justify-between px-2 pb-1"><Pressable accessibilityRole="button" accessibilityLabel={`Tentar novamente foto ${index + 1}`} onPress={() => void retryPhoto(item)}><Text className="text-[10px] font-semibold text-[#ba1a1a]">Tentar novamente</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Remover foto pendente ${index + 1}`} onPress={() => setPhotoToRemove({ kind: "pending", key: item.key })}><Ionicons name="close" size={17} color="#ba1a1a" /></Pressable></View>
@@ -300,7 +301,7 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
       <Text className="text-xl font-semibold text-foreground">Apagar foto?</Text><Text className="mt-2 text-sm text-muted-foreground">Essa foto será removida do produto. Deseja continuar?</Text>
       <View className="mt-6 flex-row gap-3"><Pressable accessibilityRole="button" accessibilityLabel="Cancelar remoção" onPress={() => setPhotoToRemove(null)} className="min-h-11 flex-1 items-center justify-center rounded-full bg-[#f7ecee]"><Text className="font-semibold text-foreground">Cancelar</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Confirmar remoção da foto" onPress={() => void confirmRemovePhoto()} className="min-h-11 flex-1 items-center justify-center rounded-full bg-primary"><Text className="font-semibold text-white">Apagar foto</Text></Pressable></View>
     </View></View></Modal>
-    <ProductImageViewer uri={viewImage} onClose={() => setViewImage(null)} />
+    <ProductImageViewer images={viewImages} initialIndex={viewIndex} onClose={() => setViewImages([])} />
     <Modal visible={confirmExit} transparent animationType="fade" onRequestClose={() => setConfirmExit(false)}><View className="flex-1 justify-center bg-black/40 px-6"><View className="rounded-[22px] bg-card p-6">
       <Text className="text-xl font-semibold text-foreground">Sair da edição?</Text><Text className="mt-2 text-sm leading-5 text-muted-foreground">Você alterou este produto. Campos não salvos serão perdidos; alterações nas fotos já aplicadas permanecem.</Text>
       <View className="mt-6 flex-row gap-3"><Pressable accessibilityRole="button" accessibilityLabel="Continuar editando" onPress={() => setConfirmExit(false)} className="min-h-11 flex-1 items-center justify-center rounded-full bg-[#f7ecee]"><Text className="font-semibold text-foreground">Continuar</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Confirmar saída da edição" onPress={() => { setConfirmExit(false); onBack(); }} className="min-h-11 flex-1 items-center justify-center rounded-full bg-primary"><Text className="font-semibold text-white">Sair</Text></Pressable></View>
