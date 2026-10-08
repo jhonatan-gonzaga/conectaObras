@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { ImagePickerAsset } from "expo-image-picker";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, BackHandler, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import { ApiError, api } from "../../services/api";
 import { pickProductImage } from "../../services/image-upload";
 import { emptyProductForm, productPayload, productToForm, validateProductForm, type ProductCategory, type ProductForm, type ProductFormErrors, type ProductImage, type StoreProduct } from "../../services/store-products";
 
 type PendingImage = { key: string; asset: ImagePickerAsset; progress: number; uploading: boolean; error?: string };
+type PhotoToRemove = { kind: "saved"; image: ProductImage } | { kind: "pending"; key: string };
 
 function FormField({ label, value, onChangeText, placeholder, error, required, keyboardType, multiline }: {
   label: string; value: string; onChangeText: (value: string) => void; placeholder?: string;
@@ -36,7 +37,11 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [photoToRemove, setPhotoToRemove] = useState<PhotoToRemove | null>(null);
+  const [confirmExit, setConfirmExit] = useState(false);
+  const [galleryChanged, setGalleryChanged] = useState(false);
   const currentId = useRef<string | null>(productId);
+  const initialForm = useRef<ProductForm>(emptyProductForm());
   const savingRef = useRef(false);
   const galleryRef = useRef(false);
 
@@ -47,7 +52,9 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
     if (productId) {
       api.storeProduct(productId).then((value) => {
         if (!alive) return;
-        setProduct(value); setForm(productToForm(value)); setImages(value.images);
+        const loadedForm = productToForm(value);
+        initialForm.current = loadedForm;
+        setProduct(value); setForm(loadedForm); setImages(value.images);
         setSelectedCover(value.images.find((image) => image.isCover)?.id ?? null);
       }).catch((cause) => { if (alive) setError(cause instanceof ApiError ? cause.message : "Não foi possível carregar o produto."); })
         .finally(() => { if (alive) setLoading(false); });
@@ -68,6 +75,7 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
         setPending((old) => old.map((entry) => entry.key === item.key ? { ...entry, progress } : entry));
       });
       setImages((old) => [...old, image].sort((a, b) => a.position - b.position));
+      setGalleryChanged(true);
       setPending((old) => old.filter((entry) => entry.key !== item.key));
       if (selectedCover === item.key) {
         try {
@@ -119,12 +127,14 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
     await api.removeStoreProductImage(currentId.current, image.id);
     const refreshed = await api.storeProduct(currentId.current);
     setImages(refreshed.images); setSelectedCover(refreshed.images.find((entry) => entry.isCover)?.id ?? null);
+    setGalleryChanged(true);
   });
 
   const coverImage = (image: ProductImage) => galleryAction(async () => {
     if (!currentId.current) return;
     const ordered = await api.setStoreProductCover(currentId.current, image.id);
     setImages(ordered); setSelectedCover(image.id);
+    setGalleryChanged(true);
   });
 
   const moveImage = (index: number, direction: -1 | 1) => galleryAction(async () => {
@@ -132,7 +142,20 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
     const ids = images.map((image) => image.id);
     [ids[index], ids[index + direction]] = [ids[index + direction], ids[index]];
     setImages(await api.reorderStoreProductImages(currentId.current, ids));
+    setGalleryChanged(true);
   });
+
+  const confirmRemovePhoto = async () => {
+    if (!photoToRemove || galleryRef.current || savingRef.current) return;
+    const target = photoToRemove;
+    setPhotoToRemove(null);
+    if (target.kind === "saved") await removeImage(target.image);
+    else {
+      setPending((old) => old.filter((entry) => entry.key !== target.key));
+      if (selectedCover === target.key) setSelectedCover(images.find((entry) => entry.isCover)?.id ?? null);
+      setPhotoError(null);
+    }
+  };
 
   const save = async () => {
     if (savingRef.current || busyGallery || pending.some((item) => item.uploading)) return;
@@ -169,7 +192,9 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
     savingRef.current = true; setSaving(true); setError(null);
     try {
       const restored = await api.setStoreProductStatus(currentId.current, status);
-      setProduct(restored); setForm(productToForm(restored));
+      const restoredForm = productToForm(restored);
+      initialForm.current = restoredForm;
+      setProduct(restored); setForm(restoredForm);
       setNotice(status === "ACTIVE" ? "Produto reativado para venda." : "Produto restaurado. Agora você pode editá-lo.");
     } catch (cause) {
       const pending = cause instanceof ApiError ? cause.details?.pending : undefined;
@@ -181,6 +206,17 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
         : cause instanceof Error ? cause.message : "Não foi possível restaurar o produto.");
     } finally { savingRef.current = false; setSaving(false); }
   };
+
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(initialForm.current) || pending.length > 0 || galleryChanged;
+  const requestBack = () => {
+    if (savingRef.current || galleryRef.current || pending.some((item) => item.uploading)) return;
+    if (hasChanges) setConfirmExit(true);
+    else onBack();
+  };
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => { requestBack(); return true; });
+    return () => subscription.remove();
+  });
 
   if (loading) return <View className="flex-1 items-center justify-center bg-background"><ActivityIndicator color="#b94b50" /><Text className="mt-3 text-muted-foreground">Carregando produto...</Text></View>;
   if (product?.status === "ARCHIVED") return <View className="flex-1 items-center justify-center bg-background px-6">
@@ -196,7 +232,7 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
 
   return <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="w-full max-w-[560px] flex-1 bg-[#fbf6f7]">
     <View className="flex-row items-center justify-between border-b border-[#f1e5e7] px-4 py-3">
-      <Pressable accessibilityRole="button" accessibilityLabel="Voltar aos produtos" onPress={onBack} className="h-10 w-10 items-center justify-center rounded-full bg-card"><Ionicons name="arrow-back" size={20} color="#0f1720" /></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Voltar aos produtos" onPress={requestBack} className="h-10 w-10 items-center justify-center rounded-full bg-card"><Ionicons name="arrow-back" size={20} color="#0f1720" /></Pressable>
       <Text className="text-base font-bold text-foreground">{currentId.current ? "Editar Produto" : "Novo Produto"}</Text>
       <View className="w-10" />
     </View>
@@ -213,15 +249,15 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
             <Pressable accessibilityRole="button" accessibilityLabel={`Mover foto ${index + 1} para esquerda`} disabled={busyGallery || index === 0} onPress={() => void moveImage(index, -1)} className="p-1"><Ionicons name="arrow-back" size={16} color="#897171" /></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={`Mover foto ${index + 1} para direita`} disabled={busyGallery || index === images.length - 1} onPress={() => void moveImage(index, 1)} className="p-1"><Ionicons name="arrow-forward" size={16} color="#897171" /></Pressable>
             {!image.isCover ? <Pressable accessibilityRole="button" accessibilityLabel={`Definir foto ${index + 1} como capa`} disabled={busyGallery} onPress={() => void coverImage(image)} className="p-1"><Ionicons name="star-outline" size={16} color="#b94b50" /></Pressable> : null}
-            <Pressable accessibilityRole="button" accessibilityLabel={`Remover foto ${index + 1}`} disabled={busyGallery} onPress={() => void removeImage(image)} className="p-1"><Ionicons name="close" size={17} color="#ba1a1a" /></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Remover foto ${index + 1}`} disabled={busyGallery} onPress={() => setPhotoToRemove({ kind: "saved", image })} className="p-1"><Ionicons name="close" size={17} color="#ba1a1a" /></Pressable>
           </View>
         </View>)}
         {pending.map((item, index) => <View key={item.key} className={`w-[31%] overflow-hidden rounded-xl border-2 bg-card ${selectedCover === item.key ? "border-primary" : "border-[#f1e5e7]"}`}>
           <Image source={{ uri: item.asset.uri }} className="h-24 w-full bg-[#e7eefc]" resizeMode="cover" />
           <Text numberOfLines={1} className="px-2 pt-1 text-[10px] text-foreground">{item.asset.fileName || `Foto ${index + 1}`}</Text>
           {item.uploading ? <Text className="px-2 pb-1 text-[10px] text-primary">Enviando {item.progress}%</Text>
-            : item.error ? <Pressable accessibilityRole="button" accessibilityLabel={`Tentar novamente foto ${index + 1}`} onPress={() => void retryPhoto(item)} className="px-2 pb-1"><Text className="text-[10px] font-semibold text-[#ba1a1a]">Tentar novamente</Text></Pressable>
-            : <View className="flex-row justify-between px-1 pb-1"><Pressable accessibilityRole="button" accessibilityLabel={`Mover foto pendente ${index + 1} para esquerda`} disabled={index === 0} onPress={() => setPending((old) => { const next = [...old]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; return next; })} className="p-1"><Ionicons name="arrow-back" size={15} color="#897171" /></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Mover foto pendente ${index + 1} para direita`} disabled={index === pending.length - 1} onPress={() => setPending((old) => { const next = [...old]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; return next; })} className="p-1"><Ionicons name="arrow-forward" size={15} color="#897171" /></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Definir foto pendente ${index + 1} como capa`} onPress={() => setSelectedCover(item.key)} className="p-1"><Ionicons name="star-outline" size={16} color="#b94b50" /></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Remover foto pendente ${index + 1}`} onPress={() => { setPending((old) => old.filter((entry) => entry.key !== item.key)); if (selectedCover === item.key) setSelectedCover(images.find((entry) => entry.isCover)?.id ?? null); }} className="p-1"><Ionicons name="close" size={17} color="#ba1a1a" /></Pressable></View>}
+            : item.error ? <View className="flex-row items-center justify-between px-2 pb-1"><Pressable accessibilityRole="button" accessibilityLabel={`Tentar novamente foto ${index + 1}`} onPress={() => void retryPhoto(item)}><Text className="text-[10px] font-semibold text-[#ba1a1a]">Tentar novamente</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Remover foto pendente ${index + 1}`} onPress={() => setPhotoToRemove({ kind: "pending", key: item.key })}><Ionicons name="close" size={17} color="#ba1a1a" /></Pressable></View>
+            : <View className="flex-row justify-between px-1 pb-1"><Pressable accessibilityRole="button" accessibilityLabel={`Mover foto pendente ${index + 1} para esquerda`} disabled={index === 0} onPress={() => setPending((old) => { const next = [...old]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; return next; })} className="p-1"><Ionicons name="arrow-back" size={15} color="#897171" /></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Mover foto pendente ${index + 1} para direita`} disabled={index === pending.length - 1} onPress={() => setPending((old) => { const next = [...old]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; return next; })} className="p-1"><Ionicons name="arrow-forward" size={15} color="#897171" /></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Definir foto pendente ${index + 1} como capa`} onPress={() => setSelectedCover(item.key)} className="p-1"><Ionicons name="star-outline" size={16} color="#b94b50" /></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Remover foto pendente ${index + 1}`} onPress={() => setPhotoToRemove({ kind: "pending", key: item.key })} className="p-1"><Ionicons name="close" size={17} color="#ba1a1a" /></Pressable></View>}
         </View>)}
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="Adicionar foto" disabled={images.length + pending.length >= 8 || busyGallery || saving || pending.some((item) => item.uploading)} onPress={() => void addPhoto()} className="mb-2 items-center rounded-[16px] border-2 border-dashed border-[#e6d5d8] bg-card p-5">
@@ -237,11 +273,19 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
         {errors.categoryId ? <Text accessibilityRole="alert" className="mb-3 text-xs text-[#ba1a1a]">{errors.categoryId}</Text> : null}
         <FormField label="Código (SKU)" value={form.sku} onChangeText={(value) => change("sku", value)} placeholder="Ex: FUR-710-110V" error={errors.sku} />
         <FormField label="Descrição" value={form.description} onChangeText={(value) => change("description", value)} placeholder="Marca, voltagem, material, tamanho..." multiline error={errors.description} />
-        <View className="mb-4 flex-row items-center justify-between rounded-[16px] bg-card p-4"><View className="min-w-0 flex-1 pr-3"><Text className="text-sm font-bold text-foreground">Disponível para venda</Text><Text className="mt-1 text-xs text-muted-foreground">Ative para exibir o produto no catálogo da loja</Text></View><Switch accessibilityLabel="Disponível para venda" value={form.active} onValueChange={(value) => change("active", value)} trackColor={{ true: "#b94b50" }} /></View>
+        <View className="mb-4 flex-row items-center justify-between rounded-[16px] bg-card p-4"><View className="min-w-0 flex-1 pr-3"><Text className="text-sm font-bold text-foreground">Disponível para venda</Text><Text className="mt-1 text-xs text-muted-foreground">Ative para exibir o produto no catálogo da loja</Text></View><Switch accessibilityLabel="Disponível para venda" value={form.active} onValueChange={(value) => change("active", value)} trackColor={{ false: "#e4d7d9", true: "#f0b9bd" }} thumbColor={form.active ? "#b94b50" : "#f8f4f4"} ios_backgroundColor="#e4d7d9" /></View>
       </View>
     </ScrollView>
     <View className="border-t border-[#f1e5e7] bg-[#fbf6f7] p-4"><Pressable accessibilityRole="button" accessibilityLabel="Salvar produto" disabled={saving || busyGallery || pending.some((item) => item.uploading)} onPress={() => void save()} className={`min-h-[52px] flex-row items-center justify-center gap-2 rounded-[16px] ${saving ? "bg-[#d48b8e]" : "bg-primary"}`}>
       {saving ? <ActivityIndicator color="#fff" /> : <Ionicons name="checkmark" size={21} color="#fff" />}<Text className="text-base font-semibold text-white">{saving ? "Salvando dados..." : "Salvar Produto"}</Text>
     </Pressable></View>
+    <Modal visible={Boolean(photoToRemove)} transparent animationType="fade" onRequestClose={() => setPhotoToRemove(null)}><View className="flex-1 justify-center bg-black/40 px-6"><View className="rounded-[22px] bg-card p-6">
+      <Text className="text-xl font-semibold text-foreground">Apagar foto?</Text><Text className="mt-2 text-sm text-muted-foreground">Essa foto será removida do produto. Deseja continuar?</Text>
+      <View className="mt-6 flex-row gap-3"><Pressable accessibilityRole="button" accessibilityLabel="Cancelar remoção" onPress={() => setPhotoToRemove(null)} className="min-h-11 flex-1 items-center justify-center rounded-full bg-[#f7ecee]"><Text className="font-semibold text-foreground">Cancelar</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Confirmar remoção da foto" onPress={() => void confirmRemovePhoto()} className="min-h-11 flex-1 items-center justify-center rounded-full bg-primary"><Text className="font-semibold text-white">Apagar foto</Text></Pressable></View>
+    </View></View></Modal>
+    <Modal visible={confirmExit} transparent animationType="fade" onRequestClose={() => setConfirmExit(false)}><View className="flex-1 justify-center bg-black/40 px-6"><View className="rounded-[22px] bg-card p-6">
+      <Text className="text-xl font-semibold text-foreground">Sair da edição?</Text><Text className="mt-2 text-sm leading-5 text-muted-foreground">Você alterou este produto. Campos não salvos serão perdidos; alterações nas fotos já aplicadas permanecem.</Text>
+      <View className="mt-6 flex-row gap-3"><Pressable accessibilityRole="button" accessibilityLabel="Continuar editando" onPress={() => setConfirmExit(false)} className="min-h-11 flex-1 items-center justify-center rounded-full bg-[#f7ecee]"><Text className="font-semibold text-foreground">Continuar</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Confirmar saída da edição" onPress={() => { setConfirmExit(false); onBack(); }} className="min-h-11 flex-1 items-center justify-center rounded-full bg-primary"><Text className="font-semibold text-white">Sair</Text></Pressable></View>
+    </View></View></Modal>
   </KeyboardAvoidingView>;
 }

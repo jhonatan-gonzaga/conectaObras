@@ -109,6 +109,7 @@ function ProductCard({ product, onChanged, onEdit, onArchive, onSuccess, onDetai
     </View>
     {errors.price ? <Text accessibilityRole="alert" className="mt-1 text-xs text-[#ba1a1a]">{errors.price}</Text> : null}
     {errors.stock ? <Text accessibilityRole="alert" className="mt-1 text-xs text-[#ba1a1a]">{errors.stock}</Text> : null}
+    <Pressable accessibilityRole="button" accessibilityLabel={`Ver informações de ${product.name}`} onPress={onDetails} className="mt-3 min-h-9 flex-row items-center justify-center gap-1 border-t border-[#f1e5e7] pt-2"><Text className="text-xs font-semibold text-primary">Ver informações do produto</Text><Ionicons name="chevron-forward" size={15} color="#99333a" /></Pressable>
   </View>;
 }
 

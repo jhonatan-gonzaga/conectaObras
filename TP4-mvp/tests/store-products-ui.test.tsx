@@ -61,9 +61,12 @@ describe("Store products screens", () => {
     const screen = render(<StoreProductsScreen filters={filters} onChangeFilters={jest.fn()} onBack={jest.fn()} onCreate={jest.fn()} onEdit={jest.fn()} onOpenOrders={onOrders} />);
     await waitFor(() => expect(screen.getByLabelText("Ver detalhes de Furadeira")).toBeTruthy());
     expect(screen.getByText("● Disponível para venda")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Ampliar foto de Furadeira"));
+    expect(screen.getByLabelText("Foto do produto em tela cheia")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Fechar imagem"));
     fireEvent.press(screen.getByLabelText("Pedidos"));
     expect(onOrders).toHaveBeenCalledTimes(1);
-    fireEvent.press(screen.getByLabelText("Ver detalhes de Furadeira"));
+    fireEvent.press(screen.getByLabelText("Ver informações de Furadeira"));
     expect(screen.getByText("Detalhes do produto")).toBeTruthy();
     expect(screen.getByText("Categoria: Ferramentas")).toBeTruthy();
     fireEvent.press(screen.getByLabelText("Ampliar foto 1 de Furadeira"));
@@ -115,6 +118,31 @@ describe("Store products screens", () => {
     fireEvent.press(screen.getByLabelText("Salvar produto"));
     await waitFor(() => expect(update).toHaveBeenCalledWith(product.id, expect.objectContaining({ name: "Furadeira 710W" })));
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith("Produto atualizado com sucesso."));
+  });
+
+  it("confirms leaving an edited product with unsaved changes", async () => {
+    jest.spyOn(api, "storeProduct").mockResolvedValue(product);
+    const onBack = jest.fn();
+    const screen = render(<StoreProductFormScreen productId={product.id} onBack={onBack} onSaved={jest.fn()} />);
+    await waitFor(() => expect(screen.getByLabelText("Nome do Produto")).toBeTruthy());
+    fireEvent.changeText(screen.getByLabelText("Nome do Produto"), "Furadeira nova");
+    fireEvent.press(screen.getByLabelText("Voltar aos produtos"));
+    expect(onBack).not.toHaveBeenCalled();
+    expect(screen.getByText("Sair da edição?")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Continuar editando"));
+    expect(onBack).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByLabelText("Voltar aos produtos"));
+    fireEvent.press(screen.getByLabelText("Confirmar saída da edição"));
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves an unchanged product directly", async () => {
+    jest.spyOn(api, "storeProduct").mockResolvedValue(product);
+    const onBack = jest.fn();
+    const screen = render(<StoreProductFormScreen productId={product.id} onBack={onBack} onSaved={jest.fn()} />);
+    await waitFor(() => expect(screen.getByLabelText("Disponível para venda")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Voltar aos produtos"));
+    expect(onBack).toHaveBeenCalledTimes(1);
   });
 
   it("restores an archived product before editing and can reactivate it", async () => {
@@ -193,6 +221,11 @@ describe("Store products screens", () => {
     await waitFor(() => expect(reorder).toHaveBeenCalledWith(product.id, ["image-2", "image-1"]));
     await waitFor(() => expect(screen.getByLabelText("Remover foto 1")).toBeTruthy());
     fireEvent.press(screen.getByLabelText("Remover foto 1"));
+    expect(remove).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByLabelText("Cancelar remoção"));
+    expect(remove).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByLabelText("Remover foto 1"));
+    fireEvent.press(screen.getByLabelText("Confirmar remoção da foto"));
     await waitFor(() => expect(remove).toHaveBeenCalledWith(product.id, "image-2"));
   });
 });
