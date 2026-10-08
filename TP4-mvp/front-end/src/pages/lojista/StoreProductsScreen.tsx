@@ -82,7 +82,7 @@ function ProductCard({ product, onChanged, onEdit, onArchive, onSuccess, onDetai
         <View className="flex-row items-start justify-between gap-1">
           <View className="rounded-full bg-[#f7ecee] px-2 py-0.5"><Text className="text-[11px] font-semibold text-foreground">{statusLabels[product.status]}</Text></View>
           <View className="flex-row gap-1">
-            <Pressable accessibilityRole="button" accessibilityLabel={`Editar ${product.name}`} onPress={onEdit} className="h-8 w-8 items-center justify-center"><Ionicons name="create-outline" size={19} color="#564241" /></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`${product.status === "ARCHIVED" ? "Restaurar" : "Editar"} ${product.name}`} onPress={onEdit} className="h-8 w-8 items-center justify-center"><Ionicons name={product.status === "ARCHIVED" ? "refresh-outline" : "create-outline"} size={19} color="#564241" /></Pressable>
             {product.status !== "ARCHIVED" ? <Pressable accessibilityRole="button" accessibilityLabel={`Arquivar ${product.name}`} onPress={onArchive} className="h-8 w-8 items-center justify-center"><Ionicons name="archive-outline" size={19} color="#564241" /></Pressable> : null}
           </View>
         </View>
@@ -219,7 +219,7 @@ export function StoreProductsScreen({ filters, onChangeFilters, initialNotice, o
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="my-4">{details.images.map((image, index) => <Pressable key={image.id} accessibilityRole="button" accessibilityLabel={`Ampliar foto ${index + 1} de ${details.name}`} onPress={() => setViewImage(image.url)} className="mr-2"><Image source={{ uri: image.url }} className="h-28 w-28 rounded-xl bg-[#e7eefc]" resizeMode="cover" /></Pressable>)}</ScrollView>
           <View className="rounded-xl bg-[#fbf6f7] p-4"><Text className="text-sm text-foreground">Preço: R$ {details.price.replace(".", ",")}</Text><Text className="mt-2 text-sm text-foreground">Estoque: {details.stock} unidades</Text><Text className="mt-2 text-sm text-foreground">Categoria: {categories.find((category) => category.id === details.categoryId)?.name ?? "Categoria indisponível"}</Text><Text className="mt-2 text-sm text-foreground">Status: {statusLabels[details.status]}</Text>{details.sku ? <Text className="mt-2 text-sm text-foreground">SKU: {details.sku}</Text> : null}</View>
           <Text className="mt-4 text-sm font-semibold text-foreground">Descrição</Text><Text className="mt-1 text-sm leading-5 text-muted-foreground">{details.description || "Sem descrição."}</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel={`Editar detalhes de ${details.name}`} onPress={() => { setDetailsId(null); onEdit(details.id); }} className="mt-5 min-h-12 items-center justify-center rounded-full bg-primary"><Text className="font-semibold text-white">Editar produto</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${details.status === "ARCHIVED" ? "Restaurar" : "Editar detalhes de"} ${details.name}`} onPress={() => { setDetailsId(null); onEdit(details.id); }} className="mt-5 min-h-12 items-center justify-center rounded-full bg-primary"><Text className="font-semibold text-white">{details.status === "ARCHIVED" ? "Restaurar produto" : "Editar produto"}</Text></Pressable>
         </ScrollView> : null}
       </View></View>
     </Modal>

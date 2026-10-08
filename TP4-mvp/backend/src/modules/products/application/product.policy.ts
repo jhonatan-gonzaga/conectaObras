@@ -15,7 +15,8 @@ export function activationPending(product: ProductRecord, categoryActive: boolea
 }
 
 export function canChangeProductStatus(current: ProductStatus, target: ProductStatus): boolean {
-  if (current === 'ARCHIVED' || target === 'ARCHIVED') return false;
+  if (target === 'ARCHIVED') return false;
+  if (current === 'ARCHIVED') return target === 'ACTIVE' || target === 'INACTIVE';
   if (current === target) return true;
   if (current === 'DRAFT') return target === 'ACTIVE' || target === 'INACTIVE';
   return target === 'ACTIVE' || target === 'INACTIVE';

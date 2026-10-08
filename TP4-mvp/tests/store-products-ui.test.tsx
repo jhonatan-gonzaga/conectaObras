@@ -117,6 +117,27 @@ describe("Store products screens", () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith("Produto atualizado com sucesso."));
   });
 
+  it("restores an archived product before editing and can reactivate it", async () => {
+    const archived = { ...product, status: "ARCHIVED" as const };
+    jest.spyOn(api, "storeProduct").mockResolvedValue(archived);
+    const status = jest.spyOn(api, "setStoreProductStatus").mockResolvedValue({ ...product, status: "INACTIVE" });
+    const screen = render(<StoreProductFormScreen productId={product.id} onBack={jest.fn()} onSaved={jest.fn()} />);
+    await waitFor(() => expect(screen.getByLabelText("Restaurar para editar")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Restaurar para editar"));
+    await waitFor(() => expect(status).toHaveBeenCalledWith(product.id, "INACTIVE"));
+    await waitFor(() => expect(screen.getByLabelText("Nome do Produto")).toBeTruthy());
+    expect(screen.getByText("Produto restaurado. Agora você pode editá-lo.")).toBeTruthy();
+  });
+
+  it("explains what an archived product needs before reactivation", async () => {
+    jest.spyOn(api, "storeProduct").mockResolvedValue({ ...product, status: "ARCHIVED" });
+    jest.spyOn(api, "setStoreProductStatus").mockRejectedValue(new ApiError("O produto nao pode ser ativado.", 400, { pending: ["COVER_IMAGE_REQUIRED"] }));
+    const screen = render(<StoreProductFormScreen productId={product.id} onBack={jest.fn()} onSaved={jest.fn()} />);
+    await waitFor(() => expect(screen.getByLabelText("Reativar para venda")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Reativar para venda"));
+    await waitFor(() => expect(screen.getByText("Para reativar, revise: foto de capa. Você pode restaurar para editar.")).toBeTruthy());
+  });
+
   it("shows upload progress, retry and cover controls", async () => {
     jest.spyOn(api, "storeProduct").mockResolvedValue({ ...product, status: "DRAFT" });
     const asset = { uri: "file:///photo.jpg", fileName: "photo.jpg", mimeType: "image/jpeg", fileSize: 100 };

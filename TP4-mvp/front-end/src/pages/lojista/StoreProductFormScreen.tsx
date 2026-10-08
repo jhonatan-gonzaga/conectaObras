@@ -164,8 +164,35 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
     } finally { savingRef.current = false; setSaving(false); }
   };
 
+  const restore = async (status: "ACTIVE" | "INACTIVE") => {
+    if (!currentId.current || savingRef.current) return;
+    savingRef.current = true; setSaving(true); setError(null);
+    try {
+      const restored = await api.setStoreProductStatus(currentId.current, status);
+      setProduct(restored); setForm(productToForm(restored));
+      setNotice(status === "ACTIVE" ? "Produto reativado para venda." : "Produto restaurado. Agora você pode editá-lo.");
+    } catch (cause) {
+      const pending = cause instanceof ApiError ? cause.details?.pending : undefined;
+      const reasons: Record<string, string> = {
+        NAME_REQUIRED: "nome", ACTIVE_CATEGORY_REQUIRED: "categoria ativa", PRICE_REQUIRED: "preço",
+        STOCK_REQUIRED: "estoque", COVER_IMAGE_REQUIRED: "foto de capa",
+      };
+      setError(pending?.length ? `Para reativar, revise: ${pending.map((item) => reasons[item] ?? item).join(", ")}. Você pode restaurar para editar.`
+        : cause instanceof Error ? cause.message : "Não foi possível restaurar o produto.");
+    } finally { savingRef.current = false; setSaving(false); }
+  };
+
   if (loading) return <View className="flex-1 items-center justify-center bg-background"><ActivityIndicator color="#b94b50" /><Text className="mt-3 text-muted-foreground">Carregando produto...</Text></View>;
-  if (product?.status === "ARCHIVED") return <View className="flex-1 items-center justify-center bg-background px-6"><Text className="text-center text-foreground">Produto arquivado não pode ser editado.</Text><Pressable accessibilityRole="button" onPress={onBack} className="mt-4 rounded-full bg-primary px-5 py-3"><Text className="font-semibold text-white">Voltar</Text></Pressable></View>;
+  if (product?.status === "ARCHIVED") return <View className="flex-1 items-center justify-center bg-background px-6">
+    <View className="w-full max-w-[420px] rounded-[22px] bg-card p-6"><Ionicons name="archive-outline" size={32} color="#b94b50" />
+      <Text className="mt-4 text-xl font-bold text-foreground">Produto arquivado</Text>
+      <Text className="mt-2 text-sm leading-5 text-muted-foreground">Restaure para editar o produto ou reative para exibi-lo na loja.</Text>
+      {error ? <Text accessibilityRole="alert" className="mt-3 text-sm text-[#ba1a1a]">{error}</Text> : null}
+      <Pressable accessibilityRole="button" accessibilityLabel="Restaurar para editar" disabled={saving} onPress={() => void restore("INACTIVE")} className="mt-5 min-h-12 items-center justify-center rounded-full bg-primary"><Text className="font-semibold text-white">{saving ? "Restaurando..." : "Restaurar para editar"}</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Reativar para venda" disabled={saving} onPress={() => void restore("ACTIVE")} className="mt-3 min-h-12 items-center justify-center rounded-full border border-primary"><Text className="font-semibold text-primary">Reativar para venda</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Voltar aos produtos" disabled={saving} onPress={onBack} className="mt-3 min-h-11 items-center justify-center"><Text className="font-semibold text-muted-foreground">Voltar</Text></Pressable>
+    </View>
+  </View>;
 
   return <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="w-full max-w-[560px] flex-1 bg-[#fbf6f7]">
     <View className="flex-row items-center justify-between border-b border-[#f1e5e7] px-4 py-3">
