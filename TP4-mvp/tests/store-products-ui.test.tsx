@@ -95,6 +95,7 @@ describe("Store products screens", () => {
     const create = jest.spyOn(api, "createStoreProduct").mockResolvedValue({ ...product, status: "DRAFT" });
     const onSaved = jest.fn();
     const screen = render(<StoreProductFormScreen productId={null} onBack={jest.fn()} onSaved={onSaved} />);
+    expect(screen.queryByLabelText("Excluir produto")).toBeNull();
     fireEvent.press(screen.getByLabelText("Salvar produto"));
     expect(create).not.toHaveBeenCalled();
     expect(screen.getByText("Informe um preço positivo com até duas casas decimais.")).toBeTruthy();
@@ -118,6 +119,26 @@ describe("Store products screens", () => {
     fireEvent.press(screen.getByLabelText("Salvar produto"));
     await waitFor(() => expect(update).toHaveBeenCalledWith(product.id, expect.objectContaining({ name: "Furadeira 710W" })));
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith("Produto atualizado com sucesso."));
+  });
+
+  it("confirms exclusion from the edit screen and blocks duplicate requests", async () => {
+    jest.spyOn(api, "storeProduct").mockResolvedValue(product);
+    let finish!: (value: StoreProduct) => void;
+    const archive = jest.spyOn(api, "archiveStoreProduct").mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const onSaved = jest.fn();
+    const screen = render(<StoreProductFormScreen productId={product.id} onBack={jest.fn()} onSaved={onSaved} />);
+    await waitFor(() => expect(screen.getByLabelText("Excluir produto")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Excluir produto"));
+    expect(screen.getByText("Excluir produto?")).toBeTruthy();
+    expect(archive).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByLabelText("Cancelar exclusão"));
+    expect(archive).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByLabelText("Excluir produto"));
+    fireEvent.press(screen.getByLabelText("Confirmar exclusão do produto"));
+    fireEvent.press(screen.getByLabelText("Confirmar exclusão do produto"));
+    expect(archive).toHaveBeenCalledTimes(1);
+    finish({ ...product, status: "ARCHIVED" });
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith("Produto retirado do catálogo. Você pode restaurá-lo em Arquivados."));
   });
 
   it("confirms leaving an edited product with unsaved changes", async () => {

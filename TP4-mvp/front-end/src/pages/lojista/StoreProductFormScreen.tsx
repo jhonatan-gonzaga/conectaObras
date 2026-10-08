@@ -39,6 +39,8 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
   const [notice, setNotice] = useState<string | null>(null);
   const [photoToRemove, setPhotoToRemove] = useState<PhotoToRemove | null>(null);
   const [confirmExit, setConfirmExit] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [galleryChanged, setGalleryChanged] = useState(false);
   const currentId = useRef<string | null>(productId);
   const initialForm = useRef<ProductForm>(emptyProductForm());
@@ -187,6 +189,18 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
     } finally { savingRef.current = false; setSaving(false); }
   };
 
+  const deleteProduct = async () => {
+    if (!productId || !product || savingRef.current || galleryRef.current || pending.some((item) => item.uploading)) return;
+    savingRef.current = true; setSaving(true); setDeleteError(null);
+    try {
+      await api.archiveStoreProduct(productId);
+      setConfirmDelete(false);
+      onSaved("Produto retirado do catálogo. Você pode restaurá-lo em Arquivados.");
+    } catch (cause) {
+      setDeleteError(cause instanceof Error ? cause.message : "Não foi possível excluir o produto.");
+    } finally { savingRef.current = false; setSaving(false); }
+  };
+
   const restore = async (status: "ACTIVE" | "INACTIVE") => {
     if (!currentId.current || savingRef.current) return;
     savingRef.current = true; setSaving(true); setError(null);
@@ -278,7 +292,9 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
     </ScrollView>
     <View className="border-t border-[#f1e5e7] bg-[#fbf6f7] p-4"><Pressable accessibilityRole="button" accessibilityLabel="Salvar produto" disabled={saving || busyGallery || pending.some((item) => item.uploading)} onPress={() => void save()} className={`min-h-[52px] flex-row items-center justify-center gap-2 rounded-[16px] ${saving ? "bg-[#d48b8e]" : "bg-primary"}`}>
       {saving ? <ActivityIndicator color="#fff" /> : <Ionicons name="checkmark" size={21} color="#fff" />}<Text className="text-base font-semibold text-white">{saving ? "Salvando dados..." : "Salvar Produto"}</Text>
-    </Pressable></View>
+    </Pressable>
+      {productId && product ? <Pressable accessibilityRole="button" accessibilityLabel="Excluir produto" disabled={saving || busyGallery || pending.some((item) => item.uploading)} onPress={() => { setDeleteError(null); setConfirmDelete(true); }} className="mt-2 min-h-11 flex-row items-center justify-center gap-2 rounded-[14px] border border-[#ba1a1a]"><Ionicons name="trash-outline" size={18} color="#ba1a1a" /><Text className="font-semibold text-[#ba1a1a]">Excluir produto</Text></Pressable> : null}
+    </View>
     <Modal visible={Boolean(photoToRemove)} transparent animationType="fade" onRequestClose={() => setPhotoToRemove(null)}><View className="flex-1 justify-center bg-black/40 px-6"><View className="rounded-[22px] bg-card p-6">
       <Text className="text-xl font-semibold text-foreground">Apagar foto?</Text><Text className="mt-2 text-sm text-muted-foreground">Essa foto será removida do produto. Deseja continuar?</Text>
       <View className="mt-6 flex-row gap-3"><Pressable accessibilityRole="button" accessibilityLabel="Cancelar remoção" onPress={() => setPhotoToRemove(null)} className="min-h-11 flex-1 items-center justify-center rounded-full bg-[#f7ecee]"><Text className="font-semibold text-foreground">Cancelar</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Confirmar remoção da foto" onPress={() => void confirmRemovePhoto()} className="min-h-11 flex-1 items-center justify-center rounded-full bg-primary"><Text className="font-semibold text-white">Apagar foto</Text></Pressable></View>
@@ -286,6 +302,12 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
     <Modal visible={confirmExit} transparent animationType="fade" onRequestClose={() => setConfirmExit(false)}><View className="flex-1 justify-center bg-black/40 px-6"><View className="rounded-[22px] bg-card p-6">
       <Text className="text-xl font-semibold text-foreground">Sair da edição?</Text><Text className="mt-2 text-sm leading-5 text-muted-foreground">Você alterou este produto. Campos não salvos serão perdidos; alterações nas fotos já aplicadas permanecem.</Text>
       <View className="mt-6 flex-row gap-3"><Pressable accessibilityRole="button" accessibilityLabel="Continuar editando" onPress={() => setConfirmExit(false)} className="min-h-11 flex-1 items-center justify-center rounded-full bg-[#f7ecee]"><Text className="font-semibold text-foreground">Continuar</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Confirmar saída da edição" onPress={() => { setConfirmExit(false); onBack(); }} className="min-h-11 flex-1 items-center justify-center rounded-full bg-primary"><Text className="font-semibold text-white">Sair</Text></Pressable></View>
+    </View></View></Modal>
+    <Modal visible={confirmDelete} transparent animationType="fade" onRequestClose={() => { if (!saving) setConfirmDelete(false); }}><View className="flex-1 justify-center bg-black/40 px-6"><View className="rounded-[22px] bg-card p-6">
+      <View className="h-12 w-12 items-center justify-center rounded-full bg-[#ffdad6]"><Ionicons name="trash-outline" size={25} color="#ba1a1a" /></View>
+      <Text className="mt-4 text-xl font-semibold text-foreground">Excluir produto?</Text><Text className="mt-2 text-sm leading-5 text-muted-foreground">{product?.name} sairá do catálogo padrão e ficará em Arquivados, de onde poderá ser restaurado. Alterações não salvas serão descartadas.</Text>
+      {deleteError ? <Text accessibilityRole="alert" className="mt-3 text-sm text-[#ba1a1a]">{deleteError}</Text> : null}
+      <View className="mt-6 flex-row gap-3"><Pressable accessibilityRole="button" accessibilityLabel="Cancelar exclusão" disabled={saving} onPress={() => setConfirmDelete(false)} className="min-h-11 flex-1 items-center justify-center rounded-full bg-[#f7ecee]"><Text className="font-semibold text-foreground">Cancelar</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Confirmar exclusão do produto" disabled={saving} onPress={() => void deleteProduct()} className="min-h-11 flex-1 items-center justify-center rounded-full bg-[#ba1a1a]"><Text className="font-semibold text-white">{saving ? "Excluindo..." : "Excluir"}</Text></Pressable></View>
     </View></View></Modal>
   </KeyboardAvoidingView>;
 }
