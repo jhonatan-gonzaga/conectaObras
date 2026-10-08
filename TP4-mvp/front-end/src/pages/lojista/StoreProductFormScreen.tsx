@@ -247,8 +247,8 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
   return <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="w-full max-w-[560px] flex-1 bg-[#fbf6f7]">
     <View className="flex-row items-center justify-between border-b border-[#f1e5e7] px-4 py-3">
       <Pressable accessibilityRole="button" accessibilityLabel="Voltar aos produtos" onPress={requestBack} className="h-10 w-10 items-center justify-center rounded-full bg-card"><Ionicons name="arrow-back" size={20} color="#0f1720" /></Pressable>
-      <Text className="text-base font-bold text-foreground">{currentId.current ? "Editar Produto" : "Novo Produto"}</Text>
-      <View className="w-10" />
+      <Text className="flex-1 text-center text-base font-bold text-foreground">{currentId.current ? "Editar Produto" : "Novo Produto"}</Text>
+      {productId && product ? <Pressable accessibilityRole="button" accessibilityLabel="Excluir produto" disabled={saving || busyGallery || pending.some((item) => item.uploading)} onPress={() => { setDeleteError(null); setConfirmDelete(true); }} className="min-h-10 flex-row items-center gap-1 rounded-full px-2"><Ionicons name="trash-outline" size={17} color="#ba1a1a" /><Text className="text-xs font-semibold text-[#ba1a1a]">Excluir</Text></Pressable> : <View className="w-10" />}
     </View>
     <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: 24 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       {notice ? <Text accessibilityRole="alert" className="mb-3 rounded-xl bg-[#eef4ff] p-3 text-sm text-primary">{notice}</Text> : null}
@@ -293,7 +293,6 @@ export function StoreProductFormScreen({ productId, onBack, onSaved }: {
     <View className="border-t border-[#f1e5e7] bg-[#fbf6f7] p-4"><Pressable accessibilityRole="button" accessibilityLabel="Salvar produto" disabled={saving || busyGallery || pending.some((item) => item.uploading)} onPress={() => void save()} className={`min-h-[52px] flex-row items-center justify-center gap-2 rounded-[16px] ${saving ? "bg-[#d48b8e]" : "bg-primary"}`}>
       {saving ? <ActivityIndicator color="#fff" /> : <Ionicons name="checkmark" size={21} color="#fff" />}<Text className="text-base font-semibold text-white">{saving ? "Salvando dados..." : "Salvar Produto"}</Text>
     </Pressable>
-      {productId && product ? <Pressable accessibilityRole="button" accessibilityLabel="Excluir produto" disabled={saving || busyGallery || pending.some((item) => item.uploading)} onPress={() => { setDeleteError(null); setConfirmDelete(true); }} className="mt-2 min-h-11 flex-row items-center justify-center gap-2 rounded-[14px] border border-[#ba1a1a]"><Ionicons name="trash-outline" size={18} color="#ba1a1a" /><Text className="font-semibold text-[#ba1a1a]">Excluir produto</Text></Pressable> : null}
     </View>
     <Modal visible={Boolean(photoToRemove)} transparent animationType="fade" onRequestClose={() => setPhotoToRemove(null)}><View className="flex-1 justify-center bg-black/40 px-6"><View className="rounded-[22px] bg-card p-6">
       <Text className="text-xl font-semibold text-foreground">Apagar foto?</Text><Text className="mt-2 text-sm text-muted-foreground">Essa foto será removida do produto. Deseja continuar?</Text>
