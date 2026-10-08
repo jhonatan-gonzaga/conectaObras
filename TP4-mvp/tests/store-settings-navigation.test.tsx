@@ -92,6 +92,25 @@ describe("store settings flow", () => {
     expect(await screen.findByText("Dados da loja salvos com sucesso.")).toBeTruthy();
     expect(save.mock.calls[0][0]).toMatchObject({ name: "Loja atualizada", cnpj: "11222333000181" });
   });
+  it("keeps activation in settings after completing registration", async () => {
+    jest.spyOn(api, "myStore").mockResolvedValue({ ...store, status: "DRAFT" });
+    jest.spyOn(api, "storeActivationReadiness").mockResolvedValue({ allowed: true, pending: [] });
+    const activate = jest.spyOn(api, "changeMyStoreStatus").mockResolvedValue(store);
+    const screen = await openSettings();
+    await act(async () => fireEvent.press(screen.getByText("Ativar loja")));
+    expect(await screen.findByText("Loja ativada com sucesso.")).toBeTruthy();
+    expect(activate).toHaveBeenCalledWith("ACTIVE");
+  });
+  it("cannot make a complete DRAFT registration incomplete from settings", async () => {
+    jest.spyOn(api, "myStore").mockResolvedValue({ ...store, status: "DRAFT" });
+    jest.spyOn(api, "storeActivationReadiness").mockResolvedValue({ allowed: true, pending: [] });
+    const save = jest.spyOn(api, "saveMyStore");
+    const screen = await openSettings();
+    fireEvent.changeText(screen.getByLabelText("Telefone"), "");
+    fireEvent.press(screen.getByText("Salvar Alterações"));
+    expect(screen.getByText("Informe DDD e telefone válido.")).toBeTruthy();
+    expect(save).not.toHaveBeenCalled();
+  });
   it("fills address from CEP and preserves number and complement", async () => {
     (lookupPostalCode as jest.Mock).mockResolvedValue({ street: "Rua encontrada", neighborhood: "Novo bairro", city: "Manaus", state: "AM" });
     const screen = await openSettings();

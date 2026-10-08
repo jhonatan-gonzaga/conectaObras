@@ -25,9 +25,10 @@ export function StoreField({ editor, field, label, placeholder, numeric = false,
   const addressKey = field.startsWith("address.") ? field.slice(8) as keyof typeof editor.form.address : null;
   const key = field as "name" | "cnpj" | "phone" | "whatsapp" | "description";
   const value = addressKey ? editor.form.address[addressKey] : editor.form[key];
+  const valid = editor.registration && !!value.trim() && !editor.validationErrors[field] && !editor.errors[field];
   return <View style={ui.field}>
-    <View style={ui.labelRow}><Text style={ui.label}>{label}{required ? " *" : ""}</Text>{field === "description" ? <Text style={ui.caption}>{value.length} / 1000</Text> : null}</View>
-    <TextInput accessibilityLabel={label} value={value} editable={!editor.busy} keyboardType={numeric ? "phone-pad" : "default"} maxLength={limit} multiline={field === "description"} autoCapitalize={field === "address.state" ? "characters" : "sentences"} placeholder={placeholder ?? label} placeholderTextColor="#897171" style={[ui.input, field === "description" && { minHeight: 100, textAlignVertical: "top" }, editor.errors[field] && { borderColor: colors.accent }]}
+    <View style={ui.labelRow}><Text style={ui.label}>{label}{required ? " *" : ""}</Text>{field === "description" ? <Text style={ui.caption}>{value.length} / 1000</Text> : null}{valid ? <Text accessibilityLabel={`${label} válido`}><Ionicons name="checkmark-circle" size={18} color="#15803d" /></Text> : null}</View>
+    <TextInput accessibilityLabel={label} value={value} editable={!editor.busy} keyboardType={numeric ? "phone-pad" : "default"} maxLength={limit} multiline={field === "description"} autoCapitalize={field === "address.state" ? "characters" : "sentences"} placeholder={placeholder ?? label} placeholderTextColor="#897171" style={[ui.input, valid && ui.validInput, field === "description" && { minHeight: 100, textAlignVertical: "top" }, editor.errors[field] && { borderColor: colors.accent }]}
       onChangeText={(text) => editor.change((old) => addressKey ? { ...old, address: { ...old.address, [addressKey]: addressKey === "zipCode" ? maskCep(text) : text } } : { ...old, [key]: key === "cnpj" ? maskCnpj(text) : key === "phone" || key === "whatsapp" ? maskPhone(text) : text })} />
     {editor.errors[field] ? <Text accessibilityRole="alert" style={ui.error}>{editor.errors[field]}</Text> : null}
   </View>;
@@ -35,7 +36,7 @@ export function StoreField({ editor, field, label, placeholder, numeric = false,
 export function StoreLogo({ editor }: { editor: StoreEditor }) {
   return <View style={ui.logoRow}>
     <View style={ui.logo}>{editor.profile?.logoUrl ? <Image accessibilityLabel="Logo da loja" source={{ uri: editor.profile.logoUrl }} style={{ width: "100%", height: "100%" }} /> : <Ionicons name="storefront-outline" size={36} color={colors.primary} />}</View>
-    <View style={{ flex: 1 }}><Text style={ui.label}>Identidade visual</Text><Text style={ui.caption}>JPG ou PNG · até 5 MB</Text><Pressable accessibilityRole="button" disabled={editor.busy || !editor.exists} accessibilityState={{ disabled: editor.busy || !editor.exists }} onPress={() => void editor.uploadLogo()} style={{ paddingVertical: 10 }}><Text style={ui.link}>{editor.profile?.logoUrl ? "Alterar logo" : "Adicionar logo"}</Text></Pressable>{!editor.exists ? <Text style={ui.caption}>Salve o rascunho para adicionar o logo.</Text> : null}</View>
+    <View style={{ flex: 1 }}><Text style={ui.label}>Identidade visual</Text><Text style={ui.caption}>JPG ou PNG · até 5 MB</Text><Pressable accessibilityRole="button" disabled={editor.busy || !editor.exists} accessibilityState={{ disabled: editor.busy || !editor.exists }} onPress={() => void editor.uploadLogo()} style={{ paddingVertical: 10 }}><Text style={ui.link}>{editor.profile?.logoUrl ? "Alterar logo" : "Adicionar logo"}</Text></Pressable>{!editor.exists ? <Text style={ui.caption}>Conclua o cadastro para adicionar o logo nos ajustes da loja.</Text> : null}</View>
   </View>;
 }
 export function StoreCommercialFields({ editor }: { editor: StoreEditor }) {
@@ -57,8 +58,8 @@ export function StoreHours({ editor }: { editor: StoreEditor }) {
     const update = (values: Partial<typeof hour>) => editor.change((old) => ({ ...old, openingHours: old.openingHours.map((entry) => entry.dayOfWeek === day ? { ...entry, ...values } : entry) }));
     return <View key={day} style={ui.day}><View style={ui.sectionHeader}><Text style={[ui.label, { flex: 1 }]}>{label}</Text><Text style={ui.caption}>{hour.closed ? "Fechado" : "Aberto"}</Text><Switch accessibilityLabel={`${label} fechado`} value={hour.closed} disabled={editor.busy} trackColor={{ true: "#ddc0bf", false: "#e6e1e2" }} thumbColor={hour.closed ? colors.primary : "#fff"} onValueChange={(closed) => update({ closed, openingTime: null, closingTime: null })} /></View>
       <View style={[ui.row, hour.closed && { opacity: 0.4 }]} accessibilityElementsHidden={hour.closed} importantForAccessibility={hour.closed ? "no-hide-descendants" : "auto"}>
-        <View style={{ flex: 1 }}><NativeDateTimeField disabled={hour.closed || editor.busy} mode="time" label={`Abertura ${label}`} placeholder="HH:mm" value={hour.openingTime ?? ""} onChange={(openingTime) => update({ openingTime })} status={editor.errors[`${day}.openingTime`] ? "error" : "default"} helperText={editor.errors[`${day}.openingTime`]} /></View>
-        <View style={{ flex: 1 }}><NativeDateTimeField disabled={hour.closed || editor.busy} mode="time" label={`Fechamento ${label}`} placeholder="HH:mm" value={hour.closingTime ?? ""} onChange={(closingTime) => update({ closingTime })} status={editor.errors[`${day}.closingTime`] ? "error" : "default"} helperText={editor.errors[`${day}.closingTime`]} /></View>
+        <View style={{ flex: 1 }}><NativeDateTimeField disabled={hour.closed || editor.busy} mode="time" label={`Abertura ${label}`} placeholder="HH:mm" value={hour.openingTime ?? ""} onChange={(openingTime) => update({ openingTime })} status={editor.errors[`${day}.openingTime`] ? "error" : editor.registration && !hour.closed && !editor.validationErrors[`${day}.openingTime`] ? "valid" : "default"} helperText={editor.errors[`${day}.openingTime`]} /></View>
+        <View style={{ flex: 1 }}><NativeDateTimeField disabled={hour.closed || editor.busy} mode="time" label={`Fechamento ${label}`} placeholder="HH:mm" value={hour.closingTime ?? ""} onChange={(closingTime) => update({ closingTime })} status={editor.errors[`${day}.closingTime`] ? "error" : editor.registration && !hour.closed && !editor.validationErrors[`${day}.closingTime`] ? "valid" : "default"} helperText={editor.errors[`${day}.closingTime`]} /></View>
       </View></View>;
   })}{editor.errors.openingHours ? <Text accessibilityRole="alert" style={ui.error}>{editor.errors.openingHours}</Text> : null}</View>;
 }
@@ -73,8 +74,8 @@ export function StoreReview({ editor, onActivated }: { editor: StoreEditor; onAc
     </>}
   </StoreCard>;
 }
-export function StoreFeedback({ editor }: { editor: StoreEditor }) {
-  return <>{editor.busy ? <ActivityIndicator accessibilityLabel="Processando alterações da loja" color={colors.primary} /> : null}{editor.error ? <Text accessibilityRole="alert" style={ui.error}>{editor.error}</Text> : null}{editor.success ? <View style={ui.notice}><Ionicons name="checkmark-circle-outline" size={22} color={colors.primary} /><Text accessibilityRole="alert" style={{ flex: 1, color: colors.primary }}>{editor.success}</Text></View> : null}{editor.error ? <StoreButton label={editor.retryErrorLabel} secondary onPress={() => void editor.retryError()} disabled={editor.busy} /> : null}</>;
+export function StoreFeedback({ editor, onSaved }: { editor: StoreEditor; onSaved?: () => void }) {
+  return <>{editor.busy ? <ActivityIndicator accessibilityLabel="Processando alterações da loja" color={colors.primary} /> : null}{editor.error ? <Text accessibilityRole="alert" style={ui.error}>{editor.error}</Text> : null}{editor.success ? <View style={ui.notice}><Ionicons name="checkmark-circle-outline" size={22} color={colors.primary} /><Text accessibilityRole="alert" style={{ flex: 1, color: colors.primary }}>{editor.success}</Text></View> : null}{editor.error ? <StoreButton label={editor.retryErrorLabel} secondary onPress={() => { void editor.retryError().then((ok) => { if (ok) onSaved?.(); }); }} disabled={editor.busy} /> : null}</>;
 }
 export function StoreLoadState({ editor, onBack }: { editor: StoreEditor; onBack: () => void }) {
   return <View style={[ui.page, { alignItems: "center", justifyContent: "center", padding: 24, gap: 16 }]}>{editor.loading ? <><ActivityIndicator color={colors.primary} /><Text style={ui.caption}>Carregando loja...</Text></> : <><Text accessibilityRole="alert" style={ui.error}>{editor.loadError}</Text><StoreButton label="Tentar novamente" onPress={editor.retryLoad} /><StoreButton label="Voltar" secondary onPress={onBack} /></>}</View>;
@@ -91,6 +92,7 @@ export const ui = StyleSheet.create({
   labelRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
   field: { gap: 8 },
   input: { minHeight: 50, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.input, color: colors.text, borderRadius: 16, fontSize: 14, borderWidth: 1, borderColor: "transparent" },
+  validInput: { borderColor: "#15803d", backgroundColor: "#f0fdf4" },
   error: { color: colors.primary, fontSize: 13, lineHeight: 20 },
   row: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
   link: { color: colors.primary, fontWeight: "600", fontSize: 13 },
