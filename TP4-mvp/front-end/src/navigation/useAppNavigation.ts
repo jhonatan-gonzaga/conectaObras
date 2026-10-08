@@ -18,6 +18,7 @@ export function useAppNavigation() {
   const [signupRole, setSignupRole] = useState<SelectableUserRole>("CLIENTE");
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [storeListReturnScreen, setStoreListReturnScreen] = useState<"storeOwnerEdit" | "storeOwnerDashboard">("storeOwnerDashboard");
   const [storeListKind, setStoreListKind] = useState<StoreDashboardList>("active-products");
   const [storeListStatus, setStoreListStatus] = useState<string | undefined>();
   const [profileReturnScreen, setProfileReturnScreen] =
@@ -91,7 +92,7 @@ export function useAppNavigation() {
   const signOut = async () => {
     await api.logout();
     setAuthUser(null); setHasStore(false); setSelectedClientService(null); setSelectedProfessionalId(null);
-    setContractedClientServices([]); setStoreListKind("active-products"); setStoreListStatus(undefined);
+    setContractedClientServices([]); setStoreListKind("active-products"); setStoreListStatus(undefined); setStoreListReturnScreen("storeOwnerDashboard");
     setProfileReturnScreen("clientHome"); setClientWorkReturnScreen("clientHome");
     setClientProfileReturnScreen("clientHome"); setLegalReturnScreen("login"); setScreen("login");
   };
@@ -151,6 +152,8 @@ export function useAppNavigation() {
     retrySessionRestore: () => { setIsSessionReady(false); void restoreSession(); },
     authenticate,
     signOut,
+    storeListReturnScreen,
+    setStoreListReturnScreen,
     storeListKind,
     setStoreListKind,
     storeListStatus,

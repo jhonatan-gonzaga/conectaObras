@@ -4,6 +4,7 @@ import { StoreOwnerSetupScreen } from "../front-end/src/pages/lojista/StoreOwner
 import { ApiError, api } from "../front-end/src/services/api";
 import { emptyStoreForm, type StoreProfile } from "../front-end/src/services/store-form";
 
+jest.mock("../front-end/src/services/store-logo", () => ({ pickStoreLogo: jest.fn() }));
 jest.mock("expo-secure-store", () => ({ getItemAsync: jest.fn(), setItemAsync: jest.fn(), deleteItemAsync: jest.fn() }));
 jest.mock("../front-end/src/components/native-date-time-field", () => {
   const React = require("react");
@@ -22,11 +23,11 @@ function completeStore(): StoreProfile {
 async function open() {
   const callbacks = props();
   const screen = render(<StoreOwnerSetupScreen {...callbacks} />);
-  await screen.findByText("Editar loja");
+  await screen.findByText("Dados da Loja");
   return { screen, callbacks };
 }
 async function review(screen: ReturnType<typeof render>) {
-  for (let i = 0; i < 3; i++) fireEvent.press(screen.getByText("Próxima etapa"));
+  for (let i = 0; i < 2; i++) fireEvent.press(screen.getByText("Próxima etapa"));
 }
 describe("store onboarding and editing", () => {
   beforeEach(() => {
@@ -131,7 +132,35 @@ describe("store onboarding and editing", () => {
     expect(await screen.findByText("Revise o cadastro")).toBeTruthy();
     expect(screen.getByText("CNPJ inválido")).toBeTruthy();
     expect(screen.queryByText("Ativar loja")).toBeNull();
-    for (let i = 0; i < 3; i++) fireEvent.press(screen.getByText("Etapa anterior"));
+    for (let i = 0; i < 2; i++) fireEvent.press(screen.getByText("Etapa anterior"));
+    expect(screen.getByText("CNPJ inválido")).toBeTruthy();
+  });
+  it("returns to the previous step and preserves data before leaving the screen", async () => {
+    const { screen, callbacks } = await open();
+    fireEvent.changeText(screen.getByLabelText("Nome da loja"), "Alterada");
+    fireEvent.press(screen.getByText("Próxima etapa"));
+    fireEvent.press(screen.getByLabelText("Voltar"));
+    expect(screen.getByLabelText("Nome da loja").props.value).toBe("Alterada");
+    expect(callbacks.onSwitchProfile).not.toHaveBeenCalled();
+  });
+  it("brings a missing required phone into view when concluding registration", async () => {
+    const complete = completeStore();
+    jest.spyOn(api, "myStore").mockResolvedValue({ ...complete, phone: "" });
+    const { screen } = await open();
+    await review(screen);
+    fireEvent.press(screen.getByText("Concluir Cadastro da Loja"));
+    expect(screen.getByLabelText("Telefone")).toBeTruthy();
+    expect(screen.getByText("Informe DDD e telefone válido.")).toBeTruthy();
+  });
+  it("keeps the user in registration when the API still reports pending requirements", async () => {
+    const complete = completeStore();
+    jest.spyOn(api, "myStore").mockResolvedValue(complete);
+    jest.spyOn(api, "saveMyStore").mockResolvedValue(complete);
+    jest.spyOn(api, "storeActivationReadiness").mockResolvedValue({ allowed: false, pending: ["CNPJ_INVALID"] });
+    const { screen, callbacks } = await open();
+    await review(screen);
+    await act(async () => fireEvent.press(screen.getByText("Concluir Cadastro da Loja")));
+    expect(callbacks.onComplete).not.toHaveBeenCalled();
     expect(screen.getByText("CNPJ inválido")).toBeTruthy();
   });
   it("warns before leaving with unsaved changes", async () => {
