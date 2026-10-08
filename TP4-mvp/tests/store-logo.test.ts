@@ -13,6 +13,13 @@ describe("store logo upload", () => {
     expect((await pickStoreLogo())?.logoUrl).toBe("https://example.com/logo.png");
     expect(upload).toHaveBeenCalledWith({ uri: "file:///logo.png", name: "logo.png", type: "image/png" });
   });
+  it("preserves the browser File for multipart upload", async () => {
+    const file = { size: 1000 };
+    (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({ canceled: false, assets: [{ uri: "blob:logo", fileName: "logo.png", mimeType: "image/png", file }] });
+    const upload = jest.spyOn(api, "uploadStoreLogo").mockResolvedValue({ id: "s1", name: "Loja", status: "DRAFT" });
+    await pickStoreLogo();
+    expect(upload).toHaveBeenCalledWith({ uri: "blob:logo", name: "logo.png", type: "image/png", file });
+  });
   it("handles denied permission and cancellation", async () => {
     (ImagePicker.requestMediaLibraryPermissionsAsync as jest.Mock).mockResolvedValueOnce({ granted: false });
     await expect(pickStoreLogo()).rejects.toThrow("galeria");

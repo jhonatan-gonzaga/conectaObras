@@ -376,9 +376,13 @@ export const api = {
   me: () => request<AuthUser>("/auth/me"),
   myStore: () => request<StoreProfile>("/stores/me"),
   saveMyStore: (input: unknown) => request<StoreProfile>("/stores/me", { method: "PUT", body: JSON.stringify(input) }),
-  uploadStoreLogo: (file: { uri: string; name: string; type: string }) => {
+  uploadStoreLogo: async (file: { uri: string; name: string; type: string; file?: Blob }) => {
     const data = new FormData();
-    data.append("file", file as unknown as Blob);
+    if (Platform.OS === "web") {
+      const blob = file.file ?? await fetch(file.uri).then((response) => response.blob());
+      if (!blob) throw new ApiError("Não foi possível ler a imagem selecionada.", 0);
+      data.append("file", blob, file.name);
+    } else data.append("file", file as unknown as Blob);
     return request<StoreProfile>("/stores/me/logo", { method: "POST", body: data });
   },
   storeActivationReadiness: () => request<{ allowed: boolean; pending: string[] }>("/stores/me/activation-readiness"),
