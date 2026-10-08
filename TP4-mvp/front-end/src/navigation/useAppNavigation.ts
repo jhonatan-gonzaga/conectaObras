@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import type { ClientNavKey } from "../components/cliente";
 import { ApiError, api, restoreAccessToken, type AuthUser, type SelectableUserRole, type StoreDashboardList } from "../services/api";
+import { isStoreRegistrationComplete } from "../services/store-form";
 import type {
   ClientProfileReturnScreen,
   ClientWorkReturnScreen,
@@ -53,10 +54,18 @@ export function useAppNavigation() {
       return;
     }
     if (user.role === "LOJISTA") {
-      try { await api.myStore(); setHasStore(true); setScreen("storeOwnerDashboard"); }
-      catch (error) {
-        if (error instanceof Error && "status" in error && (error as { status?: number }).status === 404) { setHasStore(false); setScreen("storeOwnerSetup"); }
-        else { setHasStore(true); setScreen("storeOwnerDashboard"); }
+      try {
+        const store = await api.myStore();
+        let registered = isStoreRegistrationComplete(store);
+        if (registered && store.status === "DRAFT") {
+          const decision = await api.storeActivationReadiness();
+          registered = decision.allowed && decision.pending.length === 0;
+        }
+        setHasStore(registered);
+        setScreen(registered ? "storeOwnerDashboard" : "storeOwnerSetup");
+      }
+      catch {
+        setHasStore(false); setScreen("storeOwnerSetup");
       }
       return;
     }

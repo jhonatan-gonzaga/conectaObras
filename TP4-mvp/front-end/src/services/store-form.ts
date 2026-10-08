@@ -109,6 +109,9 @@ export function validateStore(form: StoreForm, activation = false): StoreErrors 
   if (activation && !form.openingHours.some((hour) => !hour.closed)) errors.openingHours = "Informe ao menos um dia aberto.";
   return errors;
 }
+export function isStoreRegistrationComplete(store: StoreProfile) {
+  return Object.keys(validateStore(resumeStore(store), true)).length === 0;
+}
 export const pendingLabels: Record<string, string> = {
   STORE_NAME_REQUIRED: "Nome da loja obrigatório", CNPJ_REQUIRED: "CNPJ obrigatório", CNPJ_INVALID: "CNPJ inválido",
   PHONE_REQUIRED: "Telefone obrigatório", PHONE_INVALID: "Telefone inválido", ADDRESS_REQUIRED: "Complete o endereço",
