@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ProductImageViewer } from "../../components/lojista/ProductImageViewer";
+import { StoreOwnerTabBar } from "../../components/lojista/StoreOwnerTabBar";
 import { ApiError, api } from "../../services/api";
 import { inventoryPayload, type ProductCategory, type ProductFilters, type ProductStatus, type StockFilter, type StoreProduct } from "../../services/store-products";
 
@@ -17,6 +19,13 @@ const statusLabels: Record<ProductStatus, string> = {
   DRAFT: "Rascunho", ACTIVE: "Ativo", INACTIVE: "Inativo", ARCHIVED: "Arquivado",
 };
 
+function availability(product: StoreProduct) {
+  if (product.status === "ARCHIVED") return { label: "Arquivado", color: "#766a70" };
+  if (product.status !== "ACTIVE") return { label: "Indisponível para venda", color: "#9a621d" };
+  if (product.stock === 0) return { label: "Sem estoque", color: "#ba1a1a" };
+  return { label: "Disponível para venda", color: "#26734d" };
+}
+
 function FilterChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress}
     className={`mr-2 min-h-9 justify-center rounded-full px-4 ${selected ? "bg-primary" : "bg-card"}`}>
@@ -24,9 +33,10 @@ function FilterChip({ label, selected, onPress }: { label: string; selected: boo
   </Pressable>;
 }
 
-function ProductCard({ product, onChanged, onEdit, onArchive, onSuccess }: {
+function ProductCard({ product, onChanged, onEdit, onArchive, onSuccess, onDetails, onImage }: {
   product: StoreProduct; onChanged: (value: StoreProduct) => void; onEdit: () => void;
   onArchive: () => void; onSuccess: (message: string) => void;
+  onDetails: () => void; onImage: (uri: string) => void;
 }) {
   const [price, setPrice] = useState(product.price.replace(".", ","));
   const [stock, setStock] = useState(String(product.stock));
@@ -66,18 +76,22 @@ function ProductCard({ product, onChanged, onEdit, onArchive, onSuccess }: {
   const cover = product.images.find((image) => image.isCover) ?? product.images[0];
   return <View className="mb-3 rounded-[18px] bg-card p-4 shadow-sm shadow-primary/10">
     <View className="flex-row gap-3">
-      {cover ? <Image source={{ uri: cover.url }} className="h-16 w-16 rounded-xl bg-[#e7eefc]" resizeMode="cover" />
+      {cover ? <Pressable accessibilityRole="button" accessibilityLabel={`Ampliar foto de ${product.name}`} onPress={() => onImage(cover.url)}><Image source={{ uri: cover.url }} className="h-16 w-16 rounded-xl bg-[#e7eefc]" resizeMode="cover" /></Pressable>
         : <View className="h-16 w-16 items-center justify-center rounded-xl bg-[#e7eefc]"><Ionicons name="cube-outline" size={26} color="#897171" /></View>}
       <View className="min-w-0 flex-1">
         <View className="flex-row items-start justify-between gap-1">
-          <View className="rounded-full bg-[#e7eefc] px-2 py-0.5"><Text className="text-[11px] font-semibold text-foreground">{statusLabels[product.status]}</Text></View>
+          <View className="rounded-full bg-[#f7ecee] px-2 py-0.5"><Text className="text-[11px] font-semibold text-foreground">{statusLabels[product.status]}</Text></View>
           <View className="flex-row gap-1">
             <Pressable accessibilityRole="button" accessibilityLabel={`Editar ${product.name}`} onPress={onEdit} className="h-8 w-8 items-center justify-center"><Ionicons name="create-outline" size={19} color="#564241" /></Pressable>
             {product.status !== "ARCHIVED" ? <Pressable accessibilityRole="button" accessibilityLabel={`Arquivar ${product.name}`} onPress={onArchive} className="h-8 w-8 items-center justify-center"><Ionicons name="archive-outline" size={19} color="#564241" /></Pressable> : null}
           </View>
         </View>
-        <Text numberOfLines={2} className="mt-0.5 text-sm font-semibold text-foreground">{product.name}</Text>
-        {product.sku ? <Text numberOfLines={1} className="text-[11px] text-muted-foreground">SKU: {product.sku}</Text> : null}
+        <Pressable accessibilityRole="button" accessibilityLabel={`Ver detalhes de ${product.name}`} onPress={onDetails} className="mt-1">
+          <Text numberOfLines={2} className="text-sm font-semibold text-foreground">{product.name}</Text>
+          {product.sku ? <Text numberOfLines={1} className="text-[11px] text-muted-foreground">SKU: {product.sku}</Text> : null}
+          <Text className="mt-1 text-xs font-semibold" style={{ color: availability(product).color }}>● {availability(product).label}</Text>
+          <Text className="mt-1 text-[11px] text-primary">Toque para ver detalhes</Text>
+        </Pressable>
       </View>
     </View>
     <View className="mt-3 flex-row items-end gap-2 rounded-xl bg-[#eef4ff] p-2.5">
@@ -98,10 +112,11 @@ function ProductCard({ product, onChanged, onEdit, onArchive, onSuccess }: {
   </View>;
 }
 
-export function StoreProductsScreen({ filters, onChangeFilters, initialNotice, onNoticeSeen, onBack, onCreate, onEdit }: {
+export function StoreProductsScreen({ filters, onChangeFilters, initialNotice, onNoticeSeen, onBack, onCreate, onEdit, onOpenOrders, onOpenPromotions, onOpenSettings }: {
   filters: ProductFilters; onChangeFilters: (filters: ProductFilters) => void;
   initialNotice?: string | null; onNoticeSeen?: () => void;
   onBack: () => void; onCreate: () => void; onEdit: (id: string) => void;
+  onOpenOrders?: () => void; onOpenPromotions?: () => void; onOpenSettings?: () => void;
 }) {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [items, setItems] = useState<StoreProduct[]>([]);
@@ -112,9 +127,12 @@ export function StoreProductsScreen({ filters, onChangeFilters, initialNotice, o
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(initialNotice ?? null);
   const [archiveTarget, setArchiveTarget] = useState<StoreProduct | null>(null);
+  const [detailsId, setDetailsId] = useState<string | null>(null);
+  const [viewImage, setViewImage] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
   const archiveRef = useRef(false);
   const requestId = useRef(0);
+  const details = items.find((item) => item.id === detailsId);
 
   const load = useCallback(async (nextPage: number, append = false) => {
     const id = ++requestId.current;
@@ -186,15 +204,26 @@ export function StoreProductsScreen({ filters, onChangeFilters, initialNotice, o
         {loading ? <View className="items-center py-12"><ActivityIndicator color="#b94b50" /><Text className="mt-3 text-sm text-muted-foreground">Carregando produtos...</Text></View>
           : error && !items.length ? <View className="items-center rounded-2xl bg-card p-6"><Text accessibilityRole="alert" className="text-center text-primary">{error}</Text><Pressable accessibilityRole="button" onPress={() => void load(1)} className="mt-3 rounded-full bg-primary px-5 py-2"><Text className="font-semibold text-white">Tentar novamente</Text></Pressable></View>
           : items.length === 0 ? <View className="items-center rounded-2xl bg-card p-7"><Ionicons name="cube-outline" size={32} color="#b94b50" /><Text className="mt-3 text-center font-semibold text-foreground">Nenhum produto encontrado</Text><Text className="mt-1 text-center text-sm text-muted-foreground">Ajuste os filtros ou cadastre um produto.</Text></View>
-          : items.map((product) => <ProductCard key={product.id} product={product} onChanged={(updated) => setItems((old) => old.map((item) => item.id === updated.id ? updated : item))} onEdit={() => onEdit(product.id)} onArchive={() => setArchiveTarget(product)} onSuccess={setNotice} />)}
+          : items.map((product) => <ProductCard key={product.id} product={product} onChanged={(updated) => setItems((old) => old.map((item) => item.id === updated.id ? updated : item))} onEdit={() => onEdit(product.id)} onArchive={() => setArchiveTarget(product)} onSuccess={setNotice} onDetails={() => setDetailsId(product.id)} onImage={setViewImage} />)}
         {error && items.length > 0 ? <Text accessibilityRole="alert" className="mb-3 text-sm text-primary">{error}</Text> : null}
         {!loading && items.length < total ? <Pressable accessibilityRole="button" disabled={loadingMore} onPress={() => void load(page + 1, true)} className="min-h-11 items-center justify-center rounded-full bg-card"><Text className="font-semibold text-primary">{loadingMore ? "Carregando..." : "Carregar mais"}</Text></Pressable> : null}
       </View>
     </ScrollView>
-    <View className="flex-row border-t border-input-border bg-card px-2 py-1">
-      <Pressable accessibilityRole="button" accessibilityLabel="Painel" onPress={onBack} className="min-h-[54px] flex-1 items-center justify-center"><Ionicons name="storefront-outline" size={21} color="#897171" /><Text className="text-[10px] text-muted-foreground">Painel</Text></Pressable>
-      <View className="min-h-[54px] flex-1 items-center justify-center"><Ionicons name="cube" size={21} color="#99333a" /><Text className="text-[10px] font-semibold text-primary">Produtos</Text></View>
-    </View>
+    <StoreOwnerTabBar selected="Produtos" onDashboard={onBack} onOrders={() => onOpenOrders?.()} onProducts={() => {}} onPromotions={() => onOpenPromotions?.()} onSettings={() => onOpenSettings?.()} />
+    <Modal visible={Boolean(details)} transparent animationType="slide" onRequestClose={() => setDetailsId(null)}>
+      <View className="flex-1 justify-end bg-black/50"><View className="max-h-[90%] rounded-t-[24px] bg-card px-5 pb-8 pt-4">
+        <View className="mb-3 flex-row items-center justify-between"><Text className="text-lg font-bold text-foreground">Detalhes do produto</Text><Pressable accessibilityRole="button" accessibilityLabel="Fechar detalhes" onPress={() => setDetailsId(null)} className="p-2"><Ionicons name="close" size={24} color="#564241" /></Pressable></View>
+        {details ? <ScrollView showsVerticalScrollIndicator={false}>
+          <Text className="text-xl font-semibold text-foreground">{details.name}</Text>
+          <Text className="mt-1 text-sm font-semibold" style={{ color: availability(details).color }}>● {availability(details).label}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="my-4">{details.images.map((image, index) => <Pressable key={image.id} accessibilityRole="button" accessibilityLabel={`Ampliar foto ${index + 1} de ${details.name}`} onPress={() => setViewImage(image.url)} className="mr-2"><Image source={{ uri: image.url }} className="h-28 w-28 rounded-xl bg-[#e7eefc]" resizeMode="cover" /></Pressable>)}</ScrollView>
+          <View className="rounded-xl bg-[#fbf6f7] p-4"><Text className="text-sm text-foreground">Preço: R$ {details.price.replace(".", ",")}</Text><Text className="mt-2 text-sm text-foreground">Estoque: {details.stock} unidades</Text><Text className="mt-2 text-sm text-foreground">Categoria: {categories.find((category) => category.id === details.categoryId)?.name ?? "Categoria indisponível"}</Text><Text className="mt-2 text-sm text-foreground">Status: {statusLabels[details.status]}</Text>{details.sku ? <Text className="mt-2 text-sm text-foreground">SKU: {details.sku}</Text> : null}</View>
+          <Text className="mt-4 text-sm font-semibold text-foreground">Descrição</Text><Text className="mt-1 text-sm leading-5 text-muted-foreground">{details.description || "Sem descrição."}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Editar detalhes de ${details.name}`} onPress={() => { setDetailsId(null); onEdit(details.id); }} className="mt-5 min-h-12 items-center justify-center rounded-full bg-primary"><Text className="font-semibold text-white">Editar produto</Text></Pressable>
+        </ScrollView> : null}
+      </View></View>
+    </Modal>
+    <ProductImageViewer uri={viewImage} onClose={() => setViewImage(null)} />
     <Modal visible={Boolean(archiveTarget)} transparent animationType="fade" onRequestClose={() => { if (!archiving) setArchiveTarget(null); }}>
       <View className="flex-1 justify-center bg-black/40 px-6"><View className="rounded-[22px] bg-card p-6">
         <View className="h-12 w-12 items-center justify-center rounded-full bg-[#ffdad6]"><Ionicons name="archive-outline" size={25} color="#ba1a1a" /></View>

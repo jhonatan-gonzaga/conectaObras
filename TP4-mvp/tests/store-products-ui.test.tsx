@@ -54,6 +54,23 @@ describe("Store products screens", () => {
     expect(screen.getByText("Produto alterado em outra sessão.")).toBeTruthy();
   });
 
+  it("opens product details and its photo in full screen from the catalog", async () => {
+    const photo = { id: "photo-1", url: "https://example.test/photo.jpg", altText: null, position: 0, isCover: true };
+    jest.spyOn(api, "storeProducts").mockResolvedValue({ items: [{ ...product, images: [photo] }], total: 1, page: 1, limit: 10 });
+    const onOrders = jest.fn();
+    const screen = render(<StoreProductsScreen filters={filters} onChangeFilters={jest.fn()} onBack={jest.fn()} onCreate={jest.fn()} onEdit={jest.fn()} onOpenOrders={onOrders} />);
+    await waitFor(() => expect(screen.getByLabelText("Ver detalhes de Furadeira")).toBeTruthy());
+    expect(screen.getByText("● Disponível para venda")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Pedidos"));
+    expect(onOrders).toHaveBeenCalledTimes(1);
+    fireEvent.press(screen.getByLabelText("Ver detalhes de Furadeira"));
+    expect(screen.getByText("Detalhes do produto")).toBeTruthy();
+    expect(screen.getByText("Categoria: Ferramentas")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Ampliar foto 1 de Furadeira"));
+    expect(screen.getByLabelText("Foto do produto em tela cheia")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Fechar imagem"));
+  });
+
   it("requires confirmation and blocks duplicate archive requests", async () => {
     const list = jest.spyOn(api, "storeProducts").mockResolvedValueOnce({ items: [product], total: 1, page: 1, limit: 10 })
       .mockResolvedValue({ items: [], total: 0, page: 1, limit: 10 });

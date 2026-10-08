@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { StoreOwnerTabBar } from "../../components/lojista/StoreOwnerTabBar";
 import { ApiError, api, formatMoney, type StoreDashboardList, type StoreDashboardSummary, type StoreIdentity } from "../../services/api";
 
 const logo = require("../../../assets/logotipo.png");
@@ -19,13 +20,6 @@ function DashboardCard({ title, detail, icon, badge, accessibilityLabel, onPress
       {badge ? <View className="min-w-[22px] items-center rounded-full bg-primary px-1.5 py-0.5"><Text className="text-xs font-semibold text-white">{badge}</Text></View> : null}
     </View>
     <View><Text className="text-lg font-semibold text-foreground">{title}</Text><Text className="mt-0.5 text-sm text-muted-foreground">{detail}</Text></View>
-  </Pressable>;
-}
-
-function BottomTab({ label, icon, selected, onPress }: { label: string; icon: IconName; selected?: boolean; onPress: () => void }) {
-  return <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: Boolean(selected) }} className="min-h-[58px] flex-1 items-center justify-center px-0.5">
-    <Ionicons name={icon} size={22} color={selected ? "#99333a" : "#766a70"} />
-    <Text numberOfLines={1} className={`mt-0.5 text-[10px] ${selected ? "font-semibold text-primary" : "text-muted-foreground"}`}>{label}</Text>
   </Pressable>;
 }
 
@@ -117,12 +111,6 @@ export function StoreOwnerScreen({ onOpenList, onOpenOrders, onOpenProducts, onS
         <Pressable onPress={onSignOut} accessibilityRole="button" accessibilityLabel="Sair da conta" className="mt-6 self-center flex-row items-center gap-2 py-2"><Ionicons name="log-out-outline" size={18} color="#897171" /><Text className="text-sm text-muted-foreground">Sair da conta</Text></Pressable>
       </View>
     </ScrollView>
-    <View className="flex-row border-t border-input-border bg-card px-1 shadow-sm shadow-primary/10">
-      <BottomTab label="Painel" icon="storefront-outline" selected onPress={() => {}} />
-      <BottomTab label="Pedidos" icon="receipt-outline" onPress={() => onOpenList("orders")} />
-      <BottomTab label="Produtos" icon="cube-outline" onPress={onOpenProducts} />
-      <BottomTab label="Promoções" icon="pricetag-outline" onPress={() => onOpenList("promotions")} />
-      <BottomTab label="Configurações" icon="settings-outline" onPress={() => onEditStore?.()} />
-    </View>
+    <StoreOwnerTabBar selected="Painel" onDashboard={() => {}} onOrders={() => onOpenList("orders")} onProducts={onOpenProducts} onPromotions={() => onOpenList("promotions")} onSettings={() => onEditStore?.()} />
   </View>;
 }
