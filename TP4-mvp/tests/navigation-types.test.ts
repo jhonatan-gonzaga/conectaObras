@@ -2,6 +2,7 @@ import {
   isAuthContextScreen,
   isClientContextScreen,
   isProfessionalContextScreen,
+  isStoreOwnerContextScreen,
   type Screen,
 } from "../front-end/src/navigation/types";
 
@@ -23,6 +24,8 @@ describe("navigation screen guards", () => {
     "clientProfile",
     "professionalSetup",
     "professionalHome",
+    "storeProducts",
+    "storeProductForm",
   ];
 
   it.each([
@@ -41,11 +44,14 @@ describe("navigation screen guards", () => {
     ["clientProfile", "client"],
     ["professionalSetup", "professional"],
     ["professionalHome", "professional"],
+    ["storeProducts", "store"],
+    ["storeProductForm", "store"],
   ] as const)("classifies %s as %s", (screen, context) => {
     expect({
       auth: isAuthContextScreen(screen),
       client: isClientContextScreen(screen),
       professional: isProfessionalContextScreen(screen),
+      store: isStoreOwnerContextScreen(screen),
     }[context]).toBe(true);
   });
 
@@ -61,6 +67,7 @@ describe("navigation screen guards", () => {
         isAuthContextScreen(screen),
         isClientContextScreen(screen),
         isProfessionalContextScreen(screen),
+        isStoreOwnerContextScreen(screen),
         screen === "accountProfile",
       ].filter(Boolean);
 

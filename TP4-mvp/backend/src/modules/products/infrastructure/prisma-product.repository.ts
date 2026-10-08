@@ -62,7 +62,7 @@ export class PrismaProductRepository implements ProductRepository {
   async listPage(storeId: string, query: ProductListQuery): Promise<ProductPage> {
     const where: Prisma.ProductWhereInput = {
       storeId,
-      status: query.status,
+      status: query.status ?? { not: 'ARCHIVED' },
       categoryId: query.categoryId,
       stock: query.stock === 'IN_STOCK' ? { gt: 0 } : query.stock === 'OUT_OF_STOCK' ? 0 : undefined,
       OR: query.q ? [

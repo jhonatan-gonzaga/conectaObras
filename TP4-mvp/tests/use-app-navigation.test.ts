@@ -78,6 +78,19 @@ describe("useAppNavigation", () => {
     expect(result.current.screen).toBe("storeOwnerDashboard");
   });
 
+  it("keeps product filters and selected product while navigating back from edit", async () => {
+    const { result } = await renderNavigation();
+    act(() => {
+      result.current.setProductFilters({ q: "cimento", categoryId: "cat-1", status: "ACTIVE", stock: "IN_STOCK" });
+      result.current.setSelectedProductId("product-1");
+      result.current.setScreen("storeProductForm");
+    });
+    act(() => result.current.setScreen("storeProducts"));
+    expect(result.current.screen).toBe("storeProducts");
+    expect(result.current.productFilters).toEqual({ q: "cimento", categoryId: "cat-1", status: "ACTIVE", stock: "IN_STOCK" });
+    expect(result.current.selectedProductId).toBe("product-1");
+  });
+
   it("opens the existing professional area when the profile lookup succeeds", async () => {
     jest.spyOn(api, "me").mockResolvedValue({ id: "p1", role: "PROFISSIONAL" } as never);
     const professionalMe = jest

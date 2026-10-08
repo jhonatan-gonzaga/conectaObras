@@ -213,6 +213,11 @@ describe('Store products API', () => {
     assert.equal((await request('a', `/${first.id}`, 'DELETE')).status, 409);
     assert.equal((await request('a', `/${first.id}`)).status, 200);
     assert.equal((await (await request('a', '?status=ARCHIVED')).json() as ProductPage).total, 1);
+    assert.equal((await request('a', `/${first.id}/status`, 'PATCH', { status: 'ACTIVE' })).status, 400);
+    assert.equal((await request('b', `/${first.id}/status`, 'PATCH', { status: 'INACTIVE' })).status, 404);
+    assert.equal((await request('a', `/${first.id}/status`, 'PATCH', { status: 'INACTIVE' })).status, 200);
+    assert.equal((await request('a', `/${first.id}`, 'PATCH', { name: 'Cimento restaurado' })).status, 200);
+    assert.equal((await (await request('a', '?status=ARCHIVED')).json() as ProductPage).total, 0);
   });
 
   it('requires cover and active category to activate, then permits deactivation', async () => {
@@ -235,7 +240,8 @@ describe('Store products API', () => {
     assert.equal((await request('a', path, 'PATCH', { status: 'DRAFT' })).status, 409);
     assert.equal((await activate()).status, 200);
     await request('a', `/${created.id}`, 'DELETE');
-    assert.equal((await activate()).status, 409);
+    assert.equal((await activate()).status, 200);
+    assert.equal(products.rows.get(created.id)!.status, 'ACTIVE');
   });
 
   it('validates quick price and stock changes without mutating rejected input', async () => {

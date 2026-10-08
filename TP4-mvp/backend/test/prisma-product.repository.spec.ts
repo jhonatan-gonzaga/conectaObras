@@ -116,6 +116,7 @@ describe('Product persistence adapter', () => {
     assert.deepEqual(calls.find((call) => call.operation === 'count')!.args.where, list.where);
     await repository.listPage('store-a', { page: 1, limit: 20, stock: 'OUT_OF_STOCK' });
     assert.equal(calls.filter((call) => call.operation === 'findMany')[1].args.where.stock, 0);
+    assert.deepEqual(calls.filter((call) => call.operation === 'findMany')[1].args.where.status, { not: 'ARCHIVED' });
   });
 
   it('edita e muda status com filtro de loja e status anterior', async () => {
