@@ -12,11 +12,21 @@ Os dois HTMLs fornecidos foram adaptados para componentes React Native, mantendo
 
 **Concluir Cadastro da Loja** valida o cadastro completo, salva e consulta as pendências antes de retornar ao painel; a ativação permanece uma ação explícita. **Salvar Alterações** confirma o salvamento e mantém a edição aberta.
 
-Na edição, **Visão** abre o painel; **Pedidos** abre a lista de pedidos; **Catálogo** abre produtos ativos; **Vendas** lista pedidos concluídos. As listas retornam à tela de origem. **Minha conta** volta aos ajustes; **Visualizar Loja como Cliente** abre uma prévia somente de leitura dos dados salvos, sem trocar a persona ou publicar a loja.
+A edição reutiliza `ProfessionalHeader`, com a foto da conta autenticada e retorno ao painel. **Abrir perfil** abre a conta e retorna aos ajustes. Não há botão de mensagens nem barra inferior de Visão/Pedidos/Catálogo/Vendas/Ajustes nesta tela. As listas continuam acessíveis pelo painel. **Visualizar Loja como Cliente** abre uma prévia somente de leitura dos dados salvos, sem trocar a persona ou publicar a loja.
 
-**Buscar CEP** usa [ViaCEP](https://viacep.com.br/), preserva número/complemento e permite preenchimento manual em caso de falha. O logo usa `POST /stores/me/logo`, aceita JPG/PNG de até 5 MB e exige uma loja já persistida; em novos cadastros, pode ser adicionado nos ajustes após a conclusão. **Precisa de ajuda?** abre o formulário que cria uma solicitação real no suporte. **Mapa** abre a busca pelo endereço informado.
+**Buscar CEP** usa [ViaCEP](https://viacep.com.br/), preserva número/complemento e permite preenchimento manual em caso de falha. **Precisa de ajuda?** abre o formulário que cria uma solicitação real no suporte. **Mapa** abre a busca pelo endereço informado.
 
-Capa, categoria da loja e redes sociais dos modelos não foram adicionadas: a API atual não persiste esses campos. O cabeçalho da edição usa um fundo decorativo e mostra o status real da loja; não apresenta selos de verificação fictícios.
+## Imagens de capa e fundo
+
+São duas imagens independentes: a **capa** quadrada usa o campo legado `logoUrl`; o **fundo** do banner usa `backgroundUrl`. Ambas podem ser selecionadas no cadastro novo, mesmo antes de a loja existir. A seleção aceita JPG/PNG de até 5 MB, mostra a prévia e conta como alteração não salva. O seletor pode ser cancelado sem descartar a imagem anterior; falhas permitem tentar novamente.
+
+**Concluir Cadastro da Loja** e **Salvar Alterações** persistem primeiro o perfil completo e depois as imagens selecionadas em `POST /stores/me/cover` e `POST /stores/me/background`. Uma falha de envio mantém a imagem pendente para retry e não anuncia sucesso nem conclui a navegação. Imagens que já foram salvas não são reenviadas. As imagens persistidas reaparecem ao reabrir ajustes e prévia; seleções ainda não salvas são descartadas ao confirmar a saída.
+
+A rota antiga `POST /stores/me/logo` permanece como alias da capa. As três rotas exigem JWT e LOJISTA, resolvem a loja pelo usuário autenticado e ignoram `ownerId`/`storeId` enviados no multipart. Atualizar uma imagem não sobrescreve a outra. O formulário comercial não permite alterar URLs de imagem por mass assignment.
+
+O [seletor de imagens do Expo](https://docs.expo.dev/versions/latest/sdk/imagepicker/) abre diretamente no toque, sem solicitar acesso amplo à galeria antes de escolher uma foto. A capa admite recorte quadrado; o fundo admite recorte 3:1 no Android e preserva o original no iOS, cujo editor nativo recorta somente em quadrado. URLs locais de uploads em localhost são exibidas pelo mesmo endereço configurado para a API; fontes externas e prévias locais são preservadas. Erros de carregamento apresentam um indicador em vez de uma imagem vazia.
+
+Categoria da loja e redes sociais continuam sem campos na API. O banner mostra o status real da loja e não apresenta selos de verificação fictícios.
 
 A raiz do aplicativo passou a fornecer `SafeAreaProvider`, corrigindo o erro que impedia o carregamento da versão web.
 
@@ -26,14 +36,13 @@ A consulta autenticada `GET /stores/me/activation-readiness` retorna `{ allowed,
 
 A tela de edição oferece **Ativar loja** somente quando os dados estão salvos, a validação local está completa e a API autoriza sem pendências. A ativação usa `PATCH /stores/me/status` e o backend revalida os requisitos. Erros preservam as alterações e permitem retry; pendências recebidas da API bloqueiam a ativação e aparecem junto ao campo correspondente no cadastro; a revisão de ativação permanece na edição.
 
-Não foram adicionadas migrations nem variáveis de ambiente.
+A migration `20261010090000_add_store_background_image` adiciona `backgroundUrl` nullable, preservando imagens existentes. Antes de iniciar esta versão do backend, executar `npm run prisma:generate` e `npm run prisma:deploy` no pacote `backend`, com o banco configurado. Nenhuma variável de ambiente nova foi adicionada; o aplicativo continua usando `EXPO_PUBLIC_API_URL`.
 
 ## Verificação automatizada
 
-- Jest: 96 testes aprovados, incluindo ausência de rascunho/resumo, validação verde, cadastro completo obrigatório e acesso ao painel somente após aprovação. Cobertura de validação, máscaras e payload, sete dias, retomada após salvar e reabrir, erros de carregamento/salvamento, retry, sucesso, fechamento de dias, pendências e rejeição da ativação, alterações não salvas e proteção das rotas de edição/prévia, navegação com retorno à origem, conclusão do cadastro, consulta de CEP, upload de logo e solicitação de suporte.
-- Validação anterior do backend (implementação inicial da LOJA-006): 204 testes aprovados e dois testes de banco não executados. O backend não foi alterado nesta revisão visual. Testes HTTP de autenticação, papel, isolamento por proprietário e consulta de prontidão sem alteração de status, além da suíte existente.
-- Ajustes atuais do cadastro: typecheck do aplicativo aprovado. Na revisão visual anterior, as exportações web/Android passaram e a renderização foi conferida no Chromium em 390 px, com dados simulados e sem rolagem horizontal.
-- Os testes de persistência com MySQL permanecem dependentes de um banco de teste configurado.
+- Aplicativo: `npm test -- --runInBand --testTimeout=15000`, com 101 testes aprovados em 11 suítes; `npm run typecheck` aprovado. Os testes cobrem cadastro completo, restrições de navegação, validação/payload, seleção das duas imagens antes da criação da loja, multipart nativo/web, cancelamento/erros do seletor, preservação de campos e de imagens pendentes, retry sem duplicar uploads, avatar da conta no cabeçalho compartilhado e ausência de mensagens/barra inferior nos ajustes.
+- Backend: `npm test` com 211 testes aprovados em 18 suítes e dois testes de banco não executados; `npm run typecheck` e `npm run build` aprovados. A integração HTTP usa um repositório em memória e arquivos temporários removidos ao terminar. Verifica autenticação/papel, isolamento entre donos, capa/fundo independentes, compatibilidade com a rota antiga, leitura das imagens pela URL retornada, limites de arquivo e erros. Testes do repositório Prisma verificam atualização de somente uma imagem por vez, filtrada pelo proprietário.
+- A migration não foi aplicada a um banco real neste ambiente; a persistência com MySQL continua dependente de banco de teste configurado.
 
 ## Teste manual obrigatório — pendente
 
@@ -45,6 +54,8 @@ Não há aparelho conectado neste ambiente. Executar em Android/iOS antes de con
 - Concluir o cadastro, fechar/reabrir e reiniciar o aplicativo; confirmar acesso ao painel. Verificar que cadastros antigos incompletos retornam ao cadastro.
 - Simular falha de rede ao carregar/salvar, verificar preservação dos dados e tentar novamente.
 - Conferir marcação verde dos campos corretos e erros junto aos campos; confirmar ausência de rascunho, resumo e acesso antecipado ao painel. Na edição, ativar somente depois da aprovação da API.
-- Alterar um campo e tentar voltar, trocar perfil ou sair; conferir a confirmação de descarte.
+- Alterar um campo ou selecionar uma imagem e tentar voltar, trocar perfil ou sair; conferir a confirmação de descarte.
+- Selecionar capa e fundo em cadastro novo e ajustes; conferir galeria, recorte, cancelamento e prévias. Salvar, fechar/reabrir e verificar ambas as imagens. Simular falha de envio de uma imagem e repetir sem reenviar a outra.
+- Confirmar foto da conta no cabeçalho e retorno após editar o perfil; conferir ausência do botão de mensagens e dos cinco atalhos inferiores nos ajustes.
 
 A história usa seleção de hora, sem campo de data. A validação manual em aparelho não foi executada neste ambiente.

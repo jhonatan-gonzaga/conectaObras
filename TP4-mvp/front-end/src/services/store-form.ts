@@ -7,7 +7,7 @@ export type StoreDay = (typeof storeDays)[number][0];
 export type StoreHour = { dayOfWeek: StoreDay; closed: boolean; openingTime: string | null; closingTime: string | null };
 export type StoreAddress = { street: string; number: string; neighborhood: string; city: string; state: string; zipCode: string; complement: string };
 export type StoreProfile = {
-  id: string; name: string | null; status: string; logoUrl?: string | null;
+  id: string; name: string | null; status: string; logoUrl?: string | null; backgroundUrl?: string | null;
   cnpj?: string | null; phone?: string | null; whatsapp?: string | null; description?: string | null;
   address?: Partial<Record<keyof StoreAddress, string | null>> | null;
   openingHours?: StoreHour[];

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Alert, Platform } from "react-native";
-import { ApiError, api } from "../../services/api";
+import { ApiError, api, resolveImageUrl } from "../../services/api";
 import { lookupPostalCode } from "../../services/postal-code";
-import { pickStoreLogo } from "../../services/store-logo";
+import { pickStoreImage, type StoreImageFile, type StoreImageKind } from "../../services/store-logo";
 import { emptyStoreForm, pendingLabels, resumeStore, storePayload, validateStore, type StoreErrors, type StoreForm, type StoreProfile } from "../../services/store-form";
 
 export function useStoreForm(registration = false) {
@@ -16,13 +16,14 @@ export function useStoreForm(registration = false) {
   const [busy, setBusy] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [errorSource, setErrorSource] = useState<"save" | "logo">("save");
+  const [errorSource, setErrorSource] = useState<"save" | StoreImageKind>("save");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [errors, setErrors] = useState<StoreErrors>({});
   const [pending, setPending] = useState<string[]>([]);
   const [ready, setReady] = useState(false);
-  const dirty = JSON.stringify(form) !== saved;
+  const [images, setImages] = useState<Partial<Record<StoreImageKind, StoreImageFile>>>({});
+  const dirty = JSON.stringify(form) !== saved || !!images.cover || !!images.background;
 
   useEffect(() => {
     let current = true;
@@ -99,6 +100,16 @@ export function useStoreForm(registration = false) {
       const restored = resumeStore(store);
       setForm(restored); setSaved(JSON.stringify(restored)); setExists(true); setStatus(store.status);
 
+      for (const kind of ["cover", "background"] as const) {
+        const image = images[kind];
+        if (!image) continue;
+        // Keep unsuccessful selections available for retry, without resending
+        // images already persisted in this attempt.
+        const updated = await api.uploadStoreImage(kind, image);
+        setProfile(updated);
+        setImages((old) => { const next = { ...old }; delete next[kind]; return next; });
+      }
+
       if (store.status !== "ACTIVE") {
         const decision = await api.storeActivationReadiness();
         setPending(decision.pending); setReady(decision.allowed && !decision.pending.length);
@@ -133,19 +144,21 @@ export function useStoreForm(registration = false) {
       setErrors((old) => ({ ...old, "address.zipCode": cause instanceof Error ? cause.message : "Consulta indisponível. Preencha manualmente." }));
     } finally { setBusy(false); }
   }
-  async function uploadLogo() {
-    if (busy || !exists) return;
-    setErrorSource("logo");
+  async function selectImage(kind: StoreImageKind) {
+    if (busy) return;
+    setErrorSource(kind);
     setBusy(true); setError(null); setSuccess(null);
     try {
-      const store = await pickStoreLogo();
-      if (store) { setProfile(store); setSuccess("Logo atualizado com sucesso."); }
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível atualizar o logo."); }
+      const image = await pickStoreImage(kind);
+      if (image) setImages((old) => ({ ...old, [kind]: image }));
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível selecionar a imagem."); }
     finally { setBusy(false); }
   }
   return { registration, validationErrors: validateStore(form, true), profile, form, exists, status, step, setStep, loading, busy, loadError, error, success,
-    errors, pending, ready, dirty, change, save, activate, leave, searchCep, uploadLogo,
-    retryError: () => errorSource === "logo" ? uploadLogo() : save(),
-    retryErrorLabel: errorSource === "logo" ? "Tentar enviar logo novamente" : "Tentar salvar novamente",
+    errors, pending, ready, dirty, change, save, activate, leave, searchCep, selectImage,
+    coverUri: images.cover?.uri ?? resolveImageUrl(profile?.logoUrl),
+    backgroundUri: images.background?.uri ?? resolveImageUrl(profile?.backgroundUrl),
+    retryError: () => errorSource === "save" ? save() : selectImage(errorSource),
+    retryErrorLabel: errorSource === "save" ? "Tentar salvar novamente" : "Tentar selecionar imagem novamente",
     retryLoad: () => setLoadAttempt((value) => value + 1) };
 }

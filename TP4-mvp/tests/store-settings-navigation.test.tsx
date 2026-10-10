@@ -7,10 +7,10 @@ import { isStoreOwnerContextScreen } from "../front-end/src/navigation/types";
 import { api } from "../front-end/src/services/api";
 import { emptyStoreForm, type StoreProfile } from "../front-end/src/services/store-form";
 import { lookupPostalCode } from "../front-end/src/services/postal-code";
-import { pickStoreLogo } from "../front-end/src/services/store-logo";
+import { pickStoreImage } from "../front-end/src/services/store-logo";
 
 jest.mock("expo-secure-store", () => ({ getItemAsync: jest.fn().mockResolvedValue(null), setItemAsync: jest.fn(), deleteItemAsync: jest.fn() }));
-jest.mock("../front-end/src/services/store-logo", () => ({ pickStoreLogo: jest.fn() }));
+jest.mock("../front-end/src/services/store-logo", () => ({ pickStoreImage: jest.fn() }));
 jest.mock("../front-end/src/services/postal-code", () => ({ lookupPostalCode: jest.fn() }));
 jest.mock("../front-end/src/components/native-date-time-field", () => {
   const React = require("react"); const { TextInput } = require("react-native");
@@ -35,7 +35,7 @@ async function openSettings() {
 }
 describe("store settings flow", () => {
   beforeEach(() => {
-    jest.spyOn(api, "me").mockResolvedValue({ id: "owner-a", role: "LOJISTA" } as never);
+    jest.spyOn(api, "me").mockResolvedValue({ id: "owner-a", role: "LOJISTA", avatarUrl: "https://example.com/avatar.png" } as never);
     jest.spyOn(api, "myStore").mockResolvedValue(store);
     jest.spyOn(api, "storeDashboard").mockResolvedValue({ hasStore: true, activeProducts: 1, lowStockProducts: 0, activePromotions: 0, unreadMessages: 0, ordersByStatus: {} } as never);
     jest.spyOn(api, "storeDashboardList").mockResolvedValue([]);
@@ -44,16 +44,15 @@ describe("store settings flow", () => {
   it("opens distinct settings and returns to the dashboard", async () => {
     const screen = await openSettings();
     expect(screen.getByLabelText("Nome da loja").props.value).toBe("Loja Central");
-    fireEvent.press(screen.getByLabelText("Voltar ao painel"));
+    fireEvent.press(screen.getByLabelText("Voltar"));
     expect(await screen.findByText("Painel da loja")).toBeTruthy();
   });
-  it.each([["Pedidos", "orders", undefined], ["Catálogo", "active-products", undefined], ["Vendas", "orders", "COMPLETED"], ["Mensagens da loja", "messages", undefined]] as const)("opens %s and returns to its settings origin", async (label, kind, status) => {
+  it("uses the professional header with the account avatar, without messages or footer tabs", async () => {
     const screen = await openSettings();
-    fireEvent.press(label === "Mensagens da loja" ? screen.getByLabelText(label) : screen.getByText(label));
-    expect(await screen.findByText("Nenhum registro encontrado.")).toBeTruthy();
-    expect(api.storeDashboardList).toHaveBeenCalledWith(kind, status);
-    fireEvent.press(screen.getByText("Voltar"));
-    expect(await screen.findByText("Ajustes da loja")).toBeTruthy();
+    expect((await screen.findByLabelText("Foto do perfil")).props.source.uri).toBe("https://example.com/avatar.png");
+    expect(screen.getByLabelText("Conecta Obras Itacoatiara")).toBeTruthy();
+    expect(screen.queryByLabelText("Mensagens da loja")).toBeNull();
+    for (const tab of ["Visão", "Pedidos", "Catálogo", "Vendas", "Ajustes"]) expect(screen.queryByText(tab)).toBeNull();
   });
   it("previews saved data without changing persona and returns to settings", async () => {
     const screen = await openSettings();
@@ -65,7 +64,7 @@ describe("store settings flow", () => {
   });
   it("opens the account with settings as its return route", async () => {
     const screen = await openSettings();
-    fireEvent.press(screen.getByLabelText("Minha conta"));
+    fireEvent.press(screen.getByLabelText("Abrir perfil"));
     fireEvent.press(await screen.findByText("Voltar da conta"));
     expect(await screen.findByText("Ajustes da loja")).toBeTruthy();
   });
@@ -73,7 +72,7 @@ describe("store settings flow", () => {
     const alert = jest.spyOn(Alert, "alert");
     const screen = await openSettings();
     fireEvent.changeText(screen.getByLabelText("Nome da loja"), "Alterada");
-    fireEvent.press(screen.getByLabelText("Voltar ao painel"));
+    fireEvent.press(screen.getByLabelText("Voltar"));
     expect(screen.getByText("Ajustes da loja")).toBeTruthy();
     const buttons = alert.mock.calls[0][2]!;
     await act(async () => buttons.find((button) => button.text === "Descartar alterações")!.onPress!());
@@ -120,13 +119,41 @@ describe("store settings flow", () => {
     expect(screen.getByLabelText("Número").props.value).toBe("1");
     expect(screen.getByLabelText("Complemento").props.value).toBe("Sala 4");
   });
-  it("uploads a logo without losing unsaved form edits", async () => {
-    (pickStoreLogo as jest.Mock).mockResolvedValue({ ...store, logoUrl: "https://example.com/logo.png" });
+  it("previews both selected images without losing edits and uploads only on save", async () => {
+    (pickStoreImage as jest.Mock).mockImplementation(async (kind) => ({ uri: `file:///${kind}.png`, name: `${kind}.png`, type: "image/png" }));
+    const save = jest.spyOn(api, "saveMyStore").mockResolvedValue({ ...store, name: "Alterada" });
+    const upload = jest.spyOn(api, "uploadStoreImage").mockImplementation(async (kind) => ({ ...store, name: "Alterada", logoUrl: "https://example.com/cover.png", ...(kind === "background" ? { backgroundUrl: "https://example.com/background.png" } : {}) }));
     const screen = await openSettings();
     fireEvent.changeText(screen.getByLabelText("Nome da loja"), "Alterada");
-    await act(async () => fireEvent.press(screen.getByText("Adicionar logo")));
-    expect(await screen.findByText("Logo atualizado com sucesso.")).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByText("Adicionar capa")));
+    await act(async () => fireEvent.press(screen.getByText("Adicionar fundo")));
+    expect(screen.getByLabelText("Capa da loja").props.source.uri).toBe("file:///cover.png");
+    expect(screen.getByLabelText("Fundo da loja").props.source.uri).toBe("file:///background.png");
     expect(screen.getByLabelText("Nome da loja").props.value).toBe("Alterada");
+    expect(upload).not.toHaveBeenCalled();
+    await act(async () => fireEvent.press(screen.getByText("Salvar Alterações")));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ name: "Alterada" }));
+    expect(upload).toHaveBeenNthCalledWith(1, "cover", expect.objectContaining({ uri: "file:///cover.png" }));
+    expect(upload).toHaveBeenNthCalledWith(2, "background", expect.objectContaining({ uri: "file:///background.png" }));
+    expect(screen.getByLabelText("Fundo da loja").props.source.uri).toBe("https://example.com/background.png");
+    expect(screen.queryByText("Alterações não salvas")).toBeNull();
+  });
+  it("retains a failed background for retry without resending a saved cover", async () => {
+    (pickStoreImage as jest.Mock).mockImplementation(async (kind) => ({ uri: `file:///${kind}.png`, name: `${kind}.png`, type: "image/png" }));
+    jest.spyOn(api, "saveMyStore").mockResolvedValue(store);
+    const upload = jest.spyOn(api, "uploadStoreImage")
+      .mockResolvedValueOnce({ ...store, logoUrl: "https://example.com/cover.png" })
+      .mockRejectedValueOnce(new Error("Offline"))
+      .mockResolvedValueOnce({ ...store, logoUrl: "https://example.com/cover.png", backgroundUrl: "https://example.com/background.png" });
+    const screen = await openSettings();
+    await act(async () => fireEvent.press(screen.getByText("Adicionar capa")));
+    await act(async () => fireEvent.press(screen.getByText("Adicionar fundo")));
+    await act(async () => fireEvent.press(screen.getByText("Salvar Alterações")));
+    expect(screen.getByLabelText("Fundo da loja").props.source.uri).toBe("file:///background.png");
+    expect(screen.getByText("Alterações não salvas")).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByText("Tentar salvar novamente")));
+    expect(upload.mock.calls.map(([kind]) => kind)).toEqual(["cover", "background", "background"]);
+    expect(await screen.findByText("Dados da loja salvos com sucesso.")).toBeTruthy();
   });
   it("creates a real support ticket from the help dialog", async () => {
     const support = jest.spyOn(api, "createSupportTicket").mockResolvedValue({ id: "ticket-a" } as never);
