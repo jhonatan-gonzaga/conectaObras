@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import type { ComponentProps, ReactNode } from "react";
+import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { NativeDateTimeField } from "../native-date-time-field";
 import { maskCep, maskCnpj, maskPhone, pendingLabels, storeDays, storeFieldLabel, validateStore } from "../../services/store-form";
@@ -33,14 +33,24 @@ export function StoreField({ editor, field, label, placeholder, numeric = false,
     {editor.errors[field] ? <Text accessibilityRole="alert" style={ui.error}>{editor.errors[field]}</Text> : null}
   </View>;
 }
-export function StoreLogo({ editor }: { editor: StoreEditor }) {
-  return <View style={ui.logoRow}>
-    <View style={ui.logo}>{editor.profile?.logoUrl ? <Image accessibilityLabel="Logo da loja" source={{ uri: editor.profile.logoUrl }} style={{ width: "100%", height: "100%" }} /> : <Ionicons name="storefront-outline" size={36} color={colors.primary} />}</View>
-    <View style={{ flex: 1 }}><Text style={ui.label}>Identidade visual</Text><Text style={ui.caption}>JPG ou PNG · até 5 MB</Text><Pressable accessibilityRole="button" disabled={editor.busy || !editor.exists} accessibilityState={{ disabled: editor.busy || !editor.exists }} onPress={() => void editor.uploadLogo()} style={{ paddingVertical: 10 }}><Text style={ui.link}>{editor.profile?.logoUrl ? "Alterar logo" : "Adicionar logo"}</Text></Pressable>{!editor.exists ? <Text style={ui.caption}>Conclua o cadastro para adicionar o logo nos ajustes da loja.</Text> : null}</View>
-  </View>;
+export function StoreImagePreview({ uri, label }: { uri?: string; label: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [uri]);
+  return uri && !failed ? <Image accessibilityLabel={label} source={{ uri }} resizeMode="cover" onError={() => setFailed(true)} style={{ width: "100%", height: "100%" }} /> : <View style={{ flex: 1, alignSelf: "stretch", alignItems: "center", justifyContent: "center" }}><Ionicons name="image-outline" size={32} color={colors.primary} />{failed ? <Text style={[ui.caption, { fontSize: 11, textAlign: "center" }]}>Imagem indisponível</Text> : null}</View>;
+}
+export function StoreImages({ editor }: { editor: StoreEditor }) {
+  return <>{(["cover", "background"] as const).map((kind) => {
+    const uri = kind === "cover" ? editor.coverUri : editor.backgroundUri;
+    const label = kind === "cover" ? "Imagem de capa" : "Imagem de fundo";
+    const action = `${uri ? "Alterar" : "Adicionar"} ${kind === "cover" ? "capa" : "fundo"}`;
+    return <View key={kind} style={ui.logoRow}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Selecionar ${label.toLowerCase()}`} disabled={editor.busy} onPress={() => void editor.selectImage(kind)} style={[ui.logo, kind === "background" && { width: 120, height: 70, borderRadius: 16 }]}><StoreImagePreview uri={uri} label={label} /></Pressable>
+      <View style={{ flex: 1 }}><Text style={ui.label}>{label}</Text><Text style={ui.caption}>JPG ou PNG · até 5 MB</Text><Pressable accessibilityRole="button" disabled={editor.busy} accessibilityState={{ disabled: editor.busy }} onPress={() => void editor.selectImage(kind)} style={{ paddingVertical: 10 }}><Text style={ui.link}>{action}</Text></Pressable></View>
+    </View>;
+  })}</>;
 }
 export function StoreCommercialFields({ editor }: { editor: StoreEditor }) {
-  return <><StoreLogo editor={editor} /><StoreField editor={editor} field="name" label="Nome da loja" placeholder="Ex.: Armazém Central & Co." limit={120} required /><StoreField editor={editor} field="cnpj" label="CNPJ" placeholder="00.000.000/0001-00" numeric limit={18} /><StoreField editor={editor} field="description" label="Descrição" placeholder="Apresente sua loja, especialidades e diferenciais..." limit={1000} /></>;
+  return <><StoreImages editor={editor} /><StoreField editor={editor} field="name" label="Nome da loja" placeholder="Ex.: Armazém Central & Co." limit={120} required /><StoreField editor={editor} field="cnpj" label="CNPJ" placeholder="00.000.000/0001-00" numeric limit={18} /><StoreField editor={editor} field="description" label="Descrição" placeholder="Apresente sua loja, especialidades e diferenciais..." limit={1000} /></>;
 }
 export function StoreAddressFields({ editor }: { editor: StoreEditor }) {
   return <><View style={ui.row}><View style={{ flex: 1 }}><StoreField editor={editor} field="address.zipCode" label="CEP" placeholder="00000-000" numeric limit={9} /></View><Pressable accessibilityRole="button" accessibilityLabel="Buscar CEP" disabled={editor.busy} onPress={() => void editor.searchCep()} style={ui.cepButton}><Ionicons name="search-outline" size={19} color={colors.primary} /><Text style={ui.link}>Buscar</Text></Pressable></View>

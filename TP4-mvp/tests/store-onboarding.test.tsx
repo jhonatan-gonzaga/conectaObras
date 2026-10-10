@@ -1,10 +1,11 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
+import { pickStoreImage } from "../front-end/src/services/store-logo";
 import { Alert } from "react-native";
 import { StoreOwnerSetupScreen } from "../front-end/src/pages/lojista/StoreOwnerSetupScreen";
 import { ApiError, api } from "../front-end/src/services/api";
 import { emptyStoreForm, type StoreProfile } from "../front-end/src/services/store-form";
 
-jest.mock("../front-end/src/services/store-logo", () => ({ pickStoreLogo: jest.fn() }));
+jest.mock("../front-end/src/services/store-logo", () => ({ pickStoreImage: jest.fn() }));
 jest.mock("expo-secure-store", () => ({ getItemAsync: jest.fn(), setItemAsync: jest.fn(), deleteItemAsync: jest.fn() }));
 jest.mock("../front-end/src/components/native-date-time-field", () => {
   const React = require("react");
@@ -67,6 +68,37 @@ describe("store registration", () => {
     expect(await screen.findByText("Cadastre sua loja")).toBeTruthy();
     expect(screen.getByLabelText("Nome da loja").props.value).toBe("");
     expect(api.storeActivationReadiness).not.toHaveBeenCalled();
+  });
+  it("allows image selection in a new registration without saving a partial store or navigating", async () => {
+    jest.spyOn(api, "myStore").mockRejectedValue(new ApiError("Loja não encontrada", 404));
+    (pickStoreImage as jest.Mock).mockImplementation(async (kind) => ({ uri: `file:///${kind}.png`, name: `${kind}.png`, type: "image/png" }));
+    const save = jest.spyOn(api, "saveMyStore");
+    const upload = jest.spyOn(api, "uploadStoreImage");
+    const { screen, props } = await open();
+    await act(async () => fireEvent.press(screen.getByText("Adicionar capa")));
+    await act(async () => fireEvent.press(screen.getByText("Adicionar fundo")));
+    expect(screen.getByLabelText("Imagem de capa").props.source.uri).toBe("file:///cover.png");
+    expect(screen.getByLabelText("Imagem de fundo").props.source.uri).toBe("file:///background.png");
+    expect(save).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+    expect(props.onComplete).not.toHaveBeenCalled();
+    expect(screen.queryByText("Salvar rascunho")).toBeNull();
+  });
+  it("saves the profile before uploading selected images and completing registration", async () => {
+    const complete = completeStore();
+    jest.spyOn(api, "myStore").mockResolvedValue(complete);
+    jest.spyOn(api, "storeActivationReadiness").mockResolvedValue({ allowed: true, pending: [] });
+    const sequence: string[] = [];
+    jest.spyOn(api, "saveMyStore").mockImplementation(async () => { sequence.push("profile"); return complete; });
+    jest.spyOn(api, "uploadStoreImage").mockImplementation(async (kind) => { sequence.push(kind); return complete; });
+    (pickStoreImage as jest.Mock).mockImplementation(async (kind) => ({ uri: `file:///${kind}.png`, name: `${kind}.png`, type: "image/png" }));
+    const { screen, props } = await open();
+    await act(async () => fireEvent.press(screen.getByText("Adicionar capa")));
+    await act(async () => fireEvent.press(screen.getByText("Adicionar fundo")));
+    finalStep(screen);
+    await act(async () => fireEvent.press(screen.getByText("Concluir Cadastro da Loja")));
+    expect(sequence).toEqual(["profile", "cover", "background"]);
+    expect(props.onComplete).toHaveBeenCalledTimes(1);
   });
   it("marks correct values green and removes the marker for invalid or empty values", async () => {
     const { screen } = await open();
