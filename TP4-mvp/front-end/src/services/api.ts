@@ -1,6 +1,7 @@
 import type { StoreProfile } from "./store-form";
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
+import { File } from "expo-file-system";
 import { Platform } from "react-native";
 import { resolveApiUrl } from "./api-url";
 
@@ -404,7 +405,7 @@ export const api = {
       const blob = file.file ?? await fetch(file.uri).then((response) => response.blob());
       if (!blob) throw new ApiError("Não foi possível ler a imagem selecionada.", 0);
       data.append("file", blob, file.name);
-    } else data.append("file", file as unknown as Blob);
+    } else data.append("file", new File(file.uri));
     return request<StoreProfile>(`/stores/me/${kind}`, { method: "POST", body: data });
   },
   storeActivationReadiness: () => request<{ allowed: boolean; pending: string[] }>("/stores/me/activation-readiness"),
