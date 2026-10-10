@@ -10,6 +10,7 @@ export type StoreRecord = {
   phone: string | null;
   whatsapp: string | null;
   logoUrl: string | null;
+  backgroundUrl: string | null;
   status: StoreStatus;
   address: {
     street: string | null;
@@ -30,11 +31,13 @@ export type StoreRecord = {
   updatedAt: Date;
 };
 
+export type StoreImageKind = 'cover' | 'background';
+
 export interface StoreRepository {
   findByOwner(ownerId: string): Promise<StoreRecord | null>;
   upsertProfile(ownerId: string, dto: UpsertMyStoreDto): Promise<StoreRecord>;
   changeStatus(ownerId: string, status: StoreStatus): Promise<StoreRecord>;
-  updateLogo(ownerId: string, logoUrl: string): Promise<StoreRecord>;
+  updateImage(ownerId: string, kind: StoreImageKind, url: string): Promise<StoreRecord>;
 }
 
 export const STORE_REPOSITORY = Symbol('STORE_REPOSITORY');
