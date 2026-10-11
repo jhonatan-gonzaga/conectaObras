@@ -15,11 +15,11 @@ describe("authenticated persona routing", () => {
     expect(initialScreenForRole("LOJISTA", true)).toBe("storeOwnerDashboard");
   });
 
-  it("allows editing only for a store owner with a registered store", () => {
-    expect(guardPersonaScreen("storeOwnerEdit", "LOJISTA", true)).toBe("storeOwnerEdit");
-    expect(guardPersonaScreen("storeOwnerEdit", "LOJISTA", false)).toBe("storeOwnerSetup");
-    expect(guardPersonaScreen("storeOwnerEdit", "CLIENTE", true)).toBe("clientHome");
-    expect(guardPersonaScreen("storeOwnerEdit", null)).toBe("login");
+  it.each(["storeOwnerEdit", "storeOwnerPreview"] as const)("allows %s only for a store owner with a registered store", (screen) => {
+    expect(guardPersonaScreen(screen, "LOJISTA", true)).toBe(screen);
+    expect(guardPersonaScreen(screen, "LOJISTA", false)).toBe("storeOwnerSetup");
+    expect(guardPersonaScreen(screen, "CLIENTE", true)).toBe("clientHome");
+    expect(guardPersonaScreen(screen, null)).toBe("login");
   });
 
   it.each(["CLIENTE", "PROFISSIONAL", "SUPORTE"] as const)("prevents %s from entering store routes", (role) => {

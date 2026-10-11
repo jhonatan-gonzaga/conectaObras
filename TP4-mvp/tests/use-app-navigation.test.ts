@@ -3,6 +3,10 @@ import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { ApiError, api } from "../front-end/src/services/api";
 import { useAppNavigation } from "../front-end/src/navigation/useAppNavigation";
 
+import { emptyStoreForm, type StoreProfile } from "../front-end/src/services/store-form";
+
+const completeStore: StoreProfile = { ...emptyStoreForm(), id: "s1", name: "Loja", status: "ACTIVE", cnpj: "11222333000181", phone: "+5592999999999", address: { street: "Rua A", number: "1", neighborhood: "Centro", city: "Manaus", state: "AM", zipCode: "69000000", complement: "" }, openingHours: [{ dayOfWeek: "MONDAY", closed: false, openingTime: "08:00", closingTime: "18:00" }] };
+
 jest.mock("expo-secure-store", () => ({ getItemAsync: jest.fn().mockResolvedValue(null), setItemAsync: jest.fn().mockResolvedValue(undefined), deleteItemAsync: jest.fn().mockResolvedValue(undefined) }));
 
 describe("useAppNavigation", () => {
@@ -124,7 +128,7 @@ describe("useAppNavigation", () => {
   it("clears auth and selected IDs on logout", async () => {
     const logout = jest.spyOn(api, "logout");
     jest.spyOn(api, "me").mockResolvedValue({ id: "u1", role: "LOJISTA" } as never);
-    jest.spyOn(api, "myStore").mockResolvedValue({ id: "s1", name: "Loja", status: "DRAFT" });
+    jest.spyOn(api, "myStore").mockResolvedValue(completeStore);
     const { result } = await renderNavigation();
     await act(async () => { await result.current.authenticate(); });
     act(() => {
@@ -145,7 +149,7 @@ describe("useAppNavigation", () => {
 
   it("routes lojistas to setup without a store and to dashboard with a store", async () => {
     jest.spyOn(api, "me").mockResolvedValue({ id: "u1", role: "LOJISTA" } as never);
-    const myStore = jest.spyOn(api, "myStore").mockRejectedValueOnce(new ApiError("not found", 404)).mockResolvedValueOnce({ id: "s1", name: "Loja", status: "DRAFT" });
+    const myStore = jest.spyOn(api, "myStore").mockRejectedValueOnce(new ApiError("not found", 404)).mockResolvedValueOnce(completeStore);
     const { result } = await renderNavigation();
     await act(async () => { await result.current.authenticate(); });
     expect(result.current.screen).toBe("storeOwnerSetup");
@@ -154,10 +158,35 @@ describe("useAppNavigation", () => {
     expect(myStore).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps an existing but incomplete store in onboarding and blocks dashboard deep links", async () => {
+    jest.spyOn(api, "me").mockResolvedValue({ id: "u1", role: "LOJISTA" } as never);
+    jest.spyOn(api, "myStore").mockResolvedValue({ id: "s1", name: "Loja", status: "DRAFT" });
+    const { result } = await renderNavigation();
+    await act(async () => { await result.current.authenticate(); });
+    expect(result.current.screen).toBe("storeOwnerSetup");
+    expect(result.current.hasStore).toBe(false);
+  });
+  it.each([false, true])("requires API approval for a complete DRAFT (allowed=%s)", async (allowed) => {
+    jest.spyOn(api, "me").mockResolvedValue({ id: "u1", role: "LOJISTA" } as never);
+    jest.spyOn(api, "myStore").mockResolvedValue({ ...completeStore, status: "DRAFT" });
+    jest.spyOn(api, "storeActivationReadiness").mockResolvedValue({ allowed, pending: allowed ? [] : ["CNPJ_INVALID"] });
+    const { result } = await renderNavigation();
+    await act(async () => { await result.current.authenticate(); });
+    expect(result.current.hasStore).toBe(allowed);
+    expect(result.current.screen).toBe(allowed ? "storeOwnerDashboard" : "storeOwnerSetup");
+  });
+  it("does not grant dashboard access when store lookup fails", async () => {
+    jest.spyOn(api, "me").mockResolvedValue({ id: "u1", role: "LOJISTA" } as never);
+    jest.spyOn(api, "myStore").mockRejectedValue(new ApiError("Indisponível", 503));
+    const { result } = await renderNavigation();
+    await act(async () => { await result.current.authenticate(); });
+    expect(result.current.hasStore).toBe(false);
+    expect(result.current.screen).toBe("storeOwnerSetup");
+  });
   it("restores a persisted lojista session to the dashboard after refresh", async () => {
     (jest.requireMock("expo-secure-store").getItemAsync as jest.Mock).mockResolvedValueOnce("persisted-token");
     jest.spyOn(api, "me").mockResolvedValue({ id: "u1", role: "LOJISTA" } as never);
-    jest.spyOn(api, "myStore").mockResolvedValue({ id: "s1", name: "Loja", status: "DRAFT" });
+    jest.spyOn(api, "myStore").mockResolvedValue(completeStore);
     const { result } = renderHook(() => useAppNavigation());
     await waitFor(() => expect(result.current.isSessionReady).toBe(true));
     expect(result.current.screen).toBe("storeOwnerDashboard");

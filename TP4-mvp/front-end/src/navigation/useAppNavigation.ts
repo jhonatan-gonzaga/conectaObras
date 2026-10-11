@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { ClientNavKey } from "../components/cliente";
 import type { ProductFilters } from "../services/store-products";
 import { ApiError, api, restoreAccessToken, type AuthUser, type SelectableUserRole, type StoreDashboardList } from "../services/api";
+import { isStoreRegistrationComplete } from "../services/store-form";
 import type {
   ClientProfileReturnScreen,
   ClientWorkReturnScreen,
@@ -19,6 +20,7 @@ export function useAppNavigation() {
   const [signupRole, setSignupRole] = useState<SelectableUserRole>("CLIENTE");
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [storeListReturnScreen, setStoreListReturnScreen] = useState<"storeOwnerEdit" | "storeOwnerDashboard">("storeOwnerDashboard");
   const [storeListKind, setStoreListKind] = useState<StoreDashboardList>("active-products");
   const [storeListStatus, setStoreListStatus] = useState<string | undefined>();
   const [productFilters, setProductFilters] = useState<ProductFilters>({ q: "", categoryId: "", status: "", stock: "" });
@@ -56,10 +58,18 @@ export function useAppNavigation() {
       return;
     }
     if (user.role === "LOJISTA") {
-      try { await api.myStore(); setHasStore(true); setScreen("storeOwnerDashboard"); }
-      catch (error) {
-        if (error instanceof Error && "status" in error && (error as { status?: number }).status === 404) { setHasStore(false); setScreen("storeOwnerSetup"); }
-        else { setHasStore(true); setScreen("storeOwnerDashboard"); }
+      try {
+        const store = await api.myStore();
+        let registered = isStoreRegistrationComplete(store);
+        if (registered && store.status === "DRAFT") {
+          const decision = await api.storeActivationReadiness();
+          registered = decision.allowed && decision.pending.length === 0;
+        }
+        setHasStore(registered);
+        setScreen(registered ? "storeOwnerDashboard" : "storeOwnerSetup");
+      }
+      catch {
+        setHasStore(false); setScreen("storeOwnerSetup");
       }
       return;
     }
@@ -95,9 +105,7 @@ export function useAppNavigation() {
   const signOut = async () => {
     await api.logout();
     setAuthUser(null); setHasStore(false); setSelectedClientService(null); setSelectedProfessionalId(null);
-    setContractedClientServices([]); setStoreListKind("active-products"); setStoreListStatus(undefined);
-    setProductFilters({ q: "", categoryId: "", status: "", stock: "" }); setSelectedProductId(null);
-    setProductNotice(null);
+    setContractedClientServices([]); setStoreListKind("active-products"); setStoreListStatus(undefined); setStoreListReturnScreen("storeOwnerDashboard");
     setProfileReturnScreen("clientHome"); setClientWorkReturnScreen("clientHome");
     setClientProfileReturnScreen("clientHome"); setLegalReturnScreen("login"); setScreen("login");
   };
@@ -157,6 +165,8 @@ export function useAppNavigation() {
     retrySessionRestore: () => { setIsSessionReady(false); void restoreSession(); },
     authenticate,
     signOut,
+    storeListReturnScreen,
+    setStoreListReturnScreen,
     storeListKind,
     setStoreListKind,
     storeListStatus,

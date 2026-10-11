@@ -151,7 +151,9 @@ model StoreProfile {
   description  String?            @db.Text
   phone        String?
   whatsapp     String?
+  /// Square cover; retains the legacy logo field for compatibility.
   logoUrl      String?
+  backgroundUrl String?
   status       StoreStatus        @default(DRAFT)
   owner        User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   address      StoreAddress?

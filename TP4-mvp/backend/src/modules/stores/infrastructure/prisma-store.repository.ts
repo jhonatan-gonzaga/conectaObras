@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { StoreRecord, StoreRepository } from '../application/store.repository';
+import { StoreImageKind, StoreRecord, StoreRepository } from '../application/store.repository';
 import { StoreAddressDto, UpsertMyStoreDto } from '../dto/upsert-my-store.dto';
 import { validateOpeningHours, validatePersistedStore } from '../store-persistence.validation';
 
@@ -14,6 +14,7 @@ export const storeDetailSelect = {
   phone: true,
   whatsapp: true,
   logoUrl: true,
+  backgroundUrl: true,
   status: true,
   address: true,
   openingHours: { orderBy: { dayOfWeek: 'asc' } },
@@ -89,10 +90,10 @@ export class PrismaStoreRepository implements StoreRepository {
     }) as Promise<StoreRecord>;
   }
 
-  async updateLogo(ownerId: string, logoUrl: string): Promise<StoreRecord> {
+  async updateImage(ownerId: string, kind: StoreImageKind, url: string): Promise<StoreRecord> {
     return this.prisma.storeProfile.update({
       where: { ownerId },
-      data: { logoUrl },
+      data: kind === 'background' ? { backgroundUrl: url } : { logoUrl: url },
       select: storeDetailSelect,
     }) as Promise<StoreRecord>;
   }

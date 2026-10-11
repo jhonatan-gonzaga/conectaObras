@@ -7,7 +7,7 @@ export type StoreDay = (typeof storeDays)[number][0];
 export type StoreHour = { dayOfWeek: StoreDay; closed: boolean; openingTime: string | null; closingTime: string | null };
 export type StoreAddress = { street: string; number: string; neighborhood: string; city: string; state: string; zipCode: string; complement: string };
 export type StoreProfile = {
-  id: string; name: string | null; status: string;
+  id: string; name: string | null; status: string; logoUrl?: string | null; backgroundUrl?: string | null;
   cnpj?: string | null; phone?: string | null; whatsapp?: string | null; description?: string | null;
   address?: Partial<Record<keyof StoreAddress, string | null>> | null;
   openingHours?: StoreHour[];
@@ -108,6 +108,9 @@ export function validateStore(form: StoreForm, activation = false): StoreErrors 
   }
   if (activation && !form.openingHours.some((hour) => !hour.closed)) errors.openingHours = "Informe ao menos um dia aberto.";
   return errors;
+}
+export function isStoreRegistrationComplete(store: StoreProfile) {
+  return Object.keys(validateStore(resumeStore(store), true)).length === 0;
 }
 export const pendingLabels: Record<string, string> = {
   STORE_NAME_REQUIRED: "Nome da loja obrigatório", CNPJ_REQUIRED: "CNPJ obrigatório", CNPJ_INVALID: "CNPJ inválido",

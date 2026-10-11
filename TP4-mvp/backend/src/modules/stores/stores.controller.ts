@@ -28,7 +28,7 @@ import { UpsertMyStoreDto } from './dto/upsert-my-store.dto';
 import { ChangeStoreStatusUseCase } from './application/use-cases/change-store-status.use-case';
 import { GetMyStoreUseCase } from './application/use-cases/get-my-store.use-case';
 import { SaveStoreProfileUseCase } from './application/use-cases/save-store-profile.use-case';
-import { SetStoreLogoUseCase } from './application/use-cases/set-store-logo.use-case';
+import { SetStoreImageUseCase } from './application/use-cases/set-store-image.use-case';
 import { StoreDashboardList, StoreDashboardService } from './store-dashboard.service';
 import { CreateStorePromotionDto } from './dto/create-store-promotion.dto';
 import { CreateStoreOrderDto } from './dto/create-store-order.dto';
@@ -42,7 +42,7 @@ export class StoresController {
     private readonly getMyStore: GetMyStoreUseCase,
     private readonly saveStoreProfile: SaveStoreProfileUseCase,
     private readonly changeStoreStatus: ChangeStoreStatusUseCase,
-    private readonly setStoreLogo: SetStoreLogoUseCase,
+    private readonly setStoreImage: SetStoreImageUseCase,
     private readonly dashboard: StoreDashboardService,
     private readonly uploads: UploadsService,
   ) {}
@@ -108,22 +108,32 @@ export class StoresController {
     return this.changeStoreStatus.execute(user.id, dto.status);
   }
 
-  @Post('me/logo')
+  // Preserve the legacy logo route for the square cover image.
+  @Post(['me/logo', 'me/cover'])
   @UseInterceptors(
     FileInterceptor('file', createUploadOptions('image')),
   )
-  async uploadLogo(
+  async uploadCover(
     @CurrentUser() user: AuthenticatedUser,
     @UploadedFile() file: Express.Multer.File,
     @Req() request: Request,
   ) {
     if (!file) throw new BadRequestException('Envie um arquivo de imagem.');
-    const upload = await this.uploads.uploadImage(file, `${request.protocol}://${request.get('host')}`);
-    try {
-      return await this.setStoreLogo.execute(user.id, upload.url);
-    } catch (error) {
-      await this.uploads.remove(upload.objectKey);
-      throw error;
-    }
+    const upload = this.uploadProvider.buildResponse(file, 'image', request);
+    return this.setStoreImage.execute(user.id, 'cover', upload.url);
+  }
+
+  @Post('me/background')
+  @UseInterceptors(
+    FileInterceptor('file', LocalUploadProvider.createMulterOptions('image')),
+  )
+  async uploadBackground(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() request: Request,
+  ) {
+    if (!file) throw new BadRequestException('Envie um arquivo de imagem.');
+    const upload = this.uploadProvider.buildResponse(file, 'image', request);
+    return this.setStoreImage.execute(user.id, 'background', upload.url);
   }
 }

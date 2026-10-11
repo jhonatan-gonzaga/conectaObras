@@ -1,4 +1,9 @@
-export function resolveApiUrl(configuredUrl: string | undefined, platform: string, expoHostUri?: string, webHostname?: string): string {
+export function resolveApiUrl(
+  configuredUrl: string | undefined,
+  platform: string,
+  expoHostUri?: string,
+  webHostname?: string,
+): string {
   const configured = configuredUrl?.trim();
   if (configured) return configured.replace(/\/+$/, "");
 
@@ -8,7 +13,7 @@ export function resolveApiUrl(configuredUrl: string | undefined, platform: strin
       const hostname = new URL(host.includes("://") ? host : `http://${host}`).hostname;
       if (hostname) return `http://${hostname}:3000/api`;
     } catch {
-      // Fall back to the platform's local development address.
+      // Use the local development fallback if Expo did not provide a valid host.
     }
   }
 
