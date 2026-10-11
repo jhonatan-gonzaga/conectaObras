@@ -23,11 +23,12 @@ describe('Product policy', () => {
     ]);
   });
 
-  it('keeps archived products terminal and reserves archive for DELETE', () => {
-    for (const target of ['DRAFT', 'ACTIVE', 'INACTIVE', 'ARCHIVED'] as ProductStatus[]) {
-      assert.equal(canChangeProductStatus('ARCHIVED', target), false);
-      assert.equal(canChangeProductStatus('ACTIVE', 'ARCHIVED'), false);
-    }
+  it('allows restoring archived products and reserves archive for DELETE', () => {
+    assert.equal(canChangeProductStatus('ARCHIVED', 'ACTIVE'), true);
+    assert.equal(canChangeProductStatus('ARCHIVED', 'INACTIVE'), true);
+    assert.equal(canChangeProductStatus('ARCHIVED', 'DRAFT'), false);
+    assert.equal(canChangeProductStatus('ARCHIVED', 'ARCHIVED'), false);
+    assert.equal(canChangeProductStatus('ACTIVE', 'ARCHIVED'), false);
     assert.equal(canChangeProductStatus('DRAFT', 'ACTIVE'), true);
     assert.equal(canChangeProductStatus('INACTIVE', 'ACTIVE'), true);
     assert.equal(canChangeProductStatus('ACTIVE', 'DRAFT'), false);

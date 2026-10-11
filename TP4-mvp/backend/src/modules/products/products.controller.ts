@@ -10,12 +10,17 @@ import { ChangeProductStatusDto } from './dto/change-product-status.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { UpdateInventoryDto } from './dto/update-inventory.dto';
+import { UpdateInventoryUseCase } from './application/update-inventory.use-case';
 
 @Controller('store-products')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.LOJISTA)
 export class ProductsController {
-  constructor(private readonly products: ProductUseCases) {}
+  constructor(
+    private readonly products: ProductUseCases,
+    private readonly inventory: UpdateInventoryUseCase,
+  ) {}
 
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateProductDto) {
@@ -40,6 +45,11 @@ export class ProductsController {
   @Patch(':id/status')
   changeStatus(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: ChangeProductStatusDto) {
     return this.products.changeStatus(user.id, id, dto.status);
+  }
+
+  @Patch(':id/inventory')
+  updateInventory(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateInventoryDto) {
+    return this.inventory.execute(user.id, id, dto);
   }
 
   @Delete(':id')

@@ -20,6 +20,11 @@ export interface CreateProductInput {
 
 export type UpdateProductInput = Partial<Omit<CreateProductInput, 'images'>>;
 
+export interface InventoryUpdateInput {
+  price?: string;
+  stock?: number;
+}
+
 export interface ProductListQuery {
   page: number;
   limit: number;
@@ -70,4 +75,5 @@ export abstract class ProductRepository {
   abstract changeStatus(storeId: string, productId: string, currentStatus: ProductStatus, status: ProductStatus): Promise<boolean>;
   abstract archive(storeId: string, productId: string): Promise<boolean>;
   abstract updatePrice(storeId: string, productId: string, price: string): Promise<boolean>;
+  abstract updateInventory(storeId: string, actorId: string, expected: ProductRecord, input: InventoryUpdateInput): Promise<ProductRecord | null>;
 }

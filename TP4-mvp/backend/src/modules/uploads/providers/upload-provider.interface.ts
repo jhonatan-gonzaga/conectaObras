@@ -1,6 +1,11 @@
-import { Request } from 'express';
-
 export type UploadType = 'image' | 'audio';
+
+export interface UploadFile {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+  size: number;
+}
 
 export interface UploadResponse {
   filename: string;
@@ -8,15 +13,13 @@ export interface UploadResponse {
   mimeType: string;
   size: number;
   url: string;
+  objectKey: string;
 }
 
-/** Adapter contract for the infrastructure that persists uploaded files. */
+/** Persists bytes and owns the object key. */
 export interface UploadProvider {
-  buildResponse(
-    file: Express.Multer.File,
-    type: UploadType,
-    request: Request,
-  ): UploadResponse;
+  save(file: UploadFile, type: UploadType, publicBaseUrl: string): Promise<UploadResponse>;
+  remove(objectKey: string): Promise<void>;
 }
 
 export const UPLOAD_PROVIDER = Symbol('UPLOAD_PROVIDER');

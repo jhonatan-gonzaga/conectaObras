@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 
 import { ProfileCard } from "../components/app-components";
+import { ApiError, api, type StoreIdentity } from "../services/api";
 
 const logo = require("../../assets/logotipo.png");
 
@@ -25,6 +26,22 @@ export function ProfileChoiceScreen({
   const [selectedProfile, setSelectedProfile] = useState<ProfileType>(activeRole);
   const [isContinuing, setIsContinuing] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [store, setStore] = useState<StoreIdentity | null>(null);
+  const [storeLookupError, setStoreLookupError] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated) { setStore(null); setStoreLookupError(false); return; }
+    let active = true;
+    setStoreLookupError(false);
+    api.storeIdentity()
+      .then((identity) => { if (active) setStore(identity); })
+      .catch((error) => {
+        if (!active) return;
+        setStore(null);
+        setStoreLookupError(!(error instanceof ApiError && error.status === 404));
+      });
+    return () => { active = false; };
+  }, [isAuthenticated]);
 
   const handleContinue = async () => {
     if (isContinuing) return;
@@ -107,8 +124,8 @@ export function ProfileChoiceScreen({
             onPress={() => setSelectedProfile("profissional")}
           />
           <ProfileCard
-            label="Lojista"
-            description="Cadastre sua loja e venda produtos locais"
+            label={store?.name?.trim() || "Lojista"}
+            description={store ? "Sua loja já está cadastrada. Toque para acessar o painel." : storeLookupError ? "Não foi possível consultar sua loja. Você ainda pode acessar o perfil Lojista." : "Cadastre sua loja e venda produtos locais"}
             icon="storefront-outline"
             selected={selectedProfile === "lojista"}
             onPress={() => setSelectedProfile("lojista")}

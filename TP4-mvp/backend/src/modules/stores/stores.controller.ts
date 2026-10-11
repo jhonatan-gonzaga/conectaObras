@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Get,
-  Inject,
   Param,
   Patch,
   Post,
@@ -22,8 +21,8 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { AuthenticatedUser } from '../../common/types/authenticated-user';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { LocalUploadProvider } from '../uploads/providers/local-upload.provider';
-import { UPLOAD_PROVIDER, UploadProvider } from '../uploads/providers/upload-provider.interface';
+import { createUploadOptions } from '../uploads/upload.config';
+import { UploadsService } from '../uploads/uploads.service';
 import { ChangeStoreStatusDto } from './dto/change-store-status.dto';
 import { UpsertMyStoreDto } from './dto/upsert-my-store.dto';
 import { ChangeStoreStatusUseCase } from './application/use-cases/change-store-status.use-case';
@@ -45,8 +44,15 @@ export class StoresController {
     private readonly changeStoreStatus: ChangeStoreStatusUseCase,
     private readonly setStoreImage: SetStoreImageUseCase,
     private readonly dashboard: StoreDashboardService,
-    @Inject(UPLOAD_PROVIDER) private readonly uploadProvider: UploadProvider,
+    private readonly uploads: UploadsService,
   ) {}
+
+  @Get('me/identity')
+  @Roles(UserRole.CLIENTE, UserRole.PROFISSIONAL, UserRole.LOJISTA)
+  async identity(@CurrentUser() user: AuthenticatedUser) {
+    const store = await this.getMyStore.execute(user.id);
+    return { name: store.name, status: store.status };
+  }
 
   @Get('me')
   findMine(@CurrentUser() user: AuthenticatedUser) {
@@ -105,7 +111,7 @@ export class StoresController {
   // Preserve the legacy logo route for the square cover image.
   @Post(['me/logo', 'me/cover'])
   @UseInterceptors(
-    FileInterceptor('file', LocalUploadProvider.createMulterOptions('image')),
+    FileInterceptor('file', createUploadOptions('image')),
   )
   async uploadCover(
     @CurrentUser() user: AuthenticatedUser,

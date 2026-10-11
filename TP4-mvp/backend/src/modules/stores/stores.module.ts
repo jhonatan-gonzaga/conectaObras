@@ -8,12 +8,11 @@ import { GetMyStoreUseCase } from './application/use-cases/get-my-store.use-case
 import { SaveStoreProfileUseCase } from './application/use-cases/save-store-profile.use-case';
 import { SetStoreImageUseCase } from './application/use-cases/set-store-image.use-case';
 import { PrismaStoreRepository } from './infrastructure/prisma-store.repository';
-import { LocalUploadProvider } from '../uploads/providers/local-upload.provider';
-import { UPLOAD_PROVIDER } from '../uploads/providers/upload-provider.interface';
+import { UploadsModule } from '../uploads/uploads.module';
 import { StoreDashboardService } from './store-dashboard.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, AuthModule, UploadsModule],
   controllers: [StoresController],
   providers: [
     GetMyStoreUseCase,
@@ -23,8 +22,6 @@ import { StoreDashboardService } from './store-dashboard.service';
     StoreDashboardService,
     PrismaStoreRepository,
     { provide: STORE_REPOSITORY, useExisting: PrismaStoreRepository },
-    LocalUploadProvider,
-    { provide: UPLOAD_PROVIDER, useExisting: LocalUploadProvider },
   ],
   exports: [GetMyStoreUseCase, SaveStoreProfileUseCase, ChangeStoreStatusUseCase],
 })

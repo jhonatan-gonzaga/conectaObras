@@ -11,5 +11,6 @@ import { UploadsService } from './uploads.service';
     LocalUploadProvider,
     { provide: UPLOAD_PROVIDER, useExisting: LocalUploadProvider },
   ],
+  exports: [UploadsService],
 })
 export class UploadsModule {}
