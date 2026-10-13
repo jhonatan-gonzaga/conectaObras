@@ -15,8 +15,8 @@ ALTER TABLE `store_promotions` ADD COLUMN `enabled` BOOLEAN NOT NULL DEFAULT FAL
 UPDATE `store_promotions` SET `enabled` = (`status` = 'ACTIVE');
 
 ALTER TABLE `store_promotions`
-  DROP CHECK `store_promotions_discount_range_chk`,
-  DROP CHECK `store_promotions_date_range_chk`,
+  DROP CONSTRAINT `store_promotions_discount_range_chk`,
+  DROP CONSTRAINT `store_promotions_date_range_chk`,
   DROP FOREIGN KEY `store_promotions_productId_fkey`,
   DROP INDEX `store_promotions_storeId_status_idx`,
   CHANGE COLUMN `discountPct` `discountPercent` DECIMAL(5,2) NULL,
