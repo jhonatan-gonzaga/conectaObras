@@ -7,6 +7,8 @@ export type StoreProduct = {
   description: string | null; price: string; stock: number; status: ProductStatus;
   lastPriceUpdateAt: string; createdAt: string; updatedAt: string; images: ProductImage[];
   available?: boolean;
+  effectivePrice?: string;
+  promotion?: { id: string; promotionalPrice: string | null; discountPercent: string | null; startAt: string; endAt: string; enabled: boolean; effectivePrice: string } | null;
 };
 export type ProductPage = { items: StoreProduct[]; total: number; page: number; limit: number };
 export type ProductFilters = { q: string; categoryId: string; status: ProductStatus | ""; stock: StockFilter | "" };

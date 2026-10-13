@@ -41,6 +41,29 @@ describe("Store products screens", () => {
     expect(onEdit).toHaveBeenCalledWith("product-1");
   }, 10000);
 
+  it("creates a promotion with a required date range and displays the effective price", async () => {
+    jest.spyOn(api, "storeProducts").mockResolvedValue({ items: [product], total: 1, page: 1, limit: 10 });
+    const createPromotion = jest.spyOn(api, "createStorePromotion").mockResolvedValue({ id: "promotion-1" });
+    jest.spyOn(api, "storeProduct").mockResolvedValue({ ...product, promotion: {
+      id: "promotion-1", promotionalPrice: "24.00", discountPercent: null,
+      startAt: "2026-10-10T10:00:00.000Z", endAt: "2026-10-11T10:00:00.000Z", enabled: true, effectivePrice: "24.00",
+    }, effectivePrice: "24.00" });
+    const screen = render(<StoreProductsScreen filters={filters} onChangeFilters={jest.fn()} onBack={jest.fn()} onCreate={jest.fn()} onEdit={jest.fn()} />);
+    await waitFor(() => expect(screen.getByText("Marcar em promoção")).toBeTruthy());
+    fireEvent.press(screen.getByText("Marcar em promoção"));
+    fireEvent.changeText(screen.getByLabelText("Preço promocional"), "24,00");
+    await waitFor(() => expect(screen.getByLabelText("Percentual de desconto").props.value).toBe("19.73"));
+    fireEvent.changeText(screen.getByLabelText("Início da promoção"), "2026-10-10T06:00:00-04:00");
+    fireEvent.changeText(screen.getByLabelText("Término da promoção"), "2026-10-11T06:00:00-04:00");
+    fireEvent.press(screen.getByText("Salvar promoção"));
+    await waitFor(() => expect(createPromotion).toHaveBeenCalledWith({
+      productId: product.id, promotionalPrice: "24.00", discountPercent: undefined,
+      startAt: "2026-10-10T10:00:00.000Z", endAt: "2026-10-11T10:00:00.000Z",
+    }));
+    await waitFor(() => expect(screen.getByText("EM PROMOÇÃO")).toBeTruthy());
+    expect(screen.getByText("Por R$ 24,00")).toBeTruthy();
+  });
+
   it("restores server values after a failed quick update", async () => {
     jest.spyOn(api, "storeProducts").mockResolvedValue({ items: [product], total: 1, page: 1, limit: 10 });
     jest.spyOn(api, "updateStoreProductInventory").mockRejectedValue(new ApiError("Produto alterado em outra sessão.", 409));
