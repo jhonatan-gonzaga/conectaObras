@@ -3,6 +3,7 @@ import { Prisma, StoreOrderStatus, StorePromotionStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateStoreOrderDto } from './dto/create-store-order.dto';
 import { CreateStorePromotionDto } from './dto/create-store-promotion.dto';
+import { randomUUID } from 'node:crypto';
 
 export type StoreDashboardList = 'active-products' | 'low-stock' | 'promotions' | 'orders' | 'messages';
 const LOW_STOCK_LIMIT = 5;
@@ -80,25 +81,56 @@ export class StoreDashboardService {
     });
   }
 
-  async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
-    const store = await this.prisma.storeProfile.findUnique({ where: { ownerId }, select: { id: true } });
-    if (!store) throw new NotFoundException('Loja nao encontrada.');
-    const items = dto.items.map((item) => {
-      const unitPrice = new Prisma.Decimal(item.unitPrice);
-      if (unitPrice.lte(0)) throw new BadRequestException('O preco dos itens deve ser positivo.');
-      return { name: item.name.trim(), quantity: item.quantity, unitPrice };
-    });
-    const total = items.reduce((sum, item) => sum.add(item.unitPrice.mul(item.quantity)), new Prisma.Decimal(0));
-    return this.prisma.storeOrder.create({
-      data: {
-        storeId: store.id,
-        status: StoreOrderStatus.PENDING,
-        total,
-        items: { create: items },
-      },
-      include: { items: true },
-    });
+  
+async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
+  const store = await this.prisma.storeProfile.findUnique({
+    where: { ownerId },
+    select: { id: true },
+  });
+
+  if (!store) {
+    throw new NotFoundException('Loja nao encontrada.');
   }
+
+  const items = dto.items.map((item) => {
+    const unitPrice = new Prisma.Decimal(item.unitPrice);
+
+    if (unitPrice.lte(0)) {
+      throw new BadRequestException('O preco dos itens deve ser positivo.');
+    }
+
+    const lineTotal = unitPrice.mul(item.quantity);
+
+    return {
+      name: item.name.trim(),
+      quantity: item.quantity,
+      unitPrice,
+      lineTotal,
+    };
+  });
+
+  const subtotal = items.reduce(
+    (sum, item) => sum.add(item.lineTotal),
+    new Prisma.Decimal(0),
+  );
+
+  const discount = new Prisma.Decimal(0);
+  const total = subtotal.sub(discount);
+
+  return this.prisma.storeOrder.create({
+    data: {
+      orderNumber: `PED-${randomUUID()}`,
+      storeId: store.id,
+      status: StoreOrderStatus.PENDING,
+      subtotal,
+      discount,
+      total,
+      items: { create: items },
+    },
+    include: { items: true },
+  });
+}
+
 
   async changeOrderStatus(ownerId: string, orderId: string, status: StoreOrderStatus) {
     const store = await this.prisma.storeProfile.findUnique({ where: { ownerId }, select: { id: true } });
@@ -111,11 +143,39 @@ export class StoreDashboardService {
       COMPLETED: [], CANCELED: [],
     };
     if (!next[order.status].includes(status)) throw new BadRequestException('Transicao de pedido invalida.');
-    const changed = await this.prisma.storeOrder.updateMany({
-      where: { id: orderId, storeId: store.id, status: order.status },
+
+  return this.prisma.$transaction(async (tx) => {
+    const changed = await tx.storeOrder.updateMany({
+      where: {
+        id: orderId,
+        storeId: store.id,
+        status: order.status,
+      },
       data: { status },
     });
-    if (changed.count !== 1) throw new ConflictException('O pedido mudou durante a atualizacao.');
-    return this.prisma.storeOrder.findFirstOrThrow({ where: { id: orderId, storeId: store.id }, include: { items: true } });
+
+    if (changed.count !== 1) {
+      throw new ConflictException(
+        'O pedido mudou durante a atualizacao.',
+      );
+    }
+
+    await tx.orderStatusHistory.create({
+      data: {
+        orderId,
+        fromStatus: order.status,
+        toStatus: status,
+        actorId: ownerId,
+      },
+    });
+
+    return tx.storeOrder.findFirstOrThrow({
+      where: {
+        id: orderId,
+        storeId: store.id,
+      },
+      include: { items: true },
+    });
+  });
   }
 }

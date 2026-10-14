@@ -65,7 +65,24 @@ test('creates an order with a decimal total derived from its line items', async 
   assert.equal(created.data.total.toString(), '71');
   assert.equal(created.data.storeId, 'store-1');
   assert.equal(created.data.items.create.length, 2);
-});
+  assert.equal(created.data.subtotal.toString(), '71');
+  assert.equal(created.data.discount.toString(), '0');
+
+  assert.equal(
+    created.data.items.create[0].lineTotal.toString(),
+    '63',
+  );
+
+  assert.equal(
+    created.data.items.create[1].lineTotal.toString(),
+    '8',
+  );
+
+  assert.match(
+    created.data.orderNumber,
+    /^PED-[0-9a-f-]{36}$/,
+  );
+  });
 
 test('rejects nonpositive order line prices before persistence', async () => {
   let created = false;
@@ -79,20 +96,67 @@ test('rejects nonpositive order line prices before persistence', async () => {
   assert.equal(created, false);
 });
 
-test('allows only valid next status transitions and scopes update by store lookup', async () => {
+
+test('updates order status and records history in the same transaction', async () => {
   let updated: any;
-  const prisma = {
-    storeProfile: { findUnique: async () => ({ id: 'store-1' }) },
+  let history: any;
+  let transactionCalled = false;
+
+  const tx = {
     storeOrder: {
-      findFirst: async () => ({ status: 'PENDING' }),
-      updateMany: async (input: any) => { updated = input; return { count: 1 }; },
+      updateMany: async (input: any) => {
+        updated = input;
+        return { count: 1 };
+      },
       findFirstOrThrow: async (input: any) => input,
     },
+    orderStatusHistory: {
+      create: async (input: any) => {
+        history = input;
+        return input;
+      },
+    },
   };
+
+  const prisma = {
+    storeProfile: {
+      findUnique: async () => ({ id: 'store-1' }),
+    },
+    storeOrder: {
+      findFirst: async () => ({ status: 'PENDING' }),
+    },
+    $transaction: async (callback: any) => {
+      transactionCalled = true;
+      return callback(tx);
+    },
+  };
+
   const service = new StoreDashboardService(prisma as never);
-  await service.changeOrderStatus('owner-1', 'order-1', 'CONFIRMED' as never);
+
+  await service.changeOrderStatus(
+    'owner-1',
+    'order-1',
+    'CONFIRMED' as never,
+  );
+
+  assert.equal(transactionCalled, true);
+
   assert.equal(updated.where.id, 'order-1');
   assert.equal(updated.where.storeId, 'store-1');
+  assert.equal(updated.where.status, 'PENDING');
   assert.equal(updated.data.status, 'CONFIRMED');
-  await assert.rejects(() => service.changeOrderStatus('owner-1', 'order-1', 'COMPLETED' as never), BadRequestException);
+
+  assert.equal(history.data.orderId, 'order-1');
+  assert.equal(history.data.fromStatus, 'PENDING');
+  assert.equal(history.data.toStatus, 'CONFIRMED');
+  assert.equal(history.data.actorId, 'owner-1');
+
+  await assert.rejects(
+    () => service.changeOrderStatus(
+      'owner-1',
+      'order-1',
+      'COMPLETED' as never,
+    ),
+    BadRequestException,
+  );
 });

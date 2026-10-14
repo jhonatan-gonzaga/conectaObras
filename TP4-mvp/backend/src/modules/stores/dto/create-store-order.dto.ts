@@ -1,10 +1,30 @@
+
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsInt, IsString, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 
 export class CreateStoreOrderItemDto {
+  @IsOptional()
+  @IsString()
+  productId?: string;
+
   @IsString()
   @MaxLength(120)
   name: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  sku?: string;
 
   @Type(() => Number)
   @IsInt()
