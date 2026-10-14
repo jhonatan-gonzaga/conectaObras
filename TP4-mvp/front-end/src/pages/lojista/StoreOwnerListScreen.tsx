@@ -7,8 +7,16 @@ const titles: Record<StoreDashboardList, string> = {
   "active-products": "Produtos ativos", "low-stock": "Produtos com estoque baixo", promotions: "Promoções", orders: "Pedidos", messages: "Mensagens nao lidas",
 };
 
-export function StoreOwnerListScreen(props: { kind: StoreDashboardList; status?: string; onBack: () => void }) {
-  if (props.kind === "promotions") return <StorePromotionsScreen onBack={props.onBack} />;
+export function StoreOwnerListScreen(props: {
+  kind: StoreDashboardList; status?: string; onBack: () => void;
+  onOrders?: () => void; onProducts?: () => void; onSettings?: () => void;
+  onOpenProfile?: () => void; onSwitchProfile?: () => void; avatarUrl?: string | null;
+}) {
+  if (props.kind === "promotions") return <StorePromotionsScreen
+    onBack={props.onBack} onSwitchProfile={props.onSwitchProfile ?? props.onBack} onOrders={props.onOrders ?? props.onBack}
+    onProducts={props.onProducts ?? props.onBack} onSettings={props.onSettings ?? props.onBack}
+    onOpenProfile={props.onOpenProfile ?? props.onBack} avatarUrl={props.avatarUrl}
+  />;
   return <GenericStoreOwnerListScreen {...props} />;
 }
 

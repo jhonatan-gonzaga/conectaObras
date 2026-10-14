@@ -1,5 +1,8 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Image, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { StoreOwnerTabBar } from "../../components/lojista/StoreOwnerTabBar";
+import { NativeDateTimeField } from "../../components/native-date-time-field";
 import { ApiError, api, formatMoney } from "../../services/api";
 import type { StoreProduct } from "../../services/store-products";
 
@@ -25,11 +28,25 @@ function formatPromotionDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
-function dateInputIsValid(value: string) {
-  return !Number.isNaN(new Date(value).getTime()) && /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value.trim());
+function productCover(product: StoreProduct) {
+  return product.images.find((image) => image.isCover) ?? product.images[0];
 }
 
-export function StorePromotionsScreen({ onBack }: { onBack: () => void }) {
+function localDateTimeToIso(date: string, time: string) {
+  return new Date(`${date}T${time}:00`).toISOString();
+}
+
+const logo = require("../../../assets/logotipo.png");
+
+export function StorePromotionsScreen({ onBack, onSwitchProfile, onOrders, onProducts, onSettings, onOpenProfile, avatarUrl }: {
+  onBack: () => void;
+  onSwitchProfile: () => void;
+  onOrders: () => void;
+  onProducts: () => void;
+  onSettings: () => void;
+  onOpenProfile: () => void;
+  avatarUrl?: string | null;
+}) {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,10 +58,14 @@ export function StorePromotionsScreen({ onBack }: { onBack: () => void }) {
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
   const [productPickerOpen, setProductPickerOpen] = useState(false);
+  const [productDetails, setProductDetails] = useState<StoreProduct | null>(null);
+  const [productQuery, setProductQuery] = useState("");
   const [discountType, setDiscountType] = useState<"price" | "percent">("price");
   const [discountValue, setDiscountValue] = useState("");
-  const [startAt, setStartAt] = useState("");
-  const [endAt, setEndAt] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -86,13 +107,22 @@ export function StorePromotionsScreen({ onBack }: { onBack: () => void }) {
     });
   }, [filter, now, promotions, query]);
 
+  const visibleProducts = useMemo(() => {
+    const normalizedQuery = productQuery.trim().toLocaleLowerCase("pt-BR");
+    if (!normalizedQuery) return products;
+    return products.filter((product) => `${product.name} ${product.sku ?? ""}`.toLocaleLowerCase("pt-BR").includes(normalizedQuery));
+  }, [productQuery, products]);
+
   const openCreate = async () => {
     setFormError(null);
     setSelectedProduct(null);
     setDiscountValue("");
     setDiscountType("price");
-    setStartAt("");
-    setEndAt("");
+    setStartDate("");
+    setStartTime("");
+    setEndDate("");
+    setEndTime("");
+    setProductQuery("");
     setCreateOpen(true);
     try {
       const result = await api.storeProducts({ status: "ACTIVE", stock: "IN_STOCK", page: 1, limit: 100 });
@@ -110,9 +140,10 @@ export function StorePromotionsScreen({ onBack }: { onBack: () => void }) {
       setFormError(discountType === "price" ? "Informe um preço promocional maior que zero." : "O desconto deve ser maior que zero e menor que 100%."); return;
     }
     if (discountType === "price" && value >= Number(selectedProduct.price)) { setFormError("O preço promocional precisa ser menor que o preço base."); return; }
-    if (!dateInputIsValid(startAt) || !dateInputIsValid(endAt)) { setFormError("Informe início e término com fuso horário, por exemplo 2026-10-15T09:00:00-04:00."); return; }
-    const start = new Date(startAt);
-    const end = new Date(endAt);
+    if (!startDate || !startTime || !endDate || !endTime) { setFormError("Informe data e horário de início e término."); return; }
+    const start = new Date(`${startDate}T${startTime}:00`);
+    const end = new Date(`${endDate}T${endTime}:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) { setFormError("Informe datas e horários válidos."); return; }
     if (start >= end) { setFormError("O início deve ser anterior ao término."); return; }
     if (promotions.some((promotion) => promotion.productId === selectedProduct.id && promotionState(promotion) !== "Encerradas")) {
       setFormError("Este produto já possui uma promoção não encerrada."); return;
@@ -123,7 +154,7 @@ export function StorePromotionsScreen({ onBack }: { onBack: () => void }) {
         productId: selectedProduct.id,
         promotionalPrice: discountType === "price" ? value.toFixed(2) : undefined,
         discountPercent: discountType === "percent" ? String(value) : undefined,
-        startAt: start.toISOString(), endAt: end.toISOString(),
+        startAt: localDateTimeToIso(startDate, startTime), endAt: localDateTimeToIso(endDate, endTime),
       });
       setCreateOpen(false);
       await load();
@@ -142,8 +173,12 @@ export function StorePromotionsScreen({ onBack }: { onBack: () => void }) {
     finally { setChanging(null); }
   };
 
-  return <ScrollView className="w-full max-w-[560px] flex-1 bg-background px-5" contentContainerStyle={{ paddingTop: 24, paddingBottom: 36 }}>
-    <Pressable onPress={onBack} accessibilityRole="button" className="mb-5 self-start rounded-xl bg-card px-4 py-3"><Text className="font-semibold text-primary">Voltar ao painel</Text></Pressable>
+  return <View className="w-full max-w-[560px] flex-1 bg-background"><ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 28 }}>
+    <View className="-mx-5 mb-4 flex-row items-center justify-between bg-card px-5 py-3">
+      <Pressable onPress={onSwitchProfile} accessibilityRole="button" accessibilityLabel="Trocar perfil" className="h-10 w-10 items-center justify-center rounded-full bg-background"><Ionicons name="arrow-back" size={20} color="#141c25" /></Pressable>
+      <Image source={logo} className="h-9 w-[145px]" resizeMode="contain" accessibilityLabel="Conecta Obras Itacoatiara" />
+      <Pressable onPress={onOpenProfile} accessibilityRole="button" accessibilityLabel="Abrir informações do perfil" className="h-10 w-10 items-center justify-center rounded-full border-2 border-primary bg-[#fbe7e8]">{avatarUrl ? <Image source={{ uri: avatarUrl }} className="h-9 w-9 rounded-full" /> : <Ionicons name="person-outline" size={21} color="#99333a" />}</Pressable>
+    </View>
     <View className="mb-4 flex-row items-center justify-between gap-3"><View className="flex-1"><Text className="text-2xl font-bold text-foreground">Promoções da Loja</Text><Text className="mt-1 text-sm text-muted-foreground">Gerencie ofertas e validade dos seus produtos.</Text></View><Pressable accessibilityRole="button" onPress={() => void openCreate()} className="rounded-full bg-primary px-4 py-3"><Text className="text-center text-sm font-bold text-white">+ Nova promoção</Text></Pressable></View>
     <View className="mb-4 flex-row flex-wrap gap-2">{(["Ativas", "Pausadas", "Encerradas"] as const).map((label) => <View key={label} className="rounded-full bg-card px-3 py-2"><Text className="text-xs font-semibold text-foreground">{label} · {counts[label]}</Text></View>)}</View>
     <TextInput accessibilityLabel="Buscar promoções" placeholder="Buscar produto em promoção" value={query} onChangeText={setQuery} className="mb-3 h-12 rounded-xl border border-input-border bg-card px-4 text-foreground" />
@@ -165,15 +200,47 @@ export function StorePromotionsScreen({ onBack }: { onBack: () => void }) {
     <Modal visible={createOpen} transparent animationType="slide" onRequestClose={() => setCreateOpen(false)}>
       <View className="flex-1 justify-end bg-black/40"><ScrollView className="max-h-[90%] rounded-t-3xl bg-card px-5 pt-5" keyboardShouldPersistTaps="handled"><Text className="text-xl font-bold text-foreground">Nova promoção</Text><Text className="mt-1 text-sm text-muted-foreground">Escolha um produto ativo com estoque e defina o período da oferta.</Text>
         <Pressable accessibilityRole="button" onPress={() => setProductPickerOpen(true)} className="mt-4 rounded-xl border border-input-border bg-background p-3"><Text className="text-xs text-muted-foreground">Produto</Text><Text className="mt-1 font-semibold text-foreground">{selectedProduct?.name ?? "Selecionar produto"}</Text></Pressable>
-        {selectedProduct ? <Text className="mt-2 text-sm text-muted-foreground">Preço atual: {formatMoney(selectedProduct.price)}</Text> : null}
+        {selectedProduct ? <View className="mt-4 flex-row items-center gap-3 rounded-xl border border-input-border bg-background p-3">
+          {productCover(selectedProduct) ? <Image accessibilityLabel={`Imagem de ${selectedProduct.name}`} source={{ uri: productCover(selectedProduct)!.url }} className="h-16 w-16 rounded-xl" resizeMode="cover" /> : <View className="h-16 w-16 items-center justify-center rounded-xl bg-card"><Ionicons name="cube-outline" size={25} color="#897171" /></View>}
+          <View className="min-w-0 flex-1"><Text numberOfLines={2} className="font-bold text-foreground">{selectedProduct.name}</Text><Text className="mt-1 text-xs text-muted-foreground">{formatMoney(selectedProduct.price)} · {selectedProduct.stock} em estoque</Text>{selectedProduct.sku ? <Text className="mt-1 text-xs text-muted-foreground">SKU: {selectedProduct.sku}</Text> : null}</View>
+        </View> : null}
         <View className="mt-4 flex-row gap-2">{(["price", "percent"] as const).map((type) => <Pressable key={type} onPress={() => setDiscountType(type)} className={`flex-1 rounded-full px-3 py-2 ${discountType === type ? "bg-primary" : "bg-background"}`}><Text className={`text-center text-xs font-semibold ${discountType === type ? "text-white" : "text-foreground"}`}>{type === "price" ? "Preço promocional" : "Desconto (%)"}</Text></Pressable>)}</View>
         <TextInput accessibilityLabel={discountType === "price" ? "Preço promocional" : "Percentual de desconto"} keyboardType="decimal-pad" placeholder={discountType === "price" ? "Preço promocional (R$)" : "Desconto percentual"} value={discountValue} onChangeText={setDiscountValue} className="mt-3 h-11 rounded-xl bg-background px-3 text-foreground" />
-        <TextInput accessibilityLabel="Início da promoção" placeholder="Início (ex.: 2026-10-15T09:00:00-04:00)" value={startAt} onChangeText={setStartAt} className="mt-3 h-11 rounded-xl bg-background px-3 text-foreground" />
-        <TextInput accessibilityLabel="Término da promoção" placeholder="Término (ex.: 2026-10-16T18:00:00-04:00)" value={endAt} onChangeText={setEndAt} className="mt-2 h-11 rounded-xl bg-background px-3 text-foreground" />
+        <View className="mt-3 gap-3"><NativeDateTimeField mode="date" label="Data de início" placeholder="Selecione a data" value={startDate} onChange={setStartDate} /><NativeDateTimeField mode="time" label="Horário de início" placeholder="Selecione o horário" value={startTime} onChange={setStartTime} /><NativeDateTimeField mode="date" label="Data de término" placeholder="Selecione a data" value={endDate} onChange={setEndDate} minimumDate={startDate ? new Date(`${startDate}T00:00:00`) : undefined} /><NativeDateTimeField mode="time" label="Horário de término" placeholder="Selecione o horário" value={endTime} onChange={setEndTime} /></View>
         {formError ? <Text accessibilityRole="alert" className="mt-3 rounded-xl bg-[#ffdad6] p-3 text-sm text-[#93000a]">{formError}</Text> : null}
         <View className="mb-6 mt-4 flex-row gap-3"><Pressable onPress={() => setCreateOpen(false)} className="min-h-11 flex-1 items-center justify-center rounded-full bg-background"><Text className="font-bold text-foreground">Cancelar</Text></Pressable><Pressable disabled={saving} onPress={() => void createPromotion()} className="min-h-11 flex-1 items-center justify-center rounded-full bg-primary"><Text className="font-bold text-white">{saving ? "Salvando..." : "Salvar promoção"}</Text></Pressable></View>
       </ScrollView></View>
     </Modal>
-    <Modal visible={productPickerOpen} transparent animationType="fade" onRequestClose={() => setProductPickerOpen(false)}><View className="flex-1 justify-center bg-black/40 px-5"><View className="max-h-[75%] rounded-2xl bg-card p-4"><Text className="mb-3 text-lg font-bold text-foreground">Produtos disponíveis</Text><ScrollView>{products.length ? products.map((product) => <Pressable key={product.id} onPress={() => { setSelectedProduct(product); setProductPickerOpen(false); }} className="border-b border-input-border py-3"><Text className="font-semibold text-foreground">{product.name}</Text><Text className="text-xs text-muted-foreground">{formatMoney(product.price)} · {product.stock} em estoque</Text></Pressable>) : <Text className="py-6 text-center text-sm text-muted-foreground">Nenhum produto ativo, disponível e sem promoção.</Text>}</ScrollView><Pressable onPress={() => setProductPickerOpen(false)} className="mt-3 self-end px-3 py-2"><Text className="font-bold text-primary">Fechar</Text></Pressable></View></View></Modal>
-  </ScrollView>;
+    <Modal visible={productPickerOpen} transparent animationType="fade" onRequestClose={() => setProductPickerOpen(false)}>
+      <View className="flex-1 justify-center bg-black/40 px-5"><View className="max-h-[82%] rounded-2xl bg-card p-4">
+        <Text className="mb-3 text-lg font-bold text-foreground">Produtos disponíveis</Text>
+        <TextInput accessibilityLabel="Buscar produtos disponíveis" placeholder="Buscar produto ou SKU" value={productQuery} onChangeText={setProductQuery} className="mb-3 h-11 rounded-xl bg-background px-3 text-foreground" />
+        <ScrollView keyboardShouldPersistTaps="handled">{visibleProducts.length ? visibleProducts.map((product) => {
+          const cover = productCover(product);
+          return <View key={product.id} className="mb-2 flex-row items-center gap-3 rounded-xl border border-input-border p-2">
+            <Pressable accessibilityRole="button" accessibilityLabel={`Ver detalhes de ${product.name}`} onPress={() => setProductDetails(product)} className="min-w-0 flex-1 flex-row items-center gap-3">
+              {cover ? <Image accessibilityLabel={`Imagem de ${product.name}`} source={{ uri: cover.url }} className="h-14 w-14 rounded-lg bg-background" resizeMode="cover" /> : <View className="h-14 w-14 items-center justify-center rounded-lg bg-background"><Ionicons name="cube-outline" size={24} color="#897171" /></View>}
+              <View className="min-w-0 flex-1"><Text numberOfLines={2} className="font-semibold text-foreground">{product.name}</Text><Text className="mt-1 text-xs text-muted-foreground">{formatMoney(product.price)} · {product.stock} em estoque</Text><Text className="mt-1 text-[11px] text-primary">Toque para ver detalhes</Text></View>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => { setSelectedProduct(product); setProductPickerOpen(false); }} className="rounded-full bg-primary px-3 py-2"><Text className="text-xs font-bold text-white">Selecionar</Text></Pressable>
+          </View>;
+        }) : <Text className="py-6 text-center text-sm text-muted-foreground">{products.length ? "Nenhum produto corresponde à busca." : "Nenhum produto ativo, disponível e sem promoção."}</Text>}</ScrollView>
+        <Pressable onPress={() => setProductPickerOpen(false)} className="mt-3 self-end px-3 py-2"><Text className="font-bold text-primary">Fechar</Text></Pressable>
+      </View></View>
+    </Modal>
+    <Modal visible={Boolean(productDetails)} transparent animationType="slide" onRequestClose={() => setProductDetails(null)}>
+      <View className="flex-1 justify-end bg-black/40"><ScrollView className="max-h-[85%] rounded-t-3xl bg-card px-5 pt-5">
+        {productDetails ? <>
+          <View className="flex-row items-center justify-between"><Text className="flex-1 text-xl font-bold text-foreground">Detalhes do produto</Text><Pressable accessibilityRole="button" accessibilityLabel="Fechar detalhes do produto" onPress={() => setProductDetails(null)} className="p-2"><Ionicons name="close" size={23} color="#564241" /></Pressable></View>
+          {productDetails.images.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-3">{productDetails.images.map((image) => <Image key={image.id} accessibilityLabel={image.altText || `Imagem de ${productDetails.name}`} source={{ uri: image.url }} className="mr-2 h-44 w-44 rounded-2xl bg-background" resizeMode="cover" />)}</ScrollView> : <View className="mt-3 h-40 items-center justify-center rounded-2xl bg-background"><Ionicons name="cube-outline" size={42} color="#897171" /><Text className="mt-2 text-sm text-muted-foreground">Produto sem imagem</Text></View>}
+          <Text className="mt-4 text-lg font-bold text-foreground">{productDetails.name}</Text>
+          <Text className="mt-2 text-base font-semibold text-primary">Preço: {formatMoney(productDetails.price)}</Text>
+          <Text className="mt-1 text-sm text-muted-foreground">Estoque: {productDetails.stock} · Status: {productDetails.status === "ACTIVE" ? "Ativo" : productDetails.status}</Text>
+          {productDetails.sku ? <Text className="mt-1 text-sm text-muted-foreground">SKU: {productDetails.sku}</Text> : null}
+          <Text className="mt-2 text-sm leading-5 text-foreground">{productDetails.description?.trim() || "Sem descrição cadastrada."}</Text>
+          <Pressable onPress={() => { setSelectedProduct(productDetails); setProductDetails(null); setProductPickerOpen(false); }} className="mb-6 mt-5 min-h-12 items-center justify-center rounded-full bg-primary"><Text className="font-bold text-white">Selecionar este produto</Text></Pressable>
+        </> : null}
+      </ScrollView></View>
+    </Modal>
+  </ScrollView><StoreOwnerTabBar selected="Promoções" onDashboard={onBack} onOrders={onOrders} onProducts={onProducts} onPromotions={() => {}} onSettings={onSettings} /></View>;
 }

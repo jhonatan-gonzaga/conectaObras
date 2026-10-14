@@ -14,10 +14,11 @@ END;
 ALTER TABLE `store_promotions` ADD COLUMN `enabled` BOOLEAN NOT NULL DEFAULT FALSE;
 UPDATE `store_promotions` SET `enabled` = (`status` = 'ACTIVE');
 
+ALTER TABLE `store_promotions` DROP FOREIGN KEY `store_promotions_productId_fkey`;
+
 ALTER TABLE `store_promotions`
   DROP CONSTRAINT `store_promotions_discount_range_chk`,
   DROP CONSTRAINT `store_promotions_date_range_chk`,
-  DROP FOREIGN KEY `store_promotions_productId_fkey`,
   DROP INDEX `store_promotions_storeId_status_idx`,
   CHANGE COLUMN `discountPct` `discountPercent` DECIMAL(5,2) NULL,
   CHANGE COLUMN `startsAt` `startAt` DATETIME(3) NOT NULL,
@@ -33,5 +34,7 @@ ALTER TABLE `store_promotions`
       AND (`discountPercent` IS NULL OR (`discountPercent` > 0 AND `discountPercent` < 100))),
   ADD CONSTRAINT `store_promotions_date_range_chk` CHECK (`endAt` > `startAt`),
   ADD INDEX `store_promotions_storeId_enabled_startAt_endAt_idx` (`storeId`, `enabled`, `startAt`, `endAt`),
-  ADD INDEX `store_promotions_productId_enabled_startAt_endAt_idx` (`productId`, `enabled`, `startAt`, `endAt`),
+  ADD INDEX `store_promotions_productId_enabled_startAt_endAt_idx` (`productId`, `enabled`, `startAt`, `endAt`);
+
+ALTER TABLE `store_promotions`
   ADD CONSTRAINT `store_promotions_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `products`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
