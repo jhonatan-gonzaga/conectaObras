@@ -51,12 +51,12 @@ test('creates promotion only for a product owned by the authenticated store', as
 });
 
 test('creates promotions only for active products with stock and rejects overlap', async () => {
-  const startAt = new Date('2026-10-10T10:00:00.000Z');
-  const endAt = new Date('2026-10-11T10:00:00.000Z');
+  const startAt = new Date(Date.now() + 60_000);
+  const endAt = new Date(Date.now() + 86_400_000);
   const base = {
     storeProfile: { findUnique: async () => ({ id: 'store-1' }) },
     product: { findFirst: async () => ({ id: 'product-1', price: '100.00', status: 'ACTIVE', stock: 2 }) },
-    storePromotion: { findMany: async () => [{ startAt: new Date('2026-10-10T12:00:00.000Z'), endAt }], create: async () => ({ id: 'created' }) },
+    storePromotion: { findMany: async () => [{ startAt: new Date(startAt.getTime() + 60_000), endAt }], create: async () => ({ id: 'created' }) },
   };
   const service = new StoreDashboardService(base as never);
   const dto = { productId: 'product-1', promotionalPrice: 80, startAt, endAt };
@@ -80,8 +80,8 @@ test('updates a promotion without changing its product and persists normalized d
     },
     product: { findFirst: async () => ({ id: 'product-1', price: '100.00', status: 'ACTIVE', stock: 4 }) },
   };
-  const startAt = new Date('2026-10-10T10:00:00.000Z');
-  const endAt = new Date('2026-10-11T10:00:00.000Z');
+  const startAt = new Date(Date.now() + 60_000);
+  const endAt = new Date(Date.now() + 86_400_000);
   await new StoreDashboardService(prisma as never).updatePromotion('owner-1', 'promotion-1', {
     productId: 'product-1', discountPercent: 15, startAt, endAt,
   });
