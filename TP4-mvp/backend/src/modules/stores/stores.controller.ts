@@ -33,6 +33,7 @@ import { StoreDashboardList, StoreDashboardService } from './store-dashboard.ser
 import { CreateStorePromotionDto } from './dto/create-store-promotion.dto';
 import { CreateStoreOrderDto } from './dto/create-store-order.dto';
 import { ChangeStoreOrderStatusDto } from './dto/change-store-order-status.dto';
+import { UpdateStorePromotionEnabledDto } from './dto/update-store-promotion-enabled.dto';
 
 @Controller('stores')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -75,6 +76,16 @@ export class StoresController {
   @Post('me/promotions')
   createPromotion(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateStorePromotionDto) {
     return this.dashboard.createPromotion(user.id, dto);
+  }
+
+  @Patch('me/promotions/:id')
+  updatePromotion(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: CreateStorePromotionDto) {
+    return this.dashboard.updatePromotion(user.id, id, dto);
+  }
+
+  @Patch('me/promotions/:id/enabled')
+  setPromotionEnabled(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateStorePromotionEnabledDto) {
+    return this.dashboard.setPromotionEnabled(user.id, id, dto.enabled);
   }
 
   @Post('me/orders')

@@ -415,6 +415,9 @@ export const api = {
   changeMyStoreStatus: (status: "ACTIVE" | "INACTIVE") => request<StoreProfile>("/stores/me/status", { method: "PATCH", body: JSON.stringify({ status }) }),
   storeDashboard: () => request<StoreDashboardSummary>("/stores/me/dashboard"),
   storeDashboardList: (kind: StoreDashboardList, status?: string) => request<unknown[]>(`/stores/me/dashboard/${kind}${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+  createStorePromotion: (input: { productId: string; promotionalPrice?: string; discountPercent?: string; startAt: string; endAt: string }) => request<Record<string, unknown>>("/stores/me/promotions", { method: "POST", body: JSON.stringify(input) }),
+  updateStorePromotion: (id: string, input: { productId: string; promotionalPrice?: string; discountPercent?: string; startAt: string; endAt: string }) => request<Record<string, unknown>>(`/stores/me/promotions/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
+  setStorePromotionEnabled: (id: string, enabled: boolean) => request<Record<string, unknown>>(`/stores/me/promotions/${encodeURIComponent(id)}/enabled`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
   productCategories: () => request<ProductCategory[]>("/product-categories", { auth: false }),
   storeProducts: (filters: Partial<ProductFilters> & { page?: number; limit?: number } = {}) =>
     request<ProductPage>(`/store-products${toQuery(filters as Record<string, string | number | undefined>)}`),
