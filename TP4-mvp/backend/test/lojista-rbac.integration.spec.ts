@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { LocalUploadProvider } from '../src/modules/uploads/providers/local-upload.provider';
 import { UPLOAD_PROVIDER } from '../src/modules/uploads/providers/upload-provider.interface';
+import { UploadsService } from '../src/modules/uploads/uploads.service';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../src/modules/auth/guards/roles.guard';
 import { AuthenticatedUser } from '../src/common/types/authenticated-user';
@@ -112,6 +113,7 @@ describe('API de administração da loja (integracao HTTP)', () => {
         SaveStoreProfileUseCase,
         ChangeStoreStatusUseCase,
         SetStoreImageUseCase,
+        UploadsService,
         { provide: StoreDashboardService, useValue: { summary: async () => ({ hasStore: false }), list: async () => [] } },
         { provide: STORE_REPOSITORY, useValue: repository },
         {

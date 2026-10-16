@@ -12,14 +12,17 @@ import { StoresModule } from '../stores/stores.module';
 import { ProductUseCases } from './application/product.use-cases';
 import { ProductsController } from './products.controller';
 import { UpdateInventoryUseCase } from './application/update-inventory.use-case';
+import { PublicProductsController } from './public-products.controller';
+import { PublicProductsService } from './public-products.service';
 
 @Module({
   imports: [PrismaModule, AuthModule, UploadsModule, StoresModule],
-  controllers: [ProductsController, ProductGalleryController],
+  controllers: [ProductsController, ProductGalleryController, PublicProductsController],
   providers: [
     { provide: ProductRepository, useClass: PrismaProductRepository },
     ProductUseCases,
     UpdateInventoryUseCase,
+    PublicProductsService,
     { provide: ProductGalleryRepository, useClass: PrismaProductGalleryRepository },
     ProductGalleryService,
   ],

@@ -130,13 +130,13 @@ export class StoresController {
     @Req() request: Request,
   ) {
     if (!file) throw new BadRequestException('Envie um arquivo de imagem.');
-    const upload = this.uploadProvider.buildResponse(file, 'image', request);
+    const upload = await this.uploads.uploadImage(file, `${request.protocol}://${request.get('host')}`);
     return this.setStoreImage.execute(user.id, 'cover', upload.url);
   }
 
   @Post('me/background')
   @UseInterceptors(
-    FileInterceptor('file', LocalUploadProvider.createMulterOptions('image')),
+    FileInterceptor('file', createUploadOptions('image')),
   )
   async uploadBackground(
     @CurrentUser() user: AuthenticatedUser,
@@ -144,7 +144,7 @@ export class StoresController {
     @Req() request: Request,
   ) {
     if (!file) throw new BadRequestException('Envie um arquivo de imagem.');
-    const upload = this.uploadProvider.buildResponse(file, 'image', request);
+    const upload = await this.uploads.uploadImage(file, `${request.protocol}://${request.get('host')}`);
     return this.setStoreImage.execute(user.id, 'background', upload.url);
   }
 }

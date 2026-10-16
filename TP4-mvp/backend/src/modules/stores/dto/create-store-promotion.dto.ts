@@ -9,14 +9,14 @@ export class CreateStorePromotionDto {
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
-  promotionalPrice?: number;
+  promotionalPrice?: number | null;
 
   @IsOptional()
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
   @Max(99.99)
-  discountPercent?: number;
+  discountPercent?: number | null;
 
   @Type(() => Date)
   @IsDate()
