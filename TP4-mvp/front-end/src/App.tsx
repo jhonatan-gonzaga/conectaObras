@@ -4,7 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { vars } from "nativewind";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { RootNavigator } from "./navigation/RootNavigator";
 import { isProfessionalContextScreen } from "./navigation/types";
@@ -38,27 +38,29 @@ export default function App() {
   const isProfessionalScreen = isProfessionalContextScreen(navigation.screen);
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-background"
-      style={isDarkMode ? darkThemeVars : lightThemeVars}
-    >
-      <StatusBar style={isDarkMode ? "light" : "dark"} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
+    <SafeAreaProvider>
+      <SafeAreaView
+        className="flex-1 bg-background"
+        style={isDarkMode ? darkThemeVars : lightThemeVars}
       >
-        <View
-          className={`flex-1 w-full bg-background ${
-            isProfessionalScreen ? "" : "items-center"
-          }`}
+        <StatusBar style={isDarkMode ? "light" : "dark"} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1"
         >
-          <RootNavigator
-            navigation={navigation}
-            isDarkMode={isDarkMode}
-            onToggleDarkMode={setIsDarkMode}
-          />
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          <View
+            className={`flex-1 w-full bg-background ${
+              isProfessionalScreen ? "" : "items-center"
+            }`}
+          >
+            <RootNavigator
+              navigation={navigation}
+              isDarkMode={isDarkMode}
+              onToggleDarkMode={setIsDarkMode}
+            />
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }

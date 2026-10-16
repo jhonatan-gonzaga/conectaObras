@@ -6,7 +6,7 @@ import { STORE_REPOSITORY } from './application/store.repository';
 import { ChangeStoreStatusUseCase } from './application/use-cases/change-store-status.use-case';
 import { GetMyStoreUseCase } from './application/use-cases/get-my-store.use-case';
 import { SaveStoreProfileUseCase } from './application/use-cases/save-store-profile.use-case';
-import { SetStoreLogoUseCase } from './application/use-cases/set-store-logo.use-case';
+import { SetStoreImageUseCase } from './application/use-cases/set-store-image.use-case';
 import { PrismaStoreRepository } from './infrastructure/prisma-store.repository';
 import { UploadsModule } from '../uploads/uploads.module';
 import { StoreDashboardService } from './store-dashboard.service';
@@ -18,7 +18,7 @@ import { StoreDashboardService } from './store-dashboard.service';
     GetMyStoreUseCase,
     SaveStoreProfileUseCase,
     ChangeStoreStatusUseCase,
-    SetStoreLogoUseCase,
+    SetStoreImageUseCase,
     StoreDashboardService,
     PrismaStoreRepository,
     { provide: STORE_REPOSITORY, useExisting: PrismaStoreRepository },
