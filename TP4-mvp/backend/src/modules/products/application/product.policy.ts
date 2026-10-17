@@ -1,4 +1,13 @@
 import { ProductRecord, ProductStatus } from './product.repository';
+import { Prisma } from '@prisma/client';
+import { publicStoreWhere } from '../../stores/public-store.policy';
+
+export const publicProductWhere = {
+  status: 'ACTIVE', store: publicStoreWhere, category: { active: true },
+} satisfies Prisma.ProductWhereInput;
+
+// Aliases used by the public catalog's computed-price query.
+export const publicProductEligibilitySql = Prisma.sql`p.status = 'ACTIVE' AND s.status = 'ACTIVE' AND c.active = TRUE`;
 
 export const MAX_PRODUCT_STOCK = 2_147_483_647;
 

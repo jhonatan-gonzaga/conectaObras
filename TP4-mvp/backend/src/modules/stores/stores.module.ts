@@ -11,16 +11,19 @@ import { PrismaStoreRepository } from './infrastructure/prisma-store.repository'
 import { UploadsModule } from '../uploads/uploads.module';
 import { StoreDashboardService } from './store-dashboard.service';
 import { StorePromotionsController } from './store-promotions.controller';
+import { PublicStoresController } from './public-stores.controller';
+import { PublicStoresService } from './public-stores.service';
 
 @Module({
   imports: [PrismaModule, AuthModule, UploadsModule],
-  controllers: [StoresController, StorePromotionsController],
+  controllers: [StoresController, StorePromotionsController, PublicStoresController],
   providers: [
     GetMyStoreUseCase,
     SaveStoreProfileUseCase,
     ChangeStoreStatusUseCase,
     SetStoreImageUseCase,
     StoreDashboardService,
+    PublicStoresService,
     PrismaStoreRepository,
     { provide: STORE_REPOSITORY, useExisting: PrismaStoreRepository },
   ],
