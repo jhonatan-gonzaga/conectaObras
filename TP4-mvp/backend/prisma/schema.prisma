@@ -27,13 +27,6 @@ enum ProductStatus {
   ARCHIVED
 }
 
-enum StorePromotionStatus {
-  DRAFT
-  ACTIVE
-  ENDED
-  CANCELED
-}
-
 enum StoreOrderStatus {
   PENDING
   CONFIRMED
@@ -152,7 +145,9 @@ model StoreProfile {
   description  String?            @db.Text
   phone        String?
   whatsapp     String?
+  /// Square cover; retains the legacy logo field for compatibility.
   logoUrl      String?
+  backgroundUrl String?
   status       StoreStatus        @default(DRAFT)
   owner        User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   address      StoreAddress?
@@ -244,6 +239,7 @@ model Product {
   @@index([storeId, status])
   @@index([categoryId, status])
   @@index([name])
+  @@index([status, createdAt, id])
   @@map("products")
 }
 
@@ -263,20 +259,21 @@ model ProductInventoryEvent {
 }
 
 model StorePromotion {
-  id          String               @id @default(cuid())
-  storeId     String
-  productId   String?
-  name        String               @db.VarChar(120)
-  discountPct Decimal              @db.Decimal(5, 2)
-  status      StorePromotionStatus @default(DRAFT)
-  startsAt    DateTime?
-  endsAt      DateTime?
-  store       StoreProfile         @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  product     Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  id               String        @id @default(cuid())
+  storeId          String
+  productId        String
+  promotionalPrice Decimal?      @db.Decimal(10, 2)
+  discountPercent  Decimal?      @db.Decimal(5, 2)
+  startAt           DateTime
+  endAt             DateTime
+  enabled           Boolean       @default(true)
+  store             StoreProfile @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product           Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
-  @@index([storeId, status])
+  @@index([storeId, enabled, startAt, endAt])
+  @@index([productId, enabled, startAt, endAt])
   @@map("store_promotions")
 }
 

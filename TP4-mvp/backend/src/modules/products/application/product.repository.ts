@@ -49,6 +49,16 @@ export interface ProductRecord {
   name: string;
   description: string | null;
   price: string;
+  effectivePrice?: string;
+  promotion?: {
+    id: string;
+    promotionalPrice: string | null;
+    discountPercent: string | null;
+    startAt: Date;
+    endAt: Date;
+    enabled: boolean;
+    effectivePrice: string;
+  } | null;
   stock: number;
   status: ProductStatus;
   lastPriceUpdateAt: Date;

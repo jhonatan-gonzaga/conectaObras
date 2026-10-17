@@ -6,6 +6,18 @@ import { UpsertMyStoreDto } from '../src/modules/stores/dto/upsert-my-store.dto'
 import { PrismaStoreRepository } from '../src/modules/stores/infrastructure/prisma-store.repository';
 
 describe('PrismaStoreRepository', () => {
+  for (const kind of ['cover', 'background'] as const) {
+    it(`atualiza apenas ${kind} da loja do dono com retorno completo`, async () => {
+      let captured: any;
+      const prisma = { storeProfile: { update: async (args: any) => { captured = args; return {}; } } } as unknown as PrismaService;
+      await new PrismaStoreRepository(prisma).updateImage('owner-a', kind, 'https://example.com/image.png');
+      assert.deepEqual(captured.where, { ownerId: 'owner-a' });
+      assert.deepEqual(captured.data, { [kind === 'cover' ? 'logoUrl' : 'backgroundUrl']: 'https://example.com/image.png' });
+      assert.equal(captured.select.logoUrl, true);
+      assert.equal(captured.select.backgroundUrl, true);
+    });
+  }
+
   for (const value of ['', '  ', null]) {
     it(`normaliza CNPJ e CEP vazios para null: ${JSON.stringify(value)}`, async () => {
       let profile: any;

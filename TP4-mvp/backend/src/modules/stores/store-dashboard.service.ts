@@ -1,12 +1,14 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, StoreOrderStatus, StorePromotionStatus } from '@prisma/client';
+import { Prisma, StoreOrderStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateStoreOrderDto } from './dto/create-store-order.dto';
 import { CreateStorePromotionDto } from './dto/create-store-promotion.dto';
 import { randomUUID } from 'node:crypto';
+import { EffectivePriceService, isPromotionOverlapping, validatePromotion } from './promotion.policy';
 
 export type StoreDashboardList = 'active-products' | 'low-stock' | 'promotions' | 'orders' | 'messages';
 const LOW_STOCK_LIMIT = 5;
+export type PromotionStatus = 'CURRENT' | 'SCHEDULED' | 'ENDED';
 
 @Injectable()
 export class StoreDashboardService {
@@ -19,11 +21,10 @@ export class StoreDashboardService {
     const now = new Date();
     const activePromotionWhere = {
       storeId: store.id,
-      status: 'ACTIVE' as const,
-      AND: [
-        { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
-        { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
-      ],
+      enabled: true,
+      startAt: { lte: now },
+      endAt: { gt: now },
+      product: { status: 'ACTIVE' as const, stock: { gt: 0 } },
     };
     const [activeProducts, lowStockProducts, activePromotions, ordersByStatus, unreadMessages, latestOrder] = await Promise.all([
       this.prisma.product.count({ where: { storeId: store.id, status: 'ACTIVE' } }),
@@ -54,15 +55,11 @@ export class StoreDashboardService {
         return this.prisma.product.findMany({ where: { storeId: store.id, status: 'ACTIVE' }, orderBy: { name: 'asc' } });
       case 'low-stock':
         return this.prisma.product.findMany({ where: { storeId: store.id, status: 'ACTIVE', stock: { lte: LOW_STOCK_LIMIT } }, orderBy: [{ stock: 'asc' }, { name: 'asc' }] });
-      case 'promotions':
+      case 'promotions': {
         return this.prisma.storePromotion.findMany({ where: {
           storeId: store.id,
-          status: 'ACTIVE',
-          AND: [
-            { OR: [{ startsAt: null }, { startsAt: { lte: new Date() } }] },
-            { OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }] },
-          ],
-        }, include: { product: { select: { id: true, name: true } } }, orderBy: { createdAt: 'desc' } });
+        }, include: { product: { select: { id: true, name: true, price: true, status: true, stock: true } } }, orderBy: { createdAt: 'desc' } });
+      }
       case 'orders':
         return this.prisma.storeOrder.findMany({ where: { storeId: store.id, status: status ? status as StoreOrderStatus : undefined }, include: { items: true }, orderBy: { createdAt: 'desc' } });
       case 'messages':
@@ -73,12 +70,125 @@ export class StoreDashboardService {
   async createPromotion(ownerId: string, dto: CreateStorePromotionDto) {
     const store = await this.prisma.storeProfile.findUnique({ where: { ownerId }, select: { id: true } });
     if (!store) throw new NotFoundException('Loja nao encontrada.');
-    if (dto.productId && !await this.prisma.product.findFirst({ where: { id: dto.productId, storeId: store.id } })) {
+    const product = await this.prisma.product.findFirst({ where: { id: dto.productId, storeId: store.id }, select: { id: true, price: true, status: true, stock: true } });
+    if (!product) {
       throw new BadRequestException('O produto informado nao pertence a sua loja.');
     }
-    return this.prisma.storePromotion.create({
-      data: { storeId: store.id, productId: dto.productId, name: dto.name.trim(), discountPct: new Prisma.Decimal(dto.discountPct), status: dto.status ?? StorePromotionStatus.DRAFT },
+    if (product.status !== 'ACTIVE' || product.stock < 1) {
+      throw new BadRequestException('Somente produtos ativos e com estoque podem entrar em promocao.');
+    }
+    validatePromotion(dto, product.price);
+    if (dto.endAt <= new Date()) throw new BadRequestException('A promoção precisa terminar no futuro.');
+    const overlaps = await this.prisma.storePromotion.findMany({
+      where: { productId: product.id, enabled: true, startAt: { lt: dto.endAt }, endAt: { gt: dto.startAt } },
+      select: { startAt: true, endAt: true },
     });
+    if (isPromotionOverlapping(dto.startAt, dto.endAt, overlaps)) {
+      throw new ConflictException('O produto ja possui promocao em periodo sobreposto.');
+    }
+    return this.prisma.storePromotion.create({
+      data: {
+        storeId: store.id,
+        productId: product.id,
+        promotionalPrice: dto.promotionalPrice == null ? null : new Prisma.Decimal(dto.promotionalPrice),
+        discountPercent: dto.discountPercent == null ? null : new Prisma.Decimal(dto.discountPercent),
+        startAt: dto.startAt,
+        endAt: dto.endAt,
+      },
+    });
+  }
+
+  async listPromotions(ownerId: string, status?: PromotionStatus) {
+    const store = await this.prisma.storeProfile.findUnique({ where: { ownerId }, select: { id: true } });
+    if (!store) throw new NotFoundException('Loja nao encontrada.');
+    const now = new Date();
+    const promotions = await this.prisma.storePromotion.findMany({
+      where: { storeId: store.id },
+      include: { product: { select: { id: true, name: true, price: true, status: true, stock: true } } },
+      orderBy: [{ startAt: 'desc' }, { id: 'desc' }],
+    });
+    return promotions.map((promotion) => {
+      const lifecycle: PromotionStatus = promotion.endAt <= now ? 'ENDED'
+        : promotion.startAt > now ? 'SCHEDULED' : 'CURRENT';
+      const available = promotion.product.status === 'ACTIVE' && promotion.product.stock > 0;
+      return {
+        id: promotion.id,
+        productId: promotion.productId,
+        productName: promotion.product.name,
+        basePrice: promotion.product.price.toFixed(2),
+        effectivePrice: new EffectivePriceService(() => now).getEffectivePrice(promotion.product.price, promotion, now, available).toFixed(2),
+        promotionalPrice: promotion.promotionalPrice?.toFixed(2) ?? null,
+        discountPercent: promotion.discountPercent?.toFixed(2) ?? null,
+        startAt: promotion.startAt,
+        endAt: promotion.endAt,
+        enabled: promotion.enabled,
+        status: lifecycle,
+      };
+    }).filter((promotion) => !status || promotion.status === status);
+  }
+
+  async updatePromotion(ownerId: string, promotionId: string, dto: Partial<CreateStorePromotionDto>) {
+    const store = await this.prisma.storeProfile.findUnique({ where: { ownerId }, select: { id: true } });
+    if (!store) throw new NotFoundException('Loja nao encontrada.');
+    const current = await this.prisma.storePromotion.findFirst({ where: { id: promotionId, storeId: store.id } });
+    if (!current) throw new NotFoundException('Promocao nao encontrada.');
+    if (dto.productId !== undefined && current.productId !== dto.productId) throw new BadRequestException('A promocao nao pode ser transferida para outro produto.');
+    if (dto.promotionalPrice === undefined && dto.discountPercent === undefined && dto.startAt === undefined && dto.endAt === undefined) {
+      throw new BadRequestException('Informe ao menos um campo para atualizar.');
+    }
+    const product = await this.prisma.product.findFirst({ where: { id: current.productId, storeId: store.id }, select: { id: true, price: true, status: true, stock: true } });
+    if (!product) throw new NotFoundException('Produto nao encontrado.');
+    if (product.status !== 'ACTIVE' || product.stock < 1) {
+      throw new BadRequestException('Somente produtos ativos e com estoque podem ter promocao.');
+    }
+    const terms = {
+      promotionalPrice: dto.promotionalPrice !== undefined ? dto.promotionalPrice : dto.discountPercent != null ? null : current.promotionalPrice,
+      discountPercent: dto.discountPercent !== undefined ? dto.discountPercent : dto.promotionalPrice != null ? null : current.discountPercent,
+      startAt: dto.startAt ?? current.startAt,
+      endAt: dto.endAt ?? current.endAt,
+    };
+    validatePromotion(terms, product.price);
+    if (terms.endAt <= new Date()) throw new BadRequestException('A promoção precisa terminar no futuro.');
+    const overlaps = await this.prisma.storePromotion.findMany({
+      where: { id: { not: current.id }, productId: product.id, enabled: true, startAt: { lt: terms.endAt }, endAt: { gt: terms.startAt } },
+      select: { startAt: true, endAt: true },
+    });
+    if (isPromotionOverlapping(terms.startAt, terms.endAt, overlaps)) {
+      throw new ConflictException('O produto ja possui promocao em periodo sobreposto.');
+    }
+    return this.prisma.storePromotion.update({
+      where: { id: current.id, storeId: store.id },
+      data: {
+        promotionalPrice: terms.promotionalPrice == null ? null : new Prisma.Decimal(terms.promotionalPrice),
+        discountPercent: terms.discountPercent == null ? null : new Prisma.Decimal(terms.discountPercent),
+        startAt: terms.startAt,
+        endAt: terms.endAt,
+      },
+    });
+  }
+
+  async setPromotionEnabled(ownerId: string, promotionId: string, enabled: boolean) {
+    const store = await this.prisma.storeProfile.findUnique({ where: { ownerId }, select: { id: true } });
+    if (!store) throw new NotFoundException('Loja nao encontrada.');
+    const promotion = await this.prisma.storePromotion.findFirst({
+      where: { id: promotionId, storeId: store.id },
+      include: { product: { select: { id: true, status: true, stock: true } } },
+    });
+    if (!promotion) throw new NotFoundException('Promocao nao encontrada.');
+    if (enabled) {
+      if (promotion.product.status !== 'ACTIVE' || promotion.product.stock < 1) {
+        throw new BadRequestException('Somente produtos ativos e com estoque podem entrar em promocao.');
+      }
+      if (promotion.endAt <= new Date()) throw new BadRequestException('Nao e possivel ativar uma promocao encerrada.');
+      const overlaps = await this.prisma.storePromotion.findMany({
+        where: { id: { not: promotion.id }, productId: promotion.productId, enabled: true, startAt: { lt: promotion.endAt }, endAt: { gt: promotion.startAt } },
+        select: { startAt: true, endAt: true },
+      });
+      if (isPromotionOverlapping(promotion.startAt, promotion.endAt, overlaps)) {
+        throw new ConflictException('O produto ja possui promocao em periodo sobreposto.');
+      }
+    }
+    return this.prisma.storePromotion.update({ where: { id: promotionId, storeId: store.id }, data: { enabled } });
   }
 
   
