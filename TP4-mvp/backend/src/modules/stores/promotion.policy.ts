@@ -42,6 +42,15 @@ export function isPromotionOverlapping(startAt: Date, endAt: Date, existing: { s
 export class EffectivePriceService {
   constructor(private readonly clock: () => Date = () => new Date()) {}
 
+  // SQL counterpart for filtering before pagination; verified against Decimal pricing.
+  getEffectivePriceSql(base: Prisma.Sql, price: Prisma.Sql, percent: Prisma.Sql, available: Prisma.Sql): Prisma.Sql {
+    return Prisma.sql`CASE WHEN ${available} THEN CASE
+      WHEN ${price} IS NOT NULL THEN CASE WHEN ${price} > 0 AND ${price} < ${base}
+        THEN ROUND(${price}, 2) ELSE ${base} END
+      WHEN ${percent} IS NOT NULL THEN ROUND(${base} * (100 - ${percent}) / 100, 2)
+      ELSE ${base} END ELSE ${base} END`;
+  }
+
   getEffectivePrice(
     basePrice: Prisma.Decimal | string | number,
     promotion: EffectivePromotion | null,
@@ -60,3 +69,10 @@ export class EffectivePriceService {
     return base;
   }
 }
+
+export const currentPromotionWhere = (at: Date) => ({
+  enabled: true, startAt: { lte: at }, endAt: { gt: at },
+});
+
+// Writes reject overlaps. Latest start and unique id also make legacy overlaps deterministic.
+export const promotionOrder = [{ startAt: 'desc' as const }, { id: 'desc' as const }];
