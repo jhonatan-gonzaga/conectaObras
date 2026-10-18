@@ -1,10 +1,11 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, StoreOrderStatus } from '@prisma/client';
+import { Prisma, StoreOrderStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateStoreOrderDto } from './dto/create-store-order.dto';
 import { CreateStorePromotionDto } from './dto/create-store-promotion.dto';
 import { randomUUID } from 'node:crypto';
 import { EffectivePriceService, isPromotionOverlapping, validatePromotion } from './promotion.policy';
+import { canTransitionOrder } from './application/orders/order-status-policy';
 
 export type StoreDashboardList = 'active-products' | 'low-stock' | 'promotions' | 'orders' | 'messages';
 const LOW_STOCK_LIMIT = 5;
@@ -211,14 +212,16 @@ async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
 
     const lineTotal = unitPrice.mul(item.quantity);
 
+
     return {
+      productId: item.productId ?? null,
       name: item.name.trim(),
+      sku: item.sku ?? null,
       quantity: item.quantity,
       unitPrice,
       lineTotal,
     };
   });
-
   const subtotal = items.reduce(
     (sum, item) => sum.add(item.lineTotal),
     new Prisma.Decimal(0),
@@ -236,6 +239,14 @@ async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
       discount,
       total,
       items: { create: items },
+      statusHistory: {
+        create: {
+          fromStatus: null,
+          toStatus: StoreOrderStatus.PENDING,
+          actorId: ownerId,
+          note: 'Pedido criado.',
+        },
+      },
     },
     include: { items: true },
   });
@@ -247,12 +258,16 @@ async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
     if (!store) throw new NotFoundException('Loja nao encontrada.');
     const order = await this.prisma.storeOrder.findFirst({ where: { id: orderId, storeId: store.id }, select: { status: true } });
     if (!order) throw new NotFoundException('Pedido nao encontrado.');
-    const next: Record<StoreOrderStatus, StoreOrderStatus[]> = {
-      PENDING: ['CONFIRMED', 'CANCELED'], CONFIRMED: ['PREPARING', 'CANCELED'],
-      PREPARING: ['READY', 'CANCELED'], READY: ['COMPLETED', 'CANCELED'],
-      COMPLETED: [], CANCELED: [],
-    };
-    if (!next[order.status].includes(status)) throw new BadRequestException('Transicao de pedido invalida.');
+
+    const transitionAllowed = canTransitionOrder({
+      currentStatus: order.status,
+      targetStatus: status,
+      actor: UserRole.LOJISTA,
+    });
+
+    if (!transitionAllowed) {
+      throw new BadRequestException('Transicao de pedido invalida.');
+    }
 
   return this.prisma.$transaction(async (tx) => {
     const changed = await tx.storeOrder.updateMany({

@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { BadRequestException } from '@nestjs/common';
 import { StoreDashboardService } from '../src/modules/stores/store-dashboard.service';
+import { StoreOrderStatus } from '@prisma/client';
 
 test('store dashboard returns aggregated counts from the store and never reads paginated client lists', async () => {
   const prisma = {
@@ -98,14 +99,36 @@ test('creates an order with a decimal total derived from its line items', async 
   };
   const service = new StoreDashboardService(prisma as never);
   await service.createOrder('owner-1', {
+
     items: [
-      { name: 'Saco de cimento', quantity: 2, unitPrice: '31.50' },
-      { name: 'Areia', quantity: 1, unitPrice: '8.00' },
+      {
+        productId: 'product-1',
+        name: 'Saco de cimento',
+        sku: 'CIM-001',
+        quantity: 2,
+        unitPrice: '31.50',
+      },
+      {
+        name: 'Areia',
+        quantity: 1,
+        unitPrice: '8.00',
+      },
     ],
   });
   assert.equal(created.data.total.toString(), '71');
   assert.equal(created.data.storeId, 'store-1');
   assert.equal(created.data.items.create.length, 2);
+  assert.equal(created.data.items.create[0].productId, 'product-1');
+  assert.equal(created.data.items.create[0].name, 'Saco de cimento');
+  assert.equal(created.data.items.create[0].sku, 'CIM-001');
+  assert.equal(
+    created.data.items.create[0].unitPrice.toString(),
+    '31.5',
+  );
+
+  assert.equal(created.data.items.create[1].productId, null);
+  assert.equal(created.data.items.create[1].sku, null);
+
   assert.equal(created.data.subtotal.toString(), '71');
   assert.equal(created.data.discount.toString(), '0');
 
@@ -123,6 +146,25 @@ test('creates an order with a decimal total derived from its line items', async 
     created.data.orderNumber,
     /^PED-[0-9a-f-]{36}$/,
   );
+    assert.equal(
+      created.data.statusHistory.create.fromStatus,
+      null,
+    );
+
+    assert.equal(
+      created.data.statusHistory.create.toStatus,
+      StoreOrderStatus.PENDING,
+    );
+
+    assert.equal(
+      created.data.statusHistory.create.actorId,
+      'owner-1',
+    );
+
+    assert.equal(
+      created.data.statusHistory.create.note,
+      'Pedido criado.',
+    );
   });
 
 test('rejects nonpositive order line prices before persistence', async () => {
