@@ -202,7 +202,16 @@ async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
   if (!store) {
     throw new NotFoundException('Loja nao encontrada.');
   }
+  if (dto.customerId) {
+    const customer = await this.prisma.user.findUnique({
+      where: { id: dto.customerId },
+      select: { id: true, role: true },
+    });
 
+    if (!customer || customer.role !== UserRole.CLIENTE) {
+      throw new BadRequestException('Cliente invalido ou nao encontrado.');
+    }
+  }
   const items = dto.items.map((item) => {
     const unitPrice = new Prisma.Decimal(item.unitPrice);
 
@@ -211,7 +220,11 @@ async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
     }
 
     const lineTotal = unitPrice.mul(item.quantity);
-
+    if (lineTotal.gt(new Prisma.Decimal('99999999.99'))) {
+      throw new BadRequestException(
+        'O valor total do item excede o limite permitido.',
+      );
+    }
 
     return {
       productId: item.productId ?? null,
@@ -226,6 +239,11 @@ async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
     (sum, item) => sum.add(item.lineTotal),
     new Prisma.Decimal(0),
   );
+  if (subtotal.gt(new Prisma.Decimal('99999999.99'))) {
+    throw new BadRequestException(
+      'O subtotal do pedido excede o limite permitido.',
+    );
+  }
 
   const discount = new Prisma.Decimal(0);
   const total = subtotal.sub(discount);
@@ -234,10 +252,22 @@ async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
     data: {
       orderNumber: `PED-${randomUUID()}`,
       storeId: store.id,
+      customerId: dto.customerId ?? null,
       status: StoreOrderStatus.PENDING,
       subtotal,
       discount,
       total,
+            addressSnapshot: dto.address
+        ? {
+            street: dto.address.street,
+            number: dto.address.number,
+            neighborhood: dto.address.neighborhood,
+            city: dto.address.city,
+            state: dto.address.state,
+            zipCode: dto.address.zipCode,
+            complement: dto.address.complement ?? null,
+          }
+        : Prisma.JsonNull,
       items: { create: items },
       statusHistory: {
         create: {
