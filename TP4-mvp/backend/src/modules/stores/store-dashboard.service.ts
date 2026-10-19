@@ -1,8 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, StoreOrderStatus, StorePromotionStatus } from '@prisma/client';
+import { Prisma, StoreOrderStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateStoreOrderDto } from './dto/create-store-order.dto';
-import { CreateStorePromotionDto } from './dto/create-store-promotion.dto';
 
 export type StoreDashboardList = 'active-products' | 'low-stock' | 'promotions' | 'orders' | 'messages';
 const LOW_STOCK_LIMIT = 5;
@@ -21,7 +20,7 @@ export class StoreDashboardService {
       status: 'ACTIVE' as const,
       AND: [
         { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
-        { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
+        { OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
       ],
     };
     const [activeProducts, lowStockProducts, activePromotions, ordersByStatus, unreadMessages, latestOrder] = await Promise.all([
@@ -59,7 +58,7 @@ export class StoreDashboardService {
           status: 'ACTIVE',
           AND: [
             { OR: [{ startsAt: null }, { startsAt: { lte: new Date() } }] },
-            { OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }] },
+            { OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }] },
           ],
         }, include: { product: { select: { id: true, name: true } } }, orderBy: { createdAt: 'desc' } });
       case 'orders':
@@ -67,17 +66,6 @@ export class StoreDashboardService {
       case 'messages':
         return this.prisma.notification.findMany({ where: { userId: ownerId, type: 'NEW_MESSAGE', readAt: null }, orderBy: { createdAt: 'desc' } });
     }
-  }
-
-  async createPromotion(ownerId: string, dto: CreateStorePromotionDto) {
-    const store = await this.prisma.storeProfile.findUnique({ where: { ownerId }, select: { id: true } });
-    if (!store) throw new NotFoundException('Loja nao encontrada.');
-    if (dto.productId && !await this.prisma.product.findFirst({ where: { id: dto.productId, storeId: store.id } })) {
-      throw new BadRequestException('O produto informado nao pertence a sua loja.');
-    }
-    return this.prisma.storePromotion.create({
-      data: { storeId: store.id, productId: dto.productId, name: dto.name.trim(), discountPct: new Prisma.Decimal(dto.discountPct), status: dto.status ?? StorePromotionStatus.DRAFT },
-    });
   }
 
   async createOrder(ownerId: string, dto: CreateStoreOrderDto) {

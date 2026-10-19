@@ -23,6 +23,7 @@ export function useAppNavigation() {
   const [storeListReturnScreen, setStoreListReturnScreen] = useState<"storeOwnerEdit" | "storeOwnerDashboard">("storeOwnerDashboard");
   const [storeListKind, setStoreListKind] = useState<StoreDashboardList>("active-products");
   const [storeListStatus, setStoreListStatus] = useState<string | undefined>();
+  const [selectedPromotionId, setSelectedPromotionId] = useState<string | null>(null);
   const [productFilters, setProductFilters] = useState<ProductFilters>({ q: "", categoryId: "", status: "", stock: "" });
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [productNotice, setProductNotice] = useState<string | null>(null);
@@ -106,6 +107,8 @@ export function useAppNavigation() {
     await api.logout();
     setAuthUser(null); setHasStore(false); setSelectedClientService(null); setSelectedProfessionalId(null);
     setContractedClientServices([]); setStoreListKind("active-products"); setStoreListStatus(undefined); setStoreListReturnScreen("storeOwnerDashboard");
+    setSelectedPromotionId(null); setSelectedProductId(null); setProductNotice(null);
+    setProductFilters({ q: "", categoryId: "", status: "", stock: "" });
     setProfileReturnScreen("clientHome"); setClientWorkReturnScreen("clientHome");
     setClientProfileReturnScreen("clientHome"); setLegalReturnScreen("login"); setScreen("login");
   };
@@ -171,6 +174,8 @@ export function useAppNavigation() {
     setStoreListKind,
     storeListStatus,
     setStoreListStatus,
+    selectedPromotionId,
+    setSelectedPromotionId,
     productFilters,
     setProductFilters,
     selectedProductId,

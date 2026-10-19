@@ -15,7 +15,7 @@ describe("authenticated persona routing", () => {
     expect(initialScreenForRole("LOJISTA", true)).toBe("storeOwnerDashboard");
   });
 
-  it.each(["storeOwnerEdit", "storeOwnerPreview"] as const)("allows %s only for a store owner with a registered store", (screen) => {
+  it.each(["storeOwnerEdit", "storeOwnerPreview", "storeProducts", "storeProductForm", "storeOwnerPromotions", "storeOwnerPromotionForm"] as const)("allows %s only for a store owner with a registered store", (screen) => {
     expect(guardPersonaScreen(screen, "LOJISTA", true)).toBe(screen);
     expect(guardPersonaScreen(screen, "LOJISTA", false)).toBe("storeOwnerSetup");
     expect(guardPersonaScreen(screen, "CLIENTE", true)).toBe("clientHome");

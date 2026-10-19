@@ -27,9 +27,9 @@ export function guardPersonaScreen(screen: Screen, role: UserRole | null, hasSto
   if (screen === "profileChoice" && role !== "CLIENTE" && role !== "PROFISSIONAL" && role !== "LOJISTA") return initialScreenForRole(role, hasStore);
   const isClientScreen = screen.startsWith("client");
   const isProfessionalScreen = screen.startsWith("professional");
-  const isStoreScreen = screen.startsWith("storeOwner");
+  const isStoreScreen = screen.startsWith("store");
   if ((isClientScreen && role !== "CLIENTE") || (isProfessionalScreen && role !== "PROFISSIONAL") || (isStoreScreen && role !== "LOJISTA")) return initialScreenForRole(role, hasStore);
   if (role === "LOJISTA" && hasStore && screen === "storeOwnerSetup") return "storeOwnerDashboard";
-  if (role === "LOJISTA" && !hasStore && (screen === "storeOwnerDashboard" || screen === "storeOwnerList" || screen === "storeOwnerEdit" || screen === "storeOwnerPreview")) return "storeOwnerSetup";
+  if (role === "LOJISTA" && !hasStore && (isStoreScreen && screen !== "storeOwnerSetup")) return "storeOwnerSetup";
   return screen;
 }

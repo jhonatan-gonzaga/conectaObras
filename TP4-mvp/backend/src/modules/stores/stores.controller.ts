@@ -30,6 +30,8 @@ import { GetMyStoreUseCase } from './application/use-cases/get-my-store.use-case
 import { SaveStoreProfileUseCase } from './application/use-cases/save-store-profile.use-case';
 import { SetStoreImageUseCase } from './application/use-cases/set-store-image.use-case';
 import { StoreDashboardList, StoreDashboardService } from './store-dashboard.service';
+import { StorePromotionsService } from './store-promotions.service';
+import { ChangeStorePromotionStatusDto } from './dto/change-store-promotion-status.dto';
 import { CreateStorePromotionDto } from './dto/create-store-promotion.dto';
 import { CreateStoreOrderDto } from './dto/create-store-order.dto';
 import { ChangeStoreOrderStatusDto } from './dto/change-store-order-status.dto';
@@ -44,6 +46,7 @@ export class StoresController {
     private readonly changeStoreStatus: ChangeStoreStatusUseCase,
     private readonly setStoreImage: SetStoreImageUseCase,
     private readonly dashboard: StoreDashboardService,
+    private readonly promotions: StorePromotionsService,
     private readonly uploads: UploadsService,
   ) {}
 
@@ -72,9 +75,29 @@ export class StoresController {
     return this.dashboard.list(user.id, kind as StoreDashboardList, status);
   }
 
+  @Get('me/promotions')
+  listPromotions(@CurrentUser() user: AuthenticatedUser) {
+    return this.promotions.list(user.id);
+  }
+
+  @Get('me/promotions/:id')
+  findPromotion(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.promotions.find(user.id, id);
+  }
+
+  @Put('me/promotions/:id')
+  updatePromotion(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: CreateStorePromotionDto) {
+    return this.promotions.save(user.id, dto, id);
+  }
+
+  @Patch('me/promotions/:id/status')
+  changePromotionStatus(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: ChangeStorePromotionStatusDto) {
+    return this.promotions.changeStatus(user.id, id, dto.status);
+  }
+
   @Post('me/promotions')
   createPromotion(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateStorePromotionDto) {
-    return this.dashboard.createPromotion(user.id, dto);
+    return this.promotions.save(user.id, dto);
   }
 
   @Post('me/orders')
@@ -119,13 +142,13 @@ export class StoresController {
     @Req() request: Request,
   ) {
     if (!file) throw new BadRequestException('Envie um arquivo de imagem.');
-    const upload = this.uploadProvider.buildResponse(file, 'image', request);
+    const upload = await this.uploads.uploadImage(file, `${request.protocol}://${request.get('host')}`);
     return this.setStoreImage.execute(user.id, 'cover', upload.url);
   }
 
   @Post('me/background')
   @UseInterceptors(
-    FileInterceptor('file', LocalUploadProvider.createMulterOptions('image')),
+    FileInterceptor('file', createUploadOptions('image')),
   )
   async uploadBackground(
     @CurrentUser() user: AuthenticatedUser,
@@ -133,7 +156,7 @@ export class StoresController {
     @Req() request: Request,
   ) {
     if (!file) throw new BadRequestException('Envie um arquivo de imagem.');
-    const upload = this.uploadProvider.buildResponse(file, 'image', request);
+    const upload = await this.uploads.uploadImage(file, `${request.protocol}://${request.get('host')}`);
     return this.setStoreImage.execute(user.id, 'background', upload.url);
   }
 }

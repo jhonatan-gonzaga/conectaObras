@@ -35,20 +35,6 @@ test('store dashboard routes owner without a store to onboarding data', async ()
   assert.deepEqual(summary.ordersByStatus, {});
 });
 
-test('creates promotion only for a product owned by the authenticated store', async () => {
-  let created: any;
-  const prisma = {
-    storeProfile: { findUnique: async () => ({ id: 'store-1' }) },
-    product: { findFirst: async () => null },
-    storePromotion: { create: async (input: any) => { created = input; return input; } },
-  };
-  const service = new StoreDashboardService(prisma as never);
-  await assert.rejects(() => service.createPromotion('owner-1', {
-    name: 'Oferta', discountPct: 10, productId: 'product-from-another-store',
-  }), BadRequestException);
-  assert.equal(created, undefined);
-});
-
 test('creates an order with a decimal total derived from its line items', async () => {
   let created: any;
   const prisma = {

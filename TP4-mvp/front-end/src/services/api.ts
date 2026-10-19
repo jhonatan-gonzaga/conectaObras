@@ -1,3 +1,6 @@
+import type { ProductCategory, ProductFilters, ProductPage, StoreProduct, ProductStatus, ProductImage } from "./store-products";
+import type { ImagePickerAsset } from "expo-image-picker";
+import type { StorePromotion, PromotionPayload } from "./store-promotions";
 import type { StoreProfile } from "./store-form";
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
@@ -415,6 +418,11 @@ export const api = {
   changeMyStoreStatus: (status: "ACTIVE" | "INACTIVE") => request<StoreProfile>("/stores/me/status", { method: "PATCH", body: JSON.stringify({ status }) }),
   storeDashboard: () => request<StoreDashboardSummary>("/stores/me/dashboard"),
   storeDashboardList: (kind: StoreDashboardList, status?: string) => request<unknown[]>(`/stores/me/dashboard/${kind}${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+  storePromotions: () => request<StorePromotion[]>("/stores/me/promotions"),
+  storePromotion: (id: string) => request<StorePromotion>(`/stores/me/promotions/${encodeURIComponent(id)}`),
+  createStorePromotion: (input: PromotionPayload) => request<StorePromotion>("/stores/me/promotions", { method: "POST", body: JSON.stringify(input) }),
+  updateStorePromotion: (id: string, input: PromotionPayload) => request<StorePromotion>(`/stores/me/promotions/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(input) }),
+  setStorePromotionStatus: (id: string, status: "ACTIVE" | "CANCELED") => request<StorePromotion>(`/stores/me/promotions/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
   productCategories: () => request<ProductCategory[]>("/product-categories", { auth: false }),
   storeProducts: (filters: Partial<ProductFilters> & { page?: number; limit?: number } = {}) =>
     request<ProductPage>(`/store-products${toQuery(filters as Record<string, string | number | undefined>)}`),

@@ -9,6 +9,7 @@ import { SaveStoreProfileUseCase } from './application/use-cases/save-store-prof
 import { SetStoreImageUseCase } from './application/use-cases/set-store-image.use-case';
 import { PrismaStoreRepository } from './infrastructure/prisma-store.repository';
 import { UploadsModule } from '../uploads/uploads.module';
+import { StorePromotionsService } from './store-promotions.service';
 import { StoreDashboardService } from './store-dashboard.service';
 
 @Module({
@@ -20,6 +21,7 @@ import { StoreDashboardService } from './store-dashboard.service';
     ChangeStoreStatusUseCase,
     SetStoreImageUseCase,
     StoreDashboardService,
+    StorePromotionsService,
     PrismaStoreRepository,
     { provide: STORE_REPOSITORY, useExisting: PrismaStoreRepository },
   ],

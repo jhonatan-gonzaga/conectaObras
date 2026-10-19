@@ -29,13 +29,14 @@ function Flow() {
 }
 async function openSettings() {
   const screen = render(<Flow />);
-  fireEvent.press(await screen.findByText("Editar loja"));
+  fireEvent.press(await screen.findByLabelText("Editar loja"));
   await screen.findByText("Ajustes da loja");
   return screen;
 }
 describe("store settings flow", () => {
   beforeEach(() => {
     jest.spyOn(api, "me").mockResolvedValue({ id: "owner-a", role: "LOJISTA", avatarUrl: "https://example.com/avatar.png" } as never);
+    jest.spyOn(api, "storeIdentity").mockResolvedValue({ name: "Loja Central", status: "ACTIVE" });
     jest.spyOn(api, "myStore").mockResolvedValue(store);
     jest.spyOn(api, "storeDashboard").mockResolvedValue({ hasStore: true, activeProducts: 1, lowStockProducts: 0, activePromotions: 0, unreadMessages: 0, ordersByStatus: {} } as never);
     jest.spyOn(api, "storeDashboardList").mockResolvedValue([]);
@@ -45,7 +46,7 @@ describe("store settings flow", () => {
     const screen = await openSettings();
     expect(screen.getByLabelText("Nome da loja").props.value).toBe("Loja Central");
     fireEvent.press(screen.getByLabelText("Voltar"));
-    expect(await screen.findByText("Painel da loja")).toBeTruthy();
+    expect(await screen.findByText("Vitrine Loja Central")).toBeTruthy();
   });
   it("uses the professional header with the account avatar, without messages or footer tabs", async () => {
     const screen = await openSettings();
@@ -76,7 +77,7 @@ describe("store settings flow", () => {
     expect(screen.getByText("Ajustes da loja")).toBeTruthy();
     const buttons = alert.mock.calls[0][2]!;
     await act(async () => buttons.find((button) => button.text === "Descartar alterações")!.onPress!());
-    expect(await screen.findByText("Painel da loja")).toBeTruthy();
+    expect(await screen.findByText("Vitrine Loja Central")).toBeTruthy();
   });
   it("saves actual edits and keeps API errors beside invalid fields", async () => {
     const save = jest.spyOn(api, "saveMyStore").mockResolvedValue({ ...store, name: "Loja atualizada" });

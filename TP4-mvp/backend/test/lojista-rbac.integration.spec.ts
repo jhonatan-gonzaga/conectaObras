@@ -1,3 +1,4 @@
+import { UploadsService } from '../src/modules/uploads/uploads.service';
 import 'reflect-metadata';
 import { strict as assert } from 'node:assert';
 import { after, before, beforeEach, describe, it } from 'node:test';
@@ -19,6 +20,7 @@ import { UPLOAD_PROVIDER } from '../src/modules/uploads/providers/upload-provide
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../src/modules/auth/guards/roles.guard';
 import { AuthenticatedUser } from '../src/common/types/authenticated-user';
+import { StorePromotionsService } from '../src/modules/stores/store-promotions.service';
 import { StoreDashboardService } from '../src/modules/stores/store-dashboard.service';
 
 const JWT_SECRET = 'lojista-rbac-integration-test';
@@ -93,6 +95,7 @@ describe('API de administração da loja (integracao HTTP)', () => {
   let baseUrl: string;
   let jwtService: JwtService;
   let repository: InMemoryStoreRepository;
+  const promotionCalls: unknown[][] = [];
 
   const originalCwd = process.cwd();
   let uploadDirectory: string;
@@ -106,6 +109,13 @@ describe('API de administração da loja (integracao HTTP)', () => {
       imports: [JwtModule.register({ secret: JWT_SECRET })],
       controllers: [StoresController],
       providers: [
+        { provide: StorePromotionsService, useValue: {
+          list: async (ownerId: string) => { promotionCalls.push(['list', ownerId]); return []; },
+          find: async (ownerId: string, id: string) => { promotionCalls.push(['find', ownerId, id]); return { id }; },
+          save: async (ownerId: string, dto: unknown, id?: string) => { promotionCalls.push(['save', ownerId, dto, id]); return { id: id ?? 'new-promo' }; },
+          changeStatus: async (ownerId: string, id: string, status: string) => { promotionCalls.push(['status', ownerId, id, status]); return { id, status }; },
+        } },
+        UploadsService,
         JwtAuthGuard,
         RolesGuard,
         GetMyStoreUseCase,
@@ -134,7 +144,7 @@ describe('API de administração da loja (integracao HTTP)', () => {
     jwtService = module.get(JwtService);
   });
 
-  beforeEach(() => repository.reset());
+  beforeEach(() => { repository.reset(); promotionCalls.length = 0; });
   after(async () => {
     await app?.close();
     process.chdir(originalCwd);
@@ -281,6 +291,38 @@ describe('API de administração da loja (integracao HTTP)', () => {
     assert.equal(mine.ownerId, 'owner-a');
     assert.equal(mine.status, StoreStatus.INACTIVE);
     assert.equal(repository.stores.get('owner-b')?.status, StoreStatus.DRAFT);
+  });
+
+  const promotionBody = {
+    name: 'Oferta', productId: 'p1', discountType: 'PERCENTAGE', discountValue: 20,
+    startsAt: '2030-10-15T11:00:00.000Z', endsAt: '2030-10-23T02:59:00.000Z', status: 'ACTIVE',
+  };
+  for (const [path, method] of [['/me/promotions', 'GET'], ['/me/promotions/promo', 'GET'], ['/me/promotions', 'POST'], ['/me/promotions/promo', 'PUT'], ['/me/promotions/promo/status', 'PATCH']]) {
+    it(`protege ${method} ${path} com autenticação e papel LOJISTA`, async () => {
+      assert.equal((await request(path, undefined, { method })).status, 401);
+      assert.equal((await request(path, tokenFor('client', UserRole.CLIENTE), { method })).status, 403);
+      assert.equal(promotionCalls.length, 0);
+    });
+  }
+  it('encaminha consultas e alterações de promoções usando apenas o dono do JWT', async () => {
+    const token = tokenFor('owner-a', UserRole.LOJISTA);
+    assert.equal((await request('/me/promotions', token)).status, 200);
+    assert.equal((await request('/me/promotions/promo', token)).status, 200);
+    for (const [path, method, body, expected] of [
+      ['/me/promotions', 'POST', promotionBody, 201],
+      ['/me/promotions/promo', 'PUT', promotionBody, 200],
+      ['/me/promotions/promo/status', 'PATCH', { status: 'CANCELED' }, 200],
+    ] as const) {
+      assert.equal((await request(path, token, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).status, expected);
+    }
+    assert.equal(promotionCalls.length, 5);
+    assert.ok(promotionCalls.every((call) => call[1] === 'owner-a'));
+    assert.deepEqual(promotionCalls.at(-1), ['status', 'owner-a', 'promo', 'CANCELED']);
+    for (const body of [{ ...promotionBody, ownerId: 'owner-b' }, { ...promotionBody, discountType: ['PERCENTAGE', 'FIXED'] }, { ...promotionBody, startsAt: '2030-10-15T08:00' }]) {
+      assert.equal((await request('/me/promotions', token, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).status, 400);
+    }
+    assert.equal((await request('/me/promotions/promo/status', token, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: 'ENDED' }) })).status, 400);
+    assert.equal(promotionCalls.length, 5);
   });
 
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aEl8AAAAASUVORK5CYII=', 'base64');

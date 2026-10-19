@@ -1,23 +1,32 @@
-import { StorePromotionStatus } from '@prisma/client';
-import { Type } from 'class-transformer';
-import { IsEnum, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { PromotionDiscountType } from '@prisma/client';
+import { IsEnum, IsISO8601, IsNumber, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 export class CreateStorePromotionDto {
   @IsString()
+  @MinLength(1)
   @MaxLength(120)
   name: string;
 
-  @Type(() => Number)
+  @IsEnum(PromotionDiscountType)
+  discountType: PromotionDiscountType;
+
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
-  @Max(100)
-  discountPct: number;
+  @Max(99999999.99)
+  discountValue: number;
 
-  @IsOptional()
   @IsString()
-  productId?: string;
+  @MinLength(1)
+  productId: string;
 
-  @IsOptional()
-  @IsEnum(StorePromotionStatus)
-  status?: StorePromotionStatus;
+  @IsEnum({ DRAFT: 'DRAFT', ACTIVE: 'ACTIVE' })
+  status: 'DRAFT' | 'ACTIVE';
+
+  @IsISO8601({ strict: true })
+  @Matches(/(Z|[+-]\d{2}:\d{2})$/)
+  startsAt: string;
+
+  @IsISO8601({ strict: true })
+  @Matches(/(Z|[+-]\d{2}:\d{2})$/)
+  endsAt: string;
 }
