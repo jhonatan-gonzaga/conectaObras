@@ -1,9 +1,11 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, StoreOrderStatus } from '@prisma/client';
+import { Prisma, StoreOrderStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateStoreOrderDto } from './dto/create-store-order.dto';
 import { CreateStorePromotionDto } from './dto/create-store-promotion.dto';
+import { randomUUID } from 'node:crypto';
 import { EffectivePriceService, isPromotionOverlapping, validatePromotion } from './promotion.policy';
+import { canTransitionOrder } from './application/orders/order-status-policy';
 
 export type StoreDashboardList = 'active-products' | 'low-stock' | 'promotions' | 'orders' | 'messages';
 const LOW_STOCK_LIMIT = 5;
@@ -190,42 +192,145 @@ export class StoreDashboardService {
     return this.prisma.storePromotion.update({ where: { id: promotionId, storeId: store.id }, data: { enabled } });
   }
 
-  async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
-    const store = await this.prisma.storeProfile.findUnique({ where: { ownerId }, select: { id: true } });
-    if (!store) throw new NotFoundException('Loja nao encontrada.');
-    const items = dto.items.map((item) => {
-      const unitPrice = new Prisma.Decimal(item.unitPrice);
-      if (unitPrice.lte(0)) throw new BadRequestException('O preco dos itens deve ser positivo.');
-      return { name: item.name.trim(), quantity: item.quantity, unitPrice };
-    });
-    const total = items.reduce((sum, item) => sum.add(item.unitPrice.mul(item.quantity)), new Prisma.Decimal(0));
-    return this.prisma.storeOrder.create({
-      data: {
-        storeId: store.id,
-        status: StoreOrderStatus.PENDING,
-        total,
-        items: { create: items },
-      },
-      include: { items: true },
-    });
+  
+async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
+  const store = await this.prisma.storeProfile.findUnique({
+    where: { ownerId },
+    select: { id: true },
+  });
+
+  if (!store) {
+    throw new NotFoundException('Loja nao encontrada.');
   }
+  if (dto.customerId) {
+    const customer = await this.prisma.user.findUnique({
+      where: { id: dto.customerId },
+      select: { id: true, role: true },
+    });
+
+    if (!customer || customer.role !== UserRole.CLIENTE) {
+      throw new BadRequestException('Cliente invalido ou nao encontrado.');
+    }
+  }
+  const items = dto.items.map((item) => {
+    const unitPrice = new Prisma.Decimal(item.unitPrice);
+
+    if (unitPrice.lte(0)) {
+      throw new BadRequestException('O preco dos itens deve ser positivo.');
+    }
+
+    const lineTotal = unitPrice.mul(item.quantity);
+    if (lineTotal.gt(new Prisma.Decimal('99999999.99'))) {
+      throw new BadRequestException(
+        'O valor total do item excede o limite permitido.',
+      );
+    }
+
+    return {
+      productId: item.productId ?? null,
+      name: item.name.trim(),
+      sku: item.sku ?? null,
+      quantity: item.quantity,
+      unitPrice,
+      lineTotal,
+    };
+  });
+  const subtotal = items.reduce(
+    (sum, item) => sum.add(item.lineTotal),
+    new Prisma.Decimal(0),
+  );
+  if (subtotal.gt(new Prisma.Decimal('99999999.99'))) {
+    throw new BadRequestException(
+      'O subtotal do pedido excede o limite permitido.',
+    );
+  }
+
+  const discount = new Prisma.Decimal(0);
+  const total = subtotal.sub(discount);
+
+  return this.prisma.storeOrder.create({
+    data: {
+      orderNumber: `PED-${randomUUID()}`,
+      storeId: store.id,
+      customerId: dto.customerId ?? null,
+      status: StoreOrderStatus.PENDING,
+      subtotal,
+      discount,
+      total,
+            addressSnapshot: dto.address
+        ? {
+            street: dto.address.street,
+            number: dto.address.number,
+            neighborhood: dto.address.neighborhood,
+            city: dto.address.city,
+            state: dto.address.state,
+            zipCode: dto.address.zipCode,
+            complement: dto.address.complement ?? null,
+          }
+        : Prisma.JsonNull,
+      items: { create: items },
+      statusHistory: {
+        create: {
+          fromStatus: null,
+          toStatus: StoreOrderStatus.PENDING,
+          actorId: ownerId,
+          note: 'Pedido criado.',
+        },
+      },
+    },
+    include: { items: true },
+  });
+}
+
 
   async changeOrderStatus(ownerId: string, orderId: string, status: StoreOrderStatus) {
     const store = await this.prisma.storeProfile.findUnique({ where: { ownerId }, select: { id: true } });
     if (!store) throw new NotFoundException('Loja nao encontrada.');
     const order = await this.prisma.storeOrder.findFirst({ where: { id: orderId, storeId: store.id }, select: { status: true } });
     if (!order) throw new NotFoundException('Pedido nao encontrado.');
-    const next: Record<StoreOrderStatus, StoreOrderStatus[]> = {
-      PENDING: ['CONFIRMED', 'CANCELED'], CONFIRMED: ['PREPARING', 'CANCELED'],
-      PREPARING: ['READY', 'CANCELED'], READY: ['COMPLETED', 'CANCELED'],
-      COMPLETED: [], CANCELED: [],
-    };
-    if (!next[order.status].includes(status)) throw new BadRequestException('Transicao de pedido invalida.');
-    const changed = await this.prisma.storeOrder.updateMany({
-      where: { id: orderId, storeId: store.id, status: order.status },
+
+    const transitionAllowed = canTransitionOrder({
+      currentStatus: order.status,
+      targetStatus: status,
+      actor: UserRole.LOJISTA,
+    });
+
+    if (!transitionAllowed) {
+      throw new BadRequestException('Transicao de pedido invalida.');
+    }
+
+  return this.prisma.$transaction(async (tx) => {
+    const changed = await tx.storeOrder.updateMany({
+      where: {
+        id: orderId,
+        storeId: store.id,
+        status: order.status,
+      },
       data: { status },
     });
-    if (changed.count !== 1) throw new ConflictException('O pedido mudou durante a atualizacao.');
-    return this.prisma.storeOrder.findFirstOrThrow({ where: { id: orderId, storeId: store.id }, include: { items: true } });
+
+    if (changed.count !== 1) {
+      throw new ConflictException(
+        'O pedido mudou durante a atualizacao.',
+      );
+    }
+
+    await tx.orderStatusHistory.create({
+      data: {
+        orderId,
+        fromStatus: order.status,
+        toStatus: status,
+        actorId: ownerId,
+      },
+    });
+
+    return tx.storeOrder.findFirstOrThrow({
+      where: {
+        id: orderId,
+        storeId: store.id,
+      },
+      include: { items: true },
+    });
+  });
   }
 }

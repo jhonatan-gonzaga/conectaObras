@@ -3,6 +3,8 @@ import { StoreOwnerSetupScreen } from "../pages/lojista/StoreOwnerSetupScreen";
 import { StoreOwnerEditScreen } from "../pages/lojista/StoreOwnerEditScreen";
 import { StoreOwnerPreviewScreen } from "../pages/lojista/StoreOwnerPreviewScreen";
 import { StoreOwnerListScreen } from "../pages/lojista/StoreOwnerListScreen";
+import { StoreProductsScreen } from "../pages/lojista/StoreProductsScreen";
+import { StoreProductFormScreen } from "../pages/lojista/StoreProductFormScreen";
 import type { StoreDashboardList } from "../services/api";
 import type { StoreOwnerScreen as StoreOwnerRoute } from "./types";
 import type { AppNavigation } from "./useAppNavigation";
@@ -25,7 +27,7 @@ export function StoreOwnerNavigator({ screen, navigation }: { screen: StoreOwner
     case "storeOwnerPreview":
       return <StoreOwnerPreviewScreen onBack={() => navigation.setScreen("storeOwnerEdit")} />;
     case "storeOwnerDashboard":
-      return <StoreOwnerScreen onEditStore={() => navigation.setScreen("storeOwnerEdit")} onSwitchProfile={switchProfile} onSignOut={signOut} onStoreMissing={() => { navigation.markStoreMissing(); navigation.setScreen("storeOwnerSetup"); }} onOpenList={(kind) => openList(kind, "storeOwnerDashboard")} onOpenOrders={(status) => openList("orders", "storeOwnerDashboard", status)} />;
+      return <StoreOwnerScreen userName={navigation.authUser?.name} avatarUrl={navigation.authUser?.avatarUrl} onEditStore={() => navigation.setScreen("storeOwnerEdit")} onOpenProfile={() => navigation.openAccountProfile("storeOwnerDashboard")} onSwitchProfile={switchProfile} onSignOut={signOut} onStoreMissing={() => { navigation.markStoreMissing(); navigation.setScreen("storeOwnerSetup"); }} onOpenList={(kind) => openList(kind, "storeOwnerDashboard")} onOpenOrders={(status) => openList("orders", "storeOwnerDashboard", status)} onOpenProducts={() => navigation.setScreen("storeProducts")} />;
     case "storeOwnerList":
       return <StoreOwnerListScreen
         kind={navigation.storeListKind}
