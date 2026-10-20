@@ -11,6 +11,7 @@ import { pickStoreImage } from "../front-end/src/services/store-logo";
 
 jest.mock("expo-secure-store", () => ({ getItemAsync: jest.fn().mockResolvedValue(null), setItemAsync: jest.fn(), deleteItemAsync: jest.fn() }));
 jest.mock("../front-end/src/services/store-logo", () => ({ pickStoreImage: jest.fn() }));
+jest.mock("../front-end/src/services/image-upload", () => ({ pickProductImage: jest.fn() }));
 jest.mock("../front-end/src/services/postal-code", () => ({ lookupPostalCode: jest.fn() }));
 jest.mock("../front-end/src/components/native-date-time-field", () => {
   const React = require("react"); const { TextInput } = require("react-native");
@@ -29,7 +30,7 @@ function Flow() {
 }
 async function openSettings() {
   const screen = render(<Flow />);
-  fireEvent.press(await screen.findByText("Editar loja"));
+  fireEvent.press(await screen.findByLabelText("Editar loja"));
   await screen.findByText("Ajustes da loja");
   return screen;
 }
@@ -41,6 +42,17 @@ describe("store settings flow", () => {
     jest.spyOn(api, "storeDashboardList").mockResolvedValue([]);
   });
   afterEach(() => { jest.restoreAllMocks(); jest.clearAllMocks(); });
+  it("opens the products list and new product form from the dashboard", async () => {
+    jest.spyOn(api, "productCategories").mockResolvedValue([]);
+    jest.spyOn(api, "storeProducts").mockResolvedValue({ items: [], total: 0, page: 1, limit: 10 });
+    const screen = render(<Flow />);
+
+    fireEvent.press(await screen.findByLabelText("Produtos ativos: 1"));
+    fireEvent.press(await screen.findByLabelText("Novo produto"));
+    expect(await screen.findByText("Novo Produto")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Voltar aos produtos"));
+    expect(await screen.findByLabelText("Novo produto")).toBeTruthy();
+  });
   it("opens distinct settings and returns to the dashboard", async () => {
     const screen = await openSettings();
     expect(screen.getByLabelText("Nome da loja").props.value).toBe("Loja Central");

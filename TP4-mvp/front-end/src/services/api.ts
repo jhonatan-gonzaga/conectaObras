@@ -3,7 +3,9 @@ import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
 import { File } from "expo-file-system";
 import { Platform } from "react-native";
+import type { ImagePickerAsset } from "expo-image-picker";
 import { resolveApiUrl } from "./api-url";
+import type { ProductCategory, ProductFilters, ProductImage, ProductPage, ProductStatus, StoreProduct } from "./store-products";
 
 const API_URL = resolveApiUrl(
   process.env.EXPO_PUBLIC_API_URL,
