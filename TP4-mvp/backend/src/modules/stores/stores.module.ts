@@ -10,10 +10,11 @@ import { SetStoreLogoUseCase } from './application/use-cases/set-store-logo.use-
 import { PrismaStoreRepository } from './infrastructure/prisma-store.repository';
 import { UploadsModule } from '../uploads/uploads.module';
 import { StoreDashboardService } from './store-dashboard.service';
+import { StoreOrdersController } from './store-orders.controller';
 
 @Module({
   imports: [PrismaModule, AuthModule, UploadsModule],
-  controllers: [StoresController],
+  controllers: [StoresController, StoreOrdersController],
   providers: [
     GetMyStoreUseCase,
     SaveStoreProfileUseCase,

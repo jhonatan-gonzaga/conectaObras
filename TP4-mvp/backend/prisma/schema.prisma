@@ -136,6 +136,7 @@ model User {
   clientConversations       Conversation[]       @relation("ClientConversationUser")
   professionalConversations Conversation[]       @relation("ProfessionalConversationUser")
   storeOrders               StoreOrder[]
+  storeOrderHistory         StoreOrderStatusHistory[]
   createdAt                 DateTime             @default(now())
   updatedAt                 DateTime             @updatedAt
 
@@ -234,6 +235,7 @@ model Product {
   category          ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   images            ProductImage[]
   inventoryEvents   ProductInventoryEvent[]
+  orderItems        StoreOrderItem[]
   promotions        StorePromotion[]
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -287,6 +289,9 @@ model StoreOrder {
   store       StoreProfile    @relation(fields: [storeId], references: [id], onDelete: Restrict)
   customer    User?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
   items       StoreOrderItem[]
+  history     StoreOrderStatusHistory[]
+  address     String          @default("") @db.VarChar(500)
+  observation String?         @db.Text
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
@@ -297,14 +302,30 @@ model StoreOrder {
 model StoreOrderItem {
   id        String     @id @default(cuid())
   orderId   String
+  productId String?
   name      String     @db.VarChar(120)
   quantity  Int
   unitPrice Decimal    @db.Decimal(10, 2)
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: Restrict)
   order     StoreOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   createdAt DateTime   @default(now())
 
   @@index([orderId])
   @@map("store_order_items")
+}
+
+model StoreOrderStatusHistory {
+  id          String          @id @default(cuid())
+  orderId     String
+  fromStatus  StoreOrderStatus?
+  toStatus    StoreOrderStatus
+  changedById String
+  order       StoreOrder      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedBy   User            @relation(fields: [changedById], references: [id], onDelete: Restrict)
+  createdAt   DateTime        @default(now())
+
+  @@index([orderId, createdAt])
+  @@map("store_order_status_history")
 }
 
 model ProductImage {

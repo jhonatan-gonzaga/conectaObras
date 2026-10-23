@@ -81,41 +81,105 @@ export class StoreDashboardService {
   }
 
   async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
-    const store = await this.prisma.storeProfile.findUnique({ where: { ownerId }, select: { id: true } });
-    if (!store) throw new NotFoundException('Loja nao encontrada.');
-    const items = dto.items.map((item) => {
-      const unitPrice = new Prisma.Decimal(item.unitPrice);
-      if (unitPrice.lte(0)) throw new BadRequestException('O preco dos itens deve ser positivo.');
-      return { name: item.name.trim(), quantity: item.quantity, unitPrice };
-    });
-    const total = items.reduce((sum, item) => sum.add(item.unitPrice.mul(item.quantity)), new Prisma.Decimal(0));
-    return this.prisma.storeOrder.create({
-      data: {
-        storeId: store.id,
-        status: StoreOrderStatus.PENDING,
-        total,
-        items: { create: items },
-      },
-      include: { items: true },
+    if (!dto.address.trim()) throw new BadRequestException('O endereco de entrega e obrigatorio.');
+    const quantities = new Map<string, number>();
+    for (const item of dto.items) quantities.set(item.productId, (quantities.get(item.productId) ?? 0) + item.quantity);
+    const productIds = [...quantities.keys()];
+
+    return this.prisma.$transaction(async (tx) => {
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds }, status: 'ACTIVE' },
+      });
+      if (products.length !== productIds.length) throw new BadRequestException('Um ou mais produtos nao estao disponiveis.');
+      const storeId = products[0].storeId;
+      if (products.some((product) => product.storeId !== storeId)) {
+        throw new BadRequestException('Todos os produtos devem pertencer a mesma loja.');
+      }
+
+      const now = new Date();
+      const promotions = await tx.storePromotion.findMany({
+        where: {
+          storeId,
+          status: StorePromotionStatus.ACTIVE,
+          AND: [
+            { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+            { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
+          ],
+          OR: [{ productId: null }, { productId: { in: productIds } }],
+        },
+        orderBy: { discountPct: 'desc' },
+      });
+
+      const orderItems = products.map((product) => {
+        const quantity = quantities.get(product.id)!;
+        const promotion = promotions.find((candidate) => candidate.productId === product.id)
+          ?? promotions.find((candidate) => candidate.productId === null);
+        const discount = promotion ? new Prisma.Decimal(promotion.discountPct) : new Prisma.Decimal(0);
+        const unitPrice = new Prisma.Decimal(product.price)
+          .mul(new Prisma.Decimal(100).sub(discount))
+          .div(100)
+          .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+        return { productId: product.id, name: product.name, quantity, unitPrice };
+      });
+      const total = orderItems.reduce((sum, item) => sum.add(item.unitPrice.mul(item.quantity)), new Prisma.Decimal(0));
+      if (total.lte(0) || total.greaterThan('99999999.99')) throw new BadRequestException('Total do pedido invalido.');
+
+      for (const item of orderItems) {
+        const updated = await tx.product.updateMany({
+          where: { id: item.productId, storeId, status: 'ACTIVE', stock: { gte: item.quantity } },
+          data: { stock: { decrement: item.quantity } },
+        });
+        if (updated.count !== 1) throw new ConflictException('Estoque insuficiente para um ou mais produtos.');
+      }
+
+      return tx.storeOrder.create({
+        data: {
+          storeId,
+          customerId: ownerId,
+          status: StoreOrderStatus.PENDING,
+          total,
+          address: dto.address.trim(),
+          observation: dto.observation?.trim() || null,
+          items: { create: orderItems },
+          history: { create: { fromStatus: null, toStatus: StoreOrderStatus.PENDING, changedById: ownerId } },
+        },
+        include: { items: true, history: true },
+      });
     });
   }
 
   async changeOrderStatus(ownerId: string, orderId: string, status: StoreOrderStatus) {
     const store = await this.prisma.storeProfile.findUnique({ where: { ownerId }, select: { id: true } });
     if (!store) throw new NotFoundException('Loja nao encontrada.');
-    const order = await this.prisma.storeOrder.findFirst({ where: { id: orderId, storeId: store.id }, select: { status: true } });
-    if (!order) throw new NotFoundException('Pedido nao encontrado.');
     const next: Record<StoreOrderStatus, StoreOrderStatus[]> = {
       PENDING: ['CONFIRMED', 'CANCELED'], CONFIRMED: ['PREPARING', 'CANCELED'],
       PREPARING: ['READY', 'CANCELED'], READY: ['COMPLETED', 'CANCELED'],
       COMPLETED: [], CANCELED: [],
     };
-    if (!next[order.status].includes(status)) throw new BadRequestException('Transicao de pedido invalida.');
-    const changed = await this.prisma.storeOrder.updateMany({
-      where: { id: orderId, storeId: store.id, status: order.status },
-      data: { status },
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.storeOrder.findFirst({
+        where: { id: orderId, storeId: store.id },
+        include: { items: { select: { productId: true, quantity: true } } },
+      });
+      if (!order) throw new NotFoundException('Pedido nao encontrado.');
+      if (!next[order.status].includes(status)) throw new BadRequestException('Transicao de pedido invalida.');
+      const changed = await tx.storeOrder.updateMany({
+        where: { id: orderId, storeId: store.id, status: order.status },
+        data: { status },
+      });
+      if (changed.count !== 1) throw new ConflictException('O pedido mudou durante a atualizacao.');
+
+      if (status === StoreOrderStatus.CANCELED) {
+        for (const item of order.items) {
+          if (!item.productId) continue;
+          await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+        }
+      }
+
+      await tx.storeOrderStatusHistory.create({
+        data: { orderId, fromStatus: order.status, toStatus: status, changedById: ownerId },
+      });
+      return tx.storeOrder.findFirstOrThrow({ where: { id: orderId, storeId: store.id }, include: { items: true, history: true } });
     });
-    if (changed.count !== 1) throw new ConflictException('O pedido mudou durante a atualizacao.');
-    return this.prisma.storeOrder.findFirstOrThrow({ where: { id: orderId, storeId: store.id }, include: { items: true } });
   }
 }

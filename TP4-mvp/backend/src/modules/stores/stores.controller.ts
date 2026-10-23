@@ -31,7 +31,6 @@ import { SaveStoreProfileUseCase } from './application/use-cases/save-store-prof
 import { SetStoreLogoUseCase } from './application/use-cases/set-store-logo.use-case';
 import { StoreDashboardList, StoreDashboardService } from './store-dashboard.service';
 import { CreateStorePromotionDto } from './dto/create-store-promotion.dto';
-import { CreateStoreOrderDto } from './dto/create-store-order.dto';
 import { ChangeStoreOrderStatusDto } from './dto/change-store-order-status.dto';
 
 @Controller('stores')
@@ -75,11 +74,6 @@ export class StoresController {
   @Post('me/promotions')
   createPromotion(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateStorePromotionDto) {
     return this.dashboard.createPromotion(user.id, dto);
-  }
-
-  @Post('me/orders')
-  createOrder(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateStoreOrderDto) {
-    return this.dashboard.createOrder(user.id, dto);
   }
 
   @Patch('me/orders/:id/status')
