@@ -287,7 +287,11 @@ async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
   async createClientOrder(customerId: string, dto: CreateClientStoreOrderDto) {
     const quantities = new Map<string, number>();
     for (const item of dto.items) {
-      quantities.set(item.productId, (quantities.get(item.productId) ?? 0) + item.quantity);
+      const quantity = (quantities.get(item.productId) ?? 0) + item.quantity;
+      if (!Number.isSafeInteger(quantity) || quantity > 2147483647) {
+        throw new BadRequestException('Quantidade de produto invalida.');
+      }
+      quantities.set(item.productId, quantity);
     }
     const productIds = [...quantities.keys()];
     if (!productIds.length) throw new BadRequestException('Informe ao menos um produto.');
@@ -343,6 +347,7 @@ async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
           storeId,
           customerId,
           status: StoreOrderStatus.PENDING,
+          stockReserved: true,
           subtotal,
           discount: subtotal.sub(total),
           total,
@@ -375,10 +380,15 @@ async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
         where: { id: orderId, storeId: store.id },
         include: {
           items: { select: { productId: true, quantity: true } },
-          statusHistory: { where: { fromStatus: null }, take: 1, select: { actorId: true } },
         },
       });
       if (!order) throw new NotFoundException('Pedido nao encontrado.');
+      if (status === StoreOrderStatus.CANCELED && order.status === StoreOrderStatus.CANCELED) {
+        return tx.storeOrder.findFirstOrThrow({
+          where: { id: orderId, storeId: store.id },
+          include: { items: true, statusHistory: true },
+        });
+      }
       if (!canTransitionOrder({ currentStatus: order.status, targetStatus: status, actor: UserRole.LOJISTA })) {
         throw new BadRequestException('Transicao de pedido invalida.');
       }
@@ -388,8 +398,7 @@ async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
       });
       if (changed.count !== 1) throw new ConflictException('O pedido mudou durante a atualizacao.');
 
-      const stockWasReserved = order.customerId && order.statusHistory[0]?.actorId === order.customerId;
-      if (status === StoreOrderStatus.CANCELED && stockWasReserved) {
+      if (status === StoreOrderStatus.CANCELED && order.stockReserved) {
         for (const item of order.items) {
           if (!item.productId) continue;
           await tx.product.update({
