@@ -2,9 +2,10 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { Prisma, StoreOrderStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateStoreOrderDto } from './dto/create-store-order.dto';
+import { CreateClientStoreOrderDto } from './dto/create-client-store-order.dto';
 import { CreateStorePromotionDto } from './dto/create-store-promotion.dto';
 import { randomUUID } from 'node:crypto';
-import { EffectivePriceService, isPromotionOverlapping, validatePromotion } from './promotion.policy';
+import { EffectivePriceService, currentPromotionWhere, isPromotionOverlapping, promotionOrder, validatePromotion } from './promotion.policy';
 import { canTransitionOrder } from './application/orders/order-status-policy';
 
 export type StoreDashboardList = 'active-products' | 'low-stock' | 'promotions' | 'orders' | 'messages';
@@ -192,7 +193,7 @@ export class StoreDashboardService {
     return this.prisma.storePromotion.update({ where: { id: promotionId, storeId: store.id }, data: { enabled } });
   }
 
-  
+
 async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
   const store = await this.prisma.storeProfile.findUnique({
     where: { ownerId },
@@ -283,54 +284,136 @@ async createOrder(ownerId: string, dto: CreateStoreOrderDto) {
 }
 
 
+  async createClientOrder(customerId: string, dto: CreateClientStoreOrderDto) {
+    const quantities = new Map<string, number>();
+    for (const item of dto.items) {
+      const quantity = (quantities.get(item.productId) ?? 0) + item.quantity;
+      if (!Number.isSafeInteger(quantity) || quantity > 2147483647) {
+        throw new BadRequestException('Quantidade de produto invalida.');
+      }
+      quantities.set(item.productId, quantity);
+    }
+    const productIds = [...quantities.keys()];
+    if (!productIds.length) throw new BadRequestException('Informe ao menos um produto.');
+
+    return this.prisma.$transaction(async (tx) => {
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds }, status: 'ACTIVE' },
+      });
+      if (products.length !== productIds.length) {
+        throw new BadRequestException('Um ou mais produtos nao estao disponiveis.');
+      }
+      const storeId = products[0].storeId;
+      if (products.some((product) => product.storeId !== storeId)) {
+        throw new BadRequestException('Todos os produtos devem pertencer a mesma loja.');
+      }
+
+      const now = new Date();
+      const promotions = await tx.storePromotion.findMany({
+        where: { productId: { in: productIds }, ...currentPromotionWhere(now) },
+        orderBy: promotionOrder,
+      });
+      const pricing = new EffectivePriceService(() => now);
+      const orderItems = productIds.map((productId) => {
+        const product = products.find((candidate) => candidate.id === productId)!;
+        const quantity = quantities.get(productId)!;
+        const promotion = promotions.find((candidate) => candidate.productId === productId) ?? null;
+        const unitPrice = pricing.getEffectivePrice(product.price, promotion, now);
+        const lineTotal = unitPrice.mul(quantity);
+        if (lineTotal.greaterThan('99999999.99')) {
+          throw new BadRequestException('O valor total do item excede o limite permitido.');
+        }
+        return { productId, name: product.name, sku: product.sku, quantity, unitPrice, lineTotal, baseTotal: new Prisma.Decimal(product.price).mul(quantity) };
+      });
+      const subtotal = orderItems.reduce((sum, item) => sum.add(item.baseTotal), new Prisma.Decimal(0));
+      const total = orderItems.reduce((sum, item) => sum.add(item.lineTotal), new Prisma.Decimal(0));
+      if (subtotal.greaterThan('99999999.99') || total.lte(0)) {
+        throw new BadRequestException('Total do pedido invalido.');
+      }
+
+      for (const item of orderItems) {
+        const updated = await tx.product.updateMany({
+          where: { id: item.productId, storeId, status: 'ACTIVE', stock: { gte: item.quantity } },
+          data: { stock: { decrement: item.quantity } },
+        });
+        if (updated.count !== 1) {
+          throw new ConflictException('Estoque insuficiente para um ou mais produtos.');
+        }
+      }
+
+      return tx.storeOrder.create({
+        data: {
+          orderNumber: `PED-${randomUUID()}`,
+          storeId,
+          customerId,
+          status: StoreOrderStatus.PENDING,
+          stockReserved: true,
+          subtotal,
+          discount: subtotal.sub(total),
+          total,
+          addressSnapshot: {
+            street: dto.address.street,
+            number: dto.address.number,
+            neighborhood: dto.address.neighborhood,
+            city: dto.address.city,
+            state: dto.address.state,
+            zipCode: dto.address.zipCode,
+            complement: dto.address.complement ?? null,
+          },
+          note: dto.observation?.trim() || null,
+          items: { create: orderItems.map(({ baseTotal, ...item }) => item) },
+          statusHistory: {
+            create: { fromStatus: null, toStatus: StoreOrderStatus.PENDING, actorId: customerId, note: 'Pedido criado.' },
+          },
+        },
+        include: { items: true, statusHistory: true },
+      });
+    });
+  }
+
   async changeOrderStatus(ownerId: string, orderId: string, status: StoreOrderStatus) {
     const store = await this.prisma.storeProfile.findUnique({ where: { ownerId }, select: { id: true } });
     if (!store) throw new NotFoundException('Loja nao encontrada.');
-    const order = await this.prisma.storeOrder.findFirst({ where: { id: orderId, storeId: store.id }, select: { status: true } });
-    if (!order) throw new NotFoundException('Pedido nao encontrado.');
 
-    const transitionAllowed = canTransitionOrder({
-      currentStatus: order.status,
-      targetStatus: status,
-      actor: UserRole.LOJISTA,
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.storeOrder.findFirst({
+        where: { id: orderId, storeId: store.id },
+        include: {
+          items: { select: { productId: true, quantity: true } },
+        },
+      });
+      if (!order) throw new NotFoundException('Pedido nao encontrado.');
+      if (status === StoreOrderStatus.CANCELED && order.status === StoreOrderStatus.CANCELED) {
+        return tx.storeOrder.findFirstOrThrow({
+          where: { id: orderId, storeId: store.id },
+          include: { items: true, statusHistory: true },
+        });
+      }
+      if (!canTransitionOrder({ currentStatus: order.status, targetStatus: status, actor: UserRole.LOJISTA })) {
+        throw new BadRequestException('Transicao de pedido invalida.');
+      }
+      const changed = await tx.storeOrder.updateMany({
+        where: { id: orderId, storeId: store.id, status: order.status },
+        data: { status },
+      });
+      if (changed.count !== 1) throw new ConflictException('O pedido mudou durante a atualizacao.');
+
+      if (status === StoreOrderStatus.CANCELED && order.stockReserved) {
+        for (const item of order.items) {
+          if (!item.productId) continue;
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { increment: item.quantity } },
+          });
+        }
+      }
+      await tx.orderStatusHistory.create({
+        data: { orderId, fromStatus: order.status, toStatus: status, actorId: ownerId },
+      });
+      return tx.storeOrder.findFirstOrThrow({
+        where: { id: orderId, storeId: store.id },
+        include: { items: true, statusHistory: true },
+      });
     });
-
-    if (!transitionAllowed) {
-      throw new BadRequestException('Transicao de pedido invalida.');
-    }
-
-  return this.prisma.$transaction(async (tx) => {
-    const changed = await tx.storeOrder.updateMany({
-      where: {
-        id: orderId,
-        storeId: store.id,
-        status: order.status,
-      },
-      data: { status },
-    });
-
-    if (changed.count !== 1) {
-      throw new ConflictException(
-        'O pedido mudou durante a atualizacao.',
-      );
-    }
-
-    await tx.orderStatusHistory.create({
-      data: {
-        orderId,
-        fromStatus: order.status,
-        toStatus: status,
-        actorId: ownerId,
-      },
-    });
-
-    return tx.storeOrder.findFirstOrThrow({
-      where: {
-        id: orderId,
-        storeId: store.id,
-      },
-      include: { items: true },
-    });
-  });
   }
 }

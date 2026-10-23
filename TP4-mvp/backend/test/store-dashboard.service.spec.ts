@@ -512,6 +512,7 @@ test('updates order status and records history in the same transaction', async (
 
   const tx = {
     storeOrder: {
+      findFirst: async () => ({ status: 'PENDING', customerId: null, statusHistory: [], items: [] }),
       updateMany: async (input: any) => {
         updated = input;
         return { count: 1 };
