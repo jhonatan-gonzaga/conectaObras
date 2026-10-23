@@ -5,7 +5,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { AuthenticatedUser } from '../../common/types/authenticated-user';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { CreateStoreOrderDto } from './dto/create-store-order.dto';
+import { CreateClientStoreOrderDto } from './dto/create-client-store-order.dto';
 import { StoreDashboardService } from './store-dashboard.service';
 
 @Controller('orders')
@@ -15,7 +15,7 @@ export class StoreOrdersController {
   constructor(private readonly orders: StoreDashboardService) {}
 
   @Post()
-  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateStoreOrderDto) {
-    return this.orders.createOrder(user.id, dto);
+  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateClientStoreOrderDto) {
+    return this.orders.createClientOrder(user.id, dto);
   }
 }

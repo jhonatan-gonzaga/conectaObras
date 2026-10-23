@@ -1,10 +1,11 @@
 import type { StoreProfile } from "./store-form";
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
+import { File } from "expo-file-system";
 import { Platform } from "react-native";
 import type { ImagePickerAsset } from "expo-image-picker";
-import type { ProductCategory, ProductFilters, ProductImage, ProductPage, ProductStatus, StoreProduct } from "./store-products";
 import { resolveApiUrl } from "./api-url";
+import type { ProductCategory, ProductFilters, ProductImage, ProductPage, ProductStatus, StoreProduct } from "./store-products";
 
 const API_URL = resolveApiUrl(
   process.env.EXPO_PUBLIC_API_URL,
@@ -326,6 +327,21 @@ export async function restoreAccessToken() {
   return accessToken;
 }
 
+// Local uploads must use the same reachable origin as the configured API.
+// Preserve remote image providers and local picker URIs.
+export function resolveImageUrl(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  try {
+    const base = new URL(API_URL);
+    const image = new URL(value, base.origin);
+    if (image.pathname.startsWith("/uploads/") &&
+        (value.startsWith("/") || image.hostname === "localhost" || image.hostname === "127.0.0.1" || image.origin === base.origin)) {
+      return `${base.origin}${image.pathname}${image.search}`;
+    }
+  } catch { /* A picker URI or non-HTTP source does not need rewriting. */ }
+  return value;
+}
+
 export const api = {
   async login(email: string, password: string) {
     const response = await request<AuthResponse>("/auth/login", {
@@ -388,10 +404,22 @@ export const api = {
   myStore: () => request<StoreProfile>("/stores/me"),
   storeIdentity: () => request<StoreIdentity>("/stores/me/identity"),
   saveMyStore: (input: unknown) => request<StoreProfile>("/stores/me", { method: "PUT", body: JSON.stringify(input) }),
+  uploadStoreImage: async (kind: "cover" | "background", file: { uri: string; name: string; type: string; file?: Blob }) => {
+    const data = new FormData();
+    if (Platform.OS === "web") {
+      const blob = file.file ?? await fetch(file.uri).then((response) => response.blob());
+      if (!blob) throw new ApiError("Não foi possível ler a imagem selecionada.", 0);
+      data.append("file", blob, file.name);
+    } else data.append("file", new File(file.uri));
+    return request<StoreProfile>(`/stores/me/${kind}`, { method: "POST", body: data });
+  },
   storeActivationReadiness: () => request<{ allowed: boolean; pending: string[] }>("/stores/me/activation-readiness"),
   changeMyStoreStatus: (status: "ACTIVE" | "INACTIVE") => request<StoreProfile>("/stores/me/status", { method: "PATCH", body: JSON.stringify({ status }) }),
   storeDashboard: () => request<StoreDashboardSummary>("/stores/me/dashboard"),
   storeDashboardList: (kind: StoreDashboardList, status?: string) => request<unknown[]>(`/stores/me/dashboard/${kind}${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+  createStorePromotion: (input: { productId: string; promotionalPrice?: string; discountPercent?: string; startAt: string; endAt: string }) => request<Record<string, unknown>>("/stores/me/promotions", { method: "POST", body: JSON.stringify(input) }),
+  updateStorePromotion: (id: string, input: { productId: string; promotionalPrice?: string; discountPercent?: string; startAt: string; endAt: string }) => request<Record<string, unknown>>(`/stores/me/promotions/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
+  setStorePromotionEnabled: (id: string, enabled: boolean) => request<Record<string, unknown>>(`/stores/me/promotions/${encodeURIComponent(id)}/enabled`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
   productCategories: () => request<ProductCategory[]>("/product-categories", { auth: false }),
   storeProducts: (filters: Partial<ProductFilters> & { page?: number; limit?: number } = {}) =>
     request<ProductPage>(`/store-products${toQuery(filters as Record<string, string | number | undefined>)}`),

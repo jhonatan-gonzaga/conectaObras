@@ -46,10 +46,14 @@ test('Catalogo em MySQL: migration, constraints, FK, imagens e isolamento', {
         id: 'existing-owner', name: 'Existing owner', email: 'catalog-owner@example.test',
         passwordHash: 'test-only', role: 'LOJISTA',
       } });
-      const store = await client.storeProfile.create({ data: { id: 'existing-store', ownerId: 'existing-owner' } });
+      // This stage predates backgroundUrl; the current generated client selects it by default.
+      const storeSelect = { id: true, ownerId: true, status: true, createdAt: true, updatedAt: true };
+      const store = await client.storeProfile.create({
+        data: { id: 'existing-store', ownerId: 'existing-owner' }, select: storeSelect,
+      });
       const category = await client.category.create({ data: { id: 'service-category', name: 'Pintura' } });
       cli('migrate', 'deploy');
-      assert.deepEqual(await client.storeProfile.findUnique({ where: { id: store.id } }), store);
+      assert.deepEqual(await client.storeProfile.findUnique({ where: { id: store.id }, select: storeSelect }), store);
       assert.deepEqual(await client.category.findUnique({ where: { id: category.id } }), category);
       assert.equal(await client.productCategory.count(), 0, 'Service categories must not be reused or copied');
       assert.equal(await client.product.count(), 0);
@@ -76,7 +80,8 @@ test('Catalogo em MySQL: migration, constraints, FK, imagens e isolamento', {
       const before = await client.product.count();
       await assert.rejects(repository.create('existing-store', {
         categoryId: category.id, name: 'Atomic', price: '1.00', stock: 0,
-        images: [{ url: '/invalid.jpg', position: -1 }],
+        // Positions are normalized by the adapter; exceed TEXT to fail the nested INSERT instead.
+        images: [{ url: 'x'.repeat(65_536), position: 0 }],
       }));
       assert.equal(await client.product.count(), before);
       await client.productCategory.delete({ where: { id: category.id } });

@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { Image, Pressable, Text, TextInput, View } from "react-native";
 
-import { api } from "../../../services/api";
+import { api, resolveImageUrl } from "../../../services/api";
 import { statusMeta } from "../data";
 import type { IconName, ProfessionalArea, ProfessionalService, ProfessionalTab, ProjectItem, ServiceRequest, ServiceStatus } from "../types";
 
@@ -18,9 +18,11 @@ export function ProfessionalHeader({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    let current = true;
     api.me()
-      .then((user) => setAvatarUrl(user.avatarUrl ?? null))
+      .then((user) => { if (current) setAvatarUrl(resolveImageUrl(user.avatarUrl) ?? null); })
       .catch(() => undefined);
+    return () => { current = false; };
   }, []);
 
   return (
@@ -56,6 +58,7 @@ export function ProfessionalHeader({
               className="h-full w-full"
               resizeMode="cover"
               accessibilityLabel="Foto do perfil"
+              onError={() => setAvatarUrl(null)}
             />
           ) : (
             <Ionicons name="person" size={22} color="#b94b50" />

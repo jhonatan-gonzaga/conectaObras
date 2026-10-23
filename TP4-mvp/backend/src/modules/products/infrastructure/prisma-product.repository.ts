@@ -4,9 +4,11 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateProductInput, InventoryUpdateInput, ProductListQuery, ProductPage, ProductRecord, ProductRepository, ProductStatus, UpdateProductInput } from '../application/product.repository';
 import { MAX_PRODUCT_IMAGES } from '../domain/gallery.policy';
 import { MAX_PRODUCT_STOCK } from '../application/product.policy';
+import { EffectivePriceService } from '../../stores/promotion.policy';
 
 export const productInclude = {
   images: { orderBy: [{ position: 'asc' }, { id: 'asc' }] },
+  promotions: { where: { enabled: true }, orderBy: { startAt: 'desc' as const } },
 } satisfies Prisma.ProductInclude;
 
 type StoredProduct = Prisma.ProductGetPayload<{ include: typeof productInclude }>;
@@ -188,6 +190,20 @@ export class PrismaProductRepository implements ProductRepository {
   }
 
   private record(product: StoredProduct): ProductRecord {
-    return { ...product, price: product.price.toFixed(2) };
+    const now = new Date();
+    const currentPromotion = (product.promotions ?? []).find((promotion) => promotion.startAt <= now && promotion.endAt > now) ?? null;
+    const available = product.status === 'ACTIVE' && product.stock > 0;
+    const effectivePrice = new EffectivePriceService(() => now).getEffectivePrice(product.price, currentPromotion, now, available);
+    const promotion = currentPromotion && available ? {
+      id: currentPromotion.id,
+      promotionalPrice: currentPromotion.promotionalPrice?.toFixed(2) ?? null,
+      discountPercent: currentPromotion.discountPercent?.toFixed(2) ?? null,
+      startAt: currentPromotion.startAt,
+      endAt: currentPromotion.endAt,
+      enabled: currentPromotion.enabled,
+      effectivePrice: effectivePrice.toFixed(2),
+    } : null;
+    const { promotions: _promotions, ...record } = product;
+    return { ...record, price: product.price.toFixed(2), effectivePrice: effectivePrice.toFixed(2), promotion };
   }
 }
