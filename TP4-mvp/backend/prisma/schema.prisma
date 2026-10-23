@@ -90,6 +90,7 @@ enum NotificationType {
   CONTRACT_STATUS_CHANGED
   NEW_MESSAGE
   REVIEW_RECEIVED
+  STORE_ORDER_UPDATED
 }
 
 enum PortfolioImageType {
@@ -346,6 +347,19 @@ enum DeliveryStatus {
   CANCELED
 }
 
+model DeliveryStatusHistory {
+  id         String         @id @default(cuid())
+  deliveryId String
+  fromStatus DeliveryStatus?
+  toStatus   DeliveryStatus
+  actorId    String?
+  createdAt  DateTime       @default(now())
+  delivery   Delivery       @relation(fields: [deliveryId], references: [id], onDelete: Restrict)
+
+  @@index([deliveryId, createdAt])
+  @@map("delivery_status_history")
+}
+
 model Delivery {
   id            String         @id @default(cuid())
   orderId       String         @unique
@@ -356,6 +370,7 @@ model Delivery {
   deliveredAt   DateTime?
 
   order         StoreOrder     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  statusHistory DeliveryStatusHistory[]
 
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt

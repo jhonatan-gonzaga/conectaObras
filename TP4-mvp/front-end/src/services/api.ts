@@ -107,6 +107,18 @@ export type StoreDashboardSummary = {
 };
 export type StoreIdentity = { name: string | null; status: string };
 export type StoreDashboardList = "active-products" | "low-stock" | "promotions" | "orders" | "messages";
+export type StoreOrderStatus = "PENDING" | "CONFIRMED" | "PREPARING" | "READY" | "COMPLETED" | "CANCELED";
+export type DeliveryStatus = "PENDING" | "PREPARING" | "IN_TRANSIT" | "DELIVERED" | "FAILED" | "CANCELED";
+export type StoreOrder = {
+  id: string; orderNumber: string | null; status: StoreOrderStatus;
+  customer: { id: string; name: string; phone: string | null } | null;
+  addressSnapshot: { street?: string; number?: string; neighborhood?: string; city?: string; state?: string; zipCode?: string; complement?: string | null } | null;
+  items: { id: string; name: string; sku: string | null; quantity: number; unitPrice: string; lineTotal: string | null }[];
+  subtotal: string | null; discount: string; total: string; createdAt: string;
+  delivery: { id: string; status: DeliveryStatus; trackingCode: string | null; carrier: string | null; estimatedDate: string | null; deliveredAt: string | null } | null;
+  isDelayed: boolean;
+  timeline: { id: string; kind: "ORDER" | "DELIVERY"; fromStatus: string | null; toStatus: string; actorId: string | null; note: string | null; createdAt: string }[];
+};
 
 export type Category = {
   id: string;
@@ -417,6 +429,11 @@ export const api = {
   changeMyStoreStatus: (status: "ACTIVE" | "INACTIVE") => request<StoreProfile>("/stores/me/status", { method: "PATCH", body: JSON.stringify({ status }) }),
   storeDashboard: () => request<StoreDashboardSummary>("/stores/me/dashboard"),
   storeDashboardList: (kind: StoreDashboardList, status?: string) => request<unknown[]>(`/stores/me/dashboard/${kind}${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+  storeOrders: (filters: { status?: StoreOrderStatus; from?: string; to?: string } = {}) => request<StoreOrder[]>(`/store-orders${toQuery(filters)}`),
+  storeOrder: (id: string) => request<StoreOrder>(`/store-orders/${encodeURIComponent(id)}`),
+  changeStoreOrderStatus: (id: string, status: StoreOrderStatus) => request<StoreOrder>(`/store-orders/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  upsertStoreOrderDelivery: (id: string, input: { trackingCode?: string; carrier?: string; estimatedDate?: string }) => request<StoreOrder>(`/store-orders/${encodeURIComponent(id)}/delivery`, { method: "PUT", body: JSON.stringify(input) }),
+  changeStoreOrderDeliveryStatus: (id: string, status: DeliveryStatus) => request<StoreOrder>(`/store-orders/${encodeURIComponent(id)}/delivery/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
   createStorePromotion: (input: { productId: string; promotionalPrice?: string; discountPercent?: string; startAt: string; endAt: string }) => request<Record<string, unknown>>("/stores/me/promotions", { method: "POST", body: JSON.stringify(input) }),
   updateStorePromotion: (id: string, input: { productId: string; promotionalPrice?: string; discountPercent?: string; startAt: string; endAt: string }) => request<Record<string, unknown>>(`/stores/me/promotions/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
   setStorePromotionEnabled: (id: string, enabled: boolean) => request<Record<string, unknown>>(`/stores/me/promotions/${encodeURIComponent(id)}/enabled`, { method: "PATCH", body: JSON.stringify({ enabled }) }),

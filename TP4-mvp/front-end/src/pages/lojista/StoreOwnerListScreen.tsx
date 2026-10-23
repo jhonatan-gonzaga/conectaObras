@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BackHandler, Pressable, ScrollView, Text, View } from "react-native";
 import { ApiError, api, formatMoney, type StoreDashboardList } from "../../services/api";
 import { StorePromotionsScreen } from "./StorePromotionsScreen";
+import { StoreOrdersScreen } from "./StoreOrdersScreen";
 
 const titles: Record<StoreDashboardList, string> = {
   "active-products": "Produtos ativos", "low-stock": "Produtos com estoque baixo", promotions: "Promoções", orders: "Pedidos", messages: "Mensagens nao lidas",
@@ -17,6 +18,7 @@ export function StoreOwnerListScreen(props: {
     onProducts={props.onProducts ?? props.onBack} onSettings={props.onSettings ?? props.onBack}
     onOpenProfile={props.onOpenProfile ?? props.onBack} avatarUrl={props.avatarUrl}
   />;
+  if (props.kind === "orders") return <StoreOrdersScreen status={props.status} onBack={props.onBack} />;
   return <GenericStoreOwnerListScreen {...props} />;
 }
 
