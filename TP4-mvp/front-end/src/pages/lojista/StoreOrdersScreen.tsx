@@ -1,7 +1,10 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { Image, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { StoreOwnerTabBar } from "../../components/lojista/StoreOwnerTabBar";
 import { ApiError, api, formatMoney, type DeliveryStatus, type StoreOrder, type StoreOrderStatus } from "../../services/api";
 
+const logo = require("../../../assets/logotipo.png");
 const orderLabels: Record<StoreOrderStatus, string> = { PENDING: "Pendente", CONFIRMED: "Confirmado", PREPARING: "Em preparo", READY: "Pronto", COMPLETED: "Concluído", CANCELED: "Cancelado" };
 const deliveryLabels: Record<DeliveryStatus, string> = { PENDING: "Pendente", PREPARING: "Em preparo", IN_TRANSIT: "Em trânsito", DELIVERED: "Entregue", FAILED: "Falhou", CANCELED: "Cancelada" };
 const nextOrder: Record<StoreOrderStatus, StoreOrderStatus[]> = { PENDING: ["CONFIRMED", "CANCELED"], CONFIRMED: ["PREPARING", "CANCELED"], PREPARING: ["READY", "CANCELED"], READY: [], COMPLETED: [], CANCELED: [] };
@@ -20,7 +23,10 @@ const parseDay = (value: string, end = false) => {
 const message = (cause: unknown) => cause instanceof ApiError ? cause.message : "Não foi possível atualizar o pedido.";
 const field = "rounded-xl border border-input-border bg-card px-3 py-3 text-foreground";
 
-export function StoreOrdersScreen({ status: initialStatus, onBack }: { status?: string; onBack: () => void }) {
+export function StoreOrdersScreen({ status: initialStatus, onBack, onSwitchProfile, onOpenProfile, onProducts, onPromotions, onSettings, avatarUrl }: {
+  status?: string; onBack: () => void; onSwitchProfile?: () => void; onOpenProfile?: () => void;
+  onProducts?: () => void; onPromotions?: () => void; onSettings?: () => void; avatarUrl?: string | null;
+}) {
   const [status, setStatus] = useState<StoreOrderStatus | undefined>(initialStatus as StoreOrderStatus | undefined);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -91,7 +97,13 @@ export function StoreOrdersScreen({ status: initialStatus, onBack }: { status?: 
   };
 
   const address = selected?.addressSnapshot;
-  return <ScrollView className="w-full max-w-[560px] flex-1 bg-background px-5" contentContainerStyle={{ paddingTop: 24, paddingBottom: 36 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void refresh(true)} />}>
+  return <View className="w-full max-w-[560px] flex-1 bg-background">
+    <View className="flex-row items-center justify-between bg-card px-5 py-3">
+      <Pressable onPress={onSwitchProfile ?? onBack} accessibilityRole="button" accessibilityLabel="Trocar perfil" className="h-10 w-10 items-center justify-center rounded-full bg-background"><Ionicons name="arrow-back" size={20} color="#141c25" /></Pressable>
+      <Image source={logo} className="h-9 w-[145px]" resizeMode="contain" accessibilityLabel="Conecta Obras Itacoatiara" />
+      <Pressable onPress={onOpenProfile ?? onBack} accessibilityRole="button" accessibilityLabel="Abrir informações do perfil" className="h-10 w-10 items-center justify-center rounded-full border-2 border-primary bg-[#fbe7e8]">{avatarUrl ? <Image source={{ uri: avatarUrl }} className="h-9 w-9 rounded-full" /> : <Ionicons name="person-outline" size={21} color="#99333a" />}</Pressable>
+    </View>
+    <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingTop: 24, paddingBottom: 36 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void refresh(true)} />}>
     <Pressable onPress={selected ? () => { setSelected(null); setSelectedId(null); } : onBack} accessibilityRole="button" className="mb-5 self-start rounded-xl bg-card px-4 py-3"><Text className="font-semibold text-primary">Voltar</Text></Pressable>
     <Text className="mb-2 text-2xl font-bold text-foreground">{selected ? `Pedido ${selected.orderNumber ?? selected.id}` : "Pedidos da loja"}</Text>
     {error ? <Text accessibilityRole="alert" className="mb-4 rounded-xl bg-card p-3 text-primary">{error}</Text> : null}
@@ -126,5 +138,7 @@ export function StoreOrdersScreen({ status: initialStatus, onBack }: { status?: 
       {selected.delivery && nextDelivery[selected.delivery.status].length ? <><Text className="mb-2 text-lg font-semibold text-foreground">Atualizar rastreio</Text><View className="mb-4 flex-row flex-wrap gap-2">{nextDelivery[selected.delivery.status].filter((value) => value === "CANCELED" ? selected.status !== "COMPLETED" : value === "PREPARING" ? ["PREPARING", "READY"].includes(selected.status) : selected.status === "READY").map((value) => <Pressable key={value} disabled={saving} onPress={() => void mutate(() => api.changeStoreOrderDeliveryStatus(selected.id, value))} accessibilityRole="button" className="rounded-full bg-primary px-4 py-3"><Text className="font-semibold text-white">{deliveryLabels[value]}</Text></Pressable>)}</View></> : null}
       <Text className="mb-2 text-lg font-semibold text-foreground">Histórico</Text><View className="rounded-2xl bg-card p-4">{selected.timeline.map((event) => <Text key={`${event.kind}-${event.id}`} className="mb-2 text-sm text-foreground">{date(event.createdAt)} · {event.kind === "ORDER" ? "Pedido" : "Entrega"}: {event.toStatus}{event.note ? ` · ${event.note}` : ""}</Text>)}</View>
     </>}
-  </ScrollView>;
+    </ScrollView>
+    <StoreOwnerTabBar selected="Pedidos" onDashboard={onBack} onOrders={() => { setSelected(null); setSelectedId(null); }} onProducts={onProducts ?? onBack} onPromotions={onPromotions ?? onBack} onSettings={onSettings ?? onBack} />
+  </View>;
 }

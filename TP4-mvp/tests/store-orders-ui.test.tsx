@@ -40,4 +40,29 @@ describe("painel de pedidos da loja", () => {
     expect(list).toHaveBeenCalledTimes(2);
     screen.unmount();
   });
+
+  it("mantém cabeçalho e guia Pedidos ativa na lista e no detalhe", async () => {
+    jest.spyOn(api, "storeOrders").mockResolvedValue([order]);
+    jest.spyOn(api, "storeOrder").mockResolvedValue(order);
+    const onProducts = jest.fn();
+    const onPromotions = jest.fn();
+    const onSwitchProfile = jest.fn();
+    const onOpenProfile = jest.fn();
+    const screen = render(<StoreOrdersScreen onBack={jest.fn()} onProducts={onProducts} onPromotions={onPromotions} onSwitchProfile={onSwitchProfile} onOpenProfile={onOpenProfile} />);
+    expect(screen.getByLabelText("Conecta Obras Itacoatiara")).toBeTruthy();
+    expect(screen.getByLabelText("Pedidos").props.accessibilityState.selected).toBe(true);
+    fireEvent.press(await screen.findByLabelText("Abrir pedido PED-A"));
+    expect(await screen.findByText("Pedido PED-A")).toBeTruthy();
+    expect(screen.getByLabelText("Pedidos").props.accessibilityState.selected).toBe(true);
+    fireEvent.press(screen.getByLabelText("Pedidos"));
+    expect(await screen.findByLabelText("Abrir pedido PED-A")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Produtos"));
+    fireEvent.press(screen.getByLabelText("Promoções"));
+    fireEvent.press(screen.getByLabelText("Trocar perfil"));
+    fireEvent.press(screen.getByLabelText("Abrir informações do perfil"));
+    expect(onProducts).toHaveBeenCalledTimes(1);
+    expect(onPromotions).toHaveBeenCalledTimes(1);
+    expect(onSwitchProfile).toHaveBeenCalledTimes(1);
+    expect(onOpenProfile).toHaveBeenCalledTimes(1);
+  });
 });
