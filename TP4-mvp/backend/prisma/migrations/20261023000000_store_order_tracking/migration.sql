@@ -1,0 +1,20 @@
+ALTER TABLE `notifications` MODIFY `type` ENUM(
+    'APPLICATION_RECEIVED', 'APPLICATION_ACCEPTED', 'APPLICATION_REJECTED',
+    'DIRECT_REQUEST_RECEIVED', 'DIRECT_REQUEST_ACCEPTED', 'DIRECT_REQUEST_REJECTED',
+    'CONTRACT_STATUS_CHANGED', 'NEW_MESSAGE', 'REVIEW_RECEIVED',
+    'STORE_ORDER_UPDATED'
+) NOT NULL;
+
+CREATE TABLE `delivery_status_history` (
+    `id` VARCHAR(191) NOT NULL,
+    `deliveryId` VARCHAR(191) NOT NULL,
+    `fromStatus` ENUM('PENDING', 'PREPARING', 'IN_TRANSIT', 'DELIVERED', 'FAILED', 'CANCELED') NULL,
+    `toStatus` ENUM('PENDING', 'PREPARING', 'IN_TRANSIT', 'DELIVERED', 'FAILED', 'CANCELED') NOT NULL,
+    `actorId` VARCHAR(191) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    INDEX `delivery_status_history_deliveryId_createdAt_idx`(`deliveryId`, `createdAt`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+ALTER TABLE `delivery_status_history` ADD CONSTRAINT `delivery_status_history_deliveryId_fkey`
+FOREIGN KEY (`deliveryId`) REFERENCES `deliveries`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

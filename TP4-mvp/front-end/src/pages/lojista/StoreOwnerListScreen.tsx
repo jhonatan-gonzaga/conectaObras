@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BackHandler, Pressable, ScrollView, Text, View } from "react-native";
 import { ApiError, api, formatMoney, type StoreDashboardList } from "../../services/api";
 import { StorePromotionsScreen } from "./StorePromotionsScreen";
+import { StoreOrdersScreen } from "./StoreOrdersScreen";
 
 const titles: Record<StoreDashboardList, string> = {
   "active-products": "Produtos ativos", "low-stock": "Produtos com estoque baixo", promotions: "Promoções", orders: "Pedidos", messages: "Mensagens nao lidas",
@@ -9,7 +10,7 @@ const titles: Record<StoreDashboardList, string> = {
 
 export function StoreOwnerListScreen(props: {
   kind: StoreDashboardList; status?: string; onBack: () => void;
-  onOrders?: () => void; onProducts?: () => void; onSettings?: () => void;
+  onOrders?: () => void; onProducts?: () => void; onPromotions?: () => void; onSettings?: () => void;
   onOpenProfile?: () => void; onSwitchProfile?: () => void; avatarUrl?: string | null;
 }) {
   if (props.kind === "promotions") return <StorePromotionsScreen
@@ -17,6 +18,9 @@ export function StoreOwnerListScreen(props: {
     onProducts={props.onProducts ?? props.onBack} onSettings={props.onSettings ?? props.onBack}
     onOpenProfile={props.onOpenProfile ?? props.onBack} avatarUrl={props.avatarUrl}
   />;
+  if (props.kind === "orders") return <StoreOrdersScreen status={props.status} onBack={props.onBack}
+    onSwitchProfile={props.onSwitchProfile} onOpenProfile={props.onOpenProfile} avatarUrl={props.avatarUrl}
+    onProducts={props.onProducts} onPromotions={props.onPromotions} onSettings={props.onSettings} />;
   return <GenericStoreOwnerListScreen {...props} />;
 }
 
