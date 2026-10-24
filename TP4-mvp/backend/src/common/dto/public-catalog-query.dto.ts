@@ -35,4 +35,3 @@ export class PublicCatalogQueryDto {
   @MaxLength(120)
   q?: string;
 }
-

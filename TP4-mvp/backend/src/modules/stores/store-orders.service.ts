@@ -64,10 +64,18 @@ export class StoreOrdersService {
     await tx.notification.create({ data: { userId: customerId, type: NotificationType.STORE_ORDER_UPDATED, title, body, data: { orderId } } });
   }
 
+  private async restoreReservedStock(tx: Prisma.TransactionClient, order: { stockReserved: boolean; items: { productId: string | null; quantity: number }[] }) {
+    if (!order.stockReserved) return;
+    for (const item of order.items) {
+      if (!item.productId) continue;
+      await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+    }
+  }
+
   async changeStatus(ownerId: string, id: string, status: StoreOrderStatus) {
     const storeId = await this.storeId(ownerId);
     await this.prisma.$transaction(async (tx) => {
-      const order = await tx.storeOrder.findFirst({ where: { id, storeId }, include: { delivery: true } });
+      const order = await tx.storeOrder.findFirst({ where: { id, storeId }, include: { delivery: true, items: { select: { productId: true, quantity: true } } } });
       if (!order) throw new NotFoundException('Pedido nao encontrado.');
       if (order.status === status) return;
       if (!canTransitionOrder({ currentStatus: order.status, targetStatus: status, actor: UserRole.LOJISTA })) throw new ConflictException('Transicao de pedido invalida.');
@@ -75,6 +83,7 @@ export class StoreOrdersService {
       if (status === StoreOrderStatus.CANCELED && order.delivery && !canTransitionDelivery(order.delivery.status, DeliveryStatus.CANCELED, order.status)) throw new ConflictException('A entrega nao pode ser cancelada neste estado.');
       const changed = await tx.storeOrder.updateMany({ where: { id, storeId, status: order.status }, data: { status } });
       if (changed.count !== 1) throw new ConflictException('O pedido mudou durante a atualizacao.');
+      if (status === StoreOrderStatus.CANCELED) await this.restoreReservedStock(tx, order);
       await tx.orderStatusHistory.create({ data: { orderId: id, fromStatus: order.status, toStatus: status, actorId: ownerId } });
       if (status === StoreOrderStatus.CANCELED && order.delivery) {
         const updated = await tx.delivery.updateMany({ where: { id: order.delivery.id, status: order.delivery.status }, data: { status: DeliveryStatus.CANCELED } });
@@ -117,7 +126,7 @@ export class StoreOrdersService {
   async changeDeliveryStatus(ownerId: string, id: string, status: DeliveryStatus) {
     const storeId = await this.storeId(ownerId);
     await this.prisma.$transaction(async (tx) => {
-      const order = await tx.storeOrder.findFirst({ where: { id, storeId }, include: { delivery: true } });
+      const order = await tx.storeOrder.findFirst({ where: { id, storeId }, include: { delivery: true, items: { select: { productId: true, quantity: true } } } });
       if (!order) throw new NotFoundException('Pedido nao encontrado.');
       const delivery = order.delivery;
       if (!delivery) throw new ConflictException('Configure a entrega antes de alterar o status.');
@@ -133,6 +142,7 @@ export class StoreOrdersService {
         if (!canTransitionOrder({ currentStatus: order.status, targetStatus: target, actor: UserRole.LOJISTA })) throw new ConflictException('O pedido nao permite esta transicao.');
         const updated = await tx.storeOrder.updateMany({ where: { id, storeId, status: order.status }, data: { status: target } });
         if (updated.count !== 1) throw new ConflictException('O pedido mudou durante a atualizacao.');
+        if (target === StoreOrderStatus.CANCELED) await this.restoreReservedStock(tx, order);
         await tx.orderStatusHistory.create({ data: { orderId: id, fromStatus: order.status, toStatus: target, actorId: ownerId } });
       }
       await this.notify(tx, order.customerId, id, 'Entrega atualizada', `A entrega do pedido ${order.orderNumber ?? id} mudou para ${status}.`);

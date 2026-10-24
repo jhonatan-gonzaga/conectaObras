@@ -284,6 +284,8 @@ model StoreOrder {
   storeId     String
   customerId  String?
   status      StoreOrderStatus @default(PENDING)
+  /// Only client checkout orders reserve product stock.
+  stockReserved Boolean        @default(false)
   subtotal    Decimal?         @db.Decimal(10, 2)
   discount    Decimal          @default(0) @db.Decimal(10, 2)
   total       Decimal          @db.Decimal(10, 2)

@@ -8,7 +8,7 @@ import { StoreOrdersService } from '../src/modules/stores/store-orders.service';
 function fixture(initialStatus: StoreOrderStatus = StoreOrderStatus.PENDING) {
   const order: any = {
     id: 'order-a', storeId: 'store-a', orderNumber: 'PED-A', customerId: 'customer-a',
-    status: initialStatus, subtotal: '20.00', discount: '0.00', total: '20.00',
+    status: initialStatus, stockReserved: false, subtotal: '20.00', discount: '0.00', total: '20.00',
     addressSnapshot: { street: 'Rua A', number: '10' }, createdAt: new Date('2026-10-20T12:00:00Z'), updatedAt: new Date(),
     customer: { id: 'customer-a', name: 'Cliente A', phone: '1111' },
     items: [{ id: 'item-a', name: 'Tijolo', quantity: 2, unitPrice: '10.00', lineTotal: '20.00', sku: null, productId: null }],
@@ -16,6 +16,7 @@ function fixture(initialStatus: StoreOrderStatus = StoreOrderStatus.PENDING) {
   };
   const orderB = { ...order, id: 'order-b', storeId: 'store-b', orderNumber: 'PED-B' };
   const notifications: any[] = [];
+  const stock = new Map([['product-a', 8]]);
   let sequence = 0;
   const tx: any = {
     storeOrder: {
@@ -44,13 +45,14 @@ function fixture(initialStatus: StoreOrderStatus = StoreOrderStatus.PENDING) {
     orderStatusHistory: { create: async ({ data }: any) => order.statusHistory.push({ id: `oh-${++sequence}`, ...data, createdAt: new Date() }) },
     deliveryStatusHistory: { create: async ({ data }: any) => order.delivery.statusHistory.push({ id: `dh-${++sequence}`, ...data, createdAt: new Date() }) },
     notification: { create: async ({ data }: any) => notifications.push(data) },
+    product: { update: async ({ where, data }: any) => { stock.set(where.id, (stock.get(where.id) ?? 0) + data.stock.increment); } },
   };
   const prisma: any = {
     ...tx,
     storeProfile: { findUnique: async ({ where }: any) => ({ id: where.ownerId === 'owner-a' ? 'store-a' : 'store-b' }) },
     $transaction: async (callback: (transaction: any) => Promise<unknown>) => callback(tx),
   };
-  return { service: new StoreOrdersService(prisma as PrismaService), order, notifications };
+  return { service: new StoreOrdersService(prisma as PrismaService), order, notifications, stock };
 }
 
 test('LOJA-020: dois lojistas, filtros, cliente permitido e isolamento', async () => {
@@ -121,4 +123,27 @@ test('LOJA-020: cancelamento sincroniza entrega sem preencher deliveredAt', asyn
   assert.equal(canceled.timeline.filter((event) => event.kind === 'DELIVERY').length, 2);
   assert.equal(canceled.isDelayed, false);
   await assert.rejects(service.changeDeliveryStatus('owner-a', order.id, DeliveryStatus.DELIVERED), ConflictException);
+});
+
+test('LOJA-020 + LOJA-019: cancelar pedido com reserva devolve estoque uma vez', async () => {
+  const { service, order, stock } = fixture(StoreOrderStatus.PREPARING);
+  order.stockReserved = true;
+  order.items[0].productId = 'product-a';
+  await service.changeStatus('owner-a', order.id, StoreOrderStatus.CANCELED);
+  assert.equal(stock.get('product-a'), 10);
+  await service.changeStatus('owner-a', order.id, StoreOrderStatus.CANCELED);
+  assert.equal(stock.get('product-a'), 10);
+});
+
+test('LOJA-020 + LOJA-019: cancelar entrega devolve reserva do pedido', async () => {
+  const { service, order, stock } = fixture(StoreOrderStatus.READY);
+  order.stockReserved = true;
+  order.items[0].productId = 'product-a';
+  await service.upsertDelivery('owner-a', order.id, { carrier: 'Entrega local' });
+  await service.changeDeliveryStatus('owner-a', order.id, DeliveryStatus.PREPARING);
+  const result = await service.changeDeliveryStatus('owner-a', order.id, DeliveryStatus.CANCELED);
+  assert.equal(result.status, StoreOrderStatus.CANCELED);
+  assert.equal(stock.get('product-a'), 10);
+  await service.changeDeliveryStatus('owner-a', order.id, DeliveryStatus.CANCELED);
+  assert.equal(stock.get('product-a'), 10);
 });

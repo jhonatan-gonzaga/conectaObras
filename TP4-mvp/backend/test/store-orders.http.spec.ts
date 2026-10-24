@@ -10,6 +10,8 @@ import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../src/modules/auth/guards/roles.guard';
 import { StoreOrdersController } from '../src/modules/stores/store-orders.controller';
 import { StoreOrdersService } from '../src/modules/stores/store-orders.service';
+import { ClientStoreOrdersController } from '../src/modules/stores/client-store-orders.controller';
+import { StoreDashboardService } from '../src/modules/stores/store-dashboard.service';
 
 test('LOJA-020: rotas exigem lojista e recusam loja arbitrária', async () => {
   const calls: unknown[][] = [];
@@ -20,10 +22,12 @@ test('LOJA-020: rotas exigem lojista e recusam loja arbitrária', async () => {
     upsertDelivery: async (...args: unknown[]) => { calls.push(['delivery', ...args]); return {}; },
     changeDeliveryStatus: async (...args: unknown[]) => { calls.push(['delivery-status', ...args]); return {}; },
   };
+  const clientOrders: unknown[][] = [];
+  const dashboard = { createClientOrder: async (...args: unknown[]) => { clientOrders.push(args); return { id: 'new-order' }; } };
   const module = await Test.createTestingModule({
     imports: [JwtModule.register({ secret: 'store-orders-http-test' })],
-    controllers: [StoreOrdersController],
-    providers: [JwtAuthGuard, RolesGuard, { provide: StoreOrdersService, useValue: service }],
+    controllers: [StoreOrdersController, ClientStoreOrdersController],
+    providers: [JwtAuthGuard, RolesGuard, { provide: StoreOrdersService, useValue: service }, { provide: StoreDashboardService, useValue: dashboard }],
   }).compile();
   const app = module.createNestApplication();
   app.setGlobalPrefix('api');
@@ -40,6 +44,12 @@ test('LOJA-020: rotas exigem lojista e recusam loja arbitrária', async () => {
   try {
     assert.equal((await request()).status, 401);
     assert.equal((await request('', 'GET', client)).status, 403);
+    const clientOrderBody = { items: [{ productId: 'product-a', quantity: 1 }], address: { street: 'Rua A', number: '1', neighborhood: 'Centro', city: 'Manaus', state: 'AM', zipCode: '69000000' } };
+    const clientOrderUrl = base.replace(/store-orders$/, 'orders');
+    assert.equal((await fetch(clientOrderUrl, { method: 'POST', headers: { authorization: `Bearer ${owner}`, 'content-type': 'application/json' }, body: JSON.stringify(clientOrderBody) })).status, 403);
+    assert.equal((await fetch(clientOrderUrl, { method: 'POST', headers: { authorization: `Bearer ${client}`, 'content-type': 'application/json' }, body: JSON.stringify(clientOrderBody) })).status, 201);
+    assert.equal(clientOrders.length, 1);
+    assert.equal(clientOrders[0][0], 'client-a');
     assert.equal((await request('?storeId=store-b', 'GET', owner)).status, 400);
     assert.equal((await request('?status=READY&from=2026-10-01T00%3A00%3A00Z', 'GET', owner)).status, 200);
     assert.deepEqual(JSON.parse(JSON.stringify(calls[0])), ['list', 'owner-a', { status: 'READY', from: '2026-10-01T00:00:00Z' }]);

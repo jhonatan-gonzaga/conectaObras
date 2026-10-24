@@ -15,10 +15,11 @@ import { PublicStoresController } from './public-stores.controller';
 import { PublicStoresService } from './public-stores.service';
 import { StoreOrdersController } from './store-orders.controller';
 import { StoreOrdersService } from './store-orders.service';
+import { ClientStoreOrdersController } from './client-store-orders.controller';
 
 @Module({
   imports: [PrismaModule, AuthModule, UploadsModule],
-  controllers: [StoresController, StorePromotionsController, PublicStoresController, StoreOrdersController],
+  controllers: [StoresController, StorePromotionsController, PublicStoresController, StoreOrdersController, ClientStoreOrdersController],
   providers: [
     GetMyStoreUseCase,
     SaveStoreProfileUseCase,
