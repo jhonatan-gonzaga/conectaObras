@@ -16,10 +16,12 @@ import { PublicStoresService } from './public-stores.service';
 import { StoreOrdersController } from './store-orders.controller';
 import { StoreOrdersService } from './store-orders.service';
 import { ClientStoreOrdersController } from './client-store-orders.controller';
+import { ClientStoreReviewsController, OwnerStoreReviewsController, PublicStoreReviewsController } from './store-reviews.controller';
+import { StoreReviewsService } from './store-reviews.service';
 
 @Module({
   imports: [PrismaModule, AuthModule, UploadsModule],
-  controllers: [StoresController, StorePromotionsController, PublicStoresController, StoreOrdersController, ClientStoreOrdersController],
+  controllers: [StoresController, StorePromotionsController, PublicStoresController, StoreOrdersController, ClientStoreOrdersController, ClientStoreReviewsController, OwnerStoreReviewsController, PublicStoreReviewsController],
   providers: [
     GetMyStoreUseCase,
     SaveStoreProfileUseCase,
@@ -27,6 +29,7 @@ import { ClientStoreOrdersController } from './client-store-orders.controller';
     SetStoreImageUseCase,
     StoreDashboardService,
     StoreOrdersService,
+    StoreReviewsService,
     PublicStoresService,
     PrismaStoreRepository,
     { provide: STORE_REPOSITORY, useExisting: PrismaStoreRepository },
