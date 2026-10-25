@@ -34,6 +34,7 @@ import { CreateStorePromotionDto } from './dto/create-store-promotion.dto';
 import { CreateStoreOrderDto } from './dto/create-store-order.dto';
 import { ChangeStoreOrderStatusDto } from './dto/change-store-order-status.dto';
 import { UpdateStorePromotionEnabledDto } from './dto/update-store-promotion-enabled.dto';
+import { StoreOrdersService } from './store-orders.service';
 
 @Controller('stores')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -45,6 +46,7 @@ export class StoresController {
     private readonly changeStoreStatus: ChangeStoreStatusUseCase,
     private readonly setStoreImage: SetStoreImageUseCase,
     private readonly dashboard: StoreDashboardService,
+    private readonly orders: StoreOrdersService,
     private readonly uploads: UploadsService,
   ) {}
 
@@ -95,7 +97,7 @@ export class StoresController {
 
   @Patch('me/orders/:id/status')
   changeOrderStatus(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: ChangeStoreOrderStatusDto) {
-    return this.dashboard.changeOrderStatus(user.id, id, dto.status);
+    return this.orders.changeStatus(user.id, id, dto.status);
   }
 
   @Put('me')

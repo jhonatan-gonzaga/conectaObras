@@ -38,6 +38,7 @@ export function StoreOwnerNavigator({ screen, navigation }: { screen: StoreOwner
         onOpenProfile={() => navigation.openAccountProfile("storeOwnerDashboard")}
         onOrders={() => { navigation.setStoreListKind("orders"); navigation.setStoreListStatus(undefined); navigation.setScreen("storeOwnerList"); }}
         onProducts={() => navigation.setScreen("storeProducts")}
+        onPromotions={() => { navigation.setStoreListKind("promotions"); navigation.setStoreListStatus(undefined); navigation.setScreen("storeOwnerList"); }}
         onSettings={() => navigation.setScreen("storeOwnerEdit")}
       />;
     case "storeProducts":
