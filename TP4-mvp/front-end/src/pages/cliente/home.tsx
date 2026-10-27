@@ -12,6 +12,10 @@ import {
 } from "../../components/cliente";
 import { ProjectHeader } from "../../components/profissional/components";
 import { ApiError, Category, ProfessionalProfile, api, formatMoney } from "../../services/api";
+import type { ProductQuery } from "../../services/public-catalog";
+import { HomeCommerce } from "../../components/cliente/home-commerce";
+import { useRecentSearches } from "../../services/recent-searches";
+import { useDebouncedValue } from "../../services/use-debounced-value";
 
 const fallbackCategoryImage =
   "https://storage.googleapis.com/banani-generated-images/generated-images/25cb0462-d71b-43d5-9eb9-e76966027a00.jpg";
@@ -25,11 +29,21 @@ function getProfessionalCategoryIds(professional: ProfessionalProfile) {
 }
 
 export function ClientHomePage({
+  userId,
+  onOpenStores,
+  onOpenProducts,
+  onOpenStore,
+  onOpenProduct,
   onNavigate,
   onOpenProfessional,
   onProfilePress,
   onBack,
 }: {
+  userId?: string;
+  onOpenStores?: () => void;
+  onOpenProducts?: (filters?: ProductQuery) => void;
+  onOpenStore?: (id: string) => void;
+  onOpenProduct?: (id: string) => void;
   onNavigate?: (key: ClientNavKey) => void;
   onOpenProfessional?: (professionalId: string) => void;
   onProfilePress?: () => void;
@@ -40,6 +54,9 @@ export function ClientHomePage({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query);
+  const history = useRecentSearches(userId);
+  useEffect(() => { history.record("professionals", debouncedQuery); }, [debouncedQuery, history.record]);
   const [showFilters, setShowFilters] = useState(false);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(["Todos"]);
@@ -96,7 +113,7 @@ export function ClientHomePage({
     rating === "5.0" ? 5 : rating === "4.5+" ? 4.5 : rating === "4.0+" ? 4 : 0;
   const minPriceNumber = Number(minPrice || 0);
   const maxPriceNumber = Number(maxPrice || 9999);
-  const normalizedQuery = query.trim().toLowerCase();
+  const normalizedQuery = debouncedQuery.trim().toLowerCase();
   const visibleCategories = showAllCategories ? categories : categories.slice(0, 4);
   const selectedCategoryLabel = selectedCategories.includes("Todos")
     ? null
@@ -187,6 +204,17 @@ export function ClientHomePage({
               color={showFilters ? "#ffffff" : "#0f1720"}
             />
           </Pressable>
+        </View>
+
+        <View className="mb-6 flex-row gap-3">
+          {([
+            { label: "Lojas de materiais", icon: "storefront-outline", action: () => onOpenStores?.() },
+            { label: "Catálogo de produtos", icon: "cube-outline", action: () => onOpenProducts?.() },
+            { label: "Ofertas e promoções", icon: "pricetag-outline", action: () => onOpenProducts?.({ onPromotion: true }) },
+          ] as const).map((item) => <Pressable key={item.label} accessibilityRole="button" accessibilityLabel={item.label} onPress={item.action} className="min-h-[100px] flex-1 items-center justify-center gap-2 rounded-2xl border border-black/5 bg-card p-3 shadow-sm shadow-black/5">
+            <View className="h-9 w-9 items-center justify-center rounded-full bg-muted"><Ionicons name={item.icon} size={20} color="#b94b50" /></View>
+            <Text className="text-center font-sans text-xs font-semibold leading-4 text-foreground">{item.label}</Text>
+          </Pressable>)}
         </View>
 
         {showFilters ? (
@@ -286,6 +314,7 @@ export function ClientHomePage({
             </View>
           )}
         </View>
+        <HomeCommerce onProducts={onOpenProducts} onStores={onOpenStores} onProduct={onOpenProduct} onStore={onOpenStore} />
       </ScrollView>
 
       <View className="absolute inset-x-0 bottom-0 px-5 pb-2">

@@ -1,9 +1,15 @@
 import "./global.css";
 
 import { StatusBar } from "expo-status-bar";
+import { useFonts } from "expo-font";
+import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
+import { Inter_500Medium } from "@expo-google-fonts/inter/500Medium";
+import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
+import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
+import { Inter_800ExtraBold } from "@expo-google-fonts/inter/800ExtraBold";
 import { vars } from "nativewind";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { RootNavigator } from "./navigation/RootNavigator";
@@ -33,9 +39,12 @@ const darkThemeVars = vars({
 });
 
 export default function App() {
+  const [fontsLoaded, fontError] = useFonts({ Inter: Inter_400Regular, InterMedium: Inter_500Medium, InterSemiBold: Inter_600SemiBold, InterBold: Inter_700Bold, InterExtraBold: Inter_800ExtraBold });
   const [isDarkMode, setIsDarkMode] = useState(false);
   const navigation = useAppNavigation();
   const isProfessionalScreen = isProfessionalContextScreen(navigation.screen);
+
+  if (!fontsLoaded && !fontError) return <View className="flex-1 items-center justify-center bg-[#fbf6f7]"><ActivityIndicator accessibilityLabel="Carregando fontes" color="#b94b50" /></View>;
 
   return (
     <SafeAreaProvider>

@@ -4,6 +4,7 @@ import type { ClientNavKey } from "../components/cliente";
 import type { ProductFilters } from "../services/store-products";
 import { ApiError, api, restoreAccessToken, type AuthUser, type SelectableUserRole, type StoreDashboardList } from "../services/api";
 import { isStoreRegistrationComplete } from "../services/store-form";
+import { emptyClientSearch, type CatalogRoute } from "./types";
 import type {
   ClientProfileReturnScreen,
   ClientWorkReturnScreen,
@@ -15,6 +16,23 @@ import type {
 
 export function useAppNavigation() {
   const [screen, setScreen] = useState<Screen>("login");
+  const [clientSearch, setClientSearch] = useState(emptyClientSearch);
+  const [catalogTrail, setCatalogTrail] = useState<CatalogRoute[]>([]);
+  const [catalogOrigin, setCatalogOrigin] = useState<"clientHome" | "clientSearch">("clientHome");
+  const openCatalog = (route: CatalogRoute) => {
+    const continuing = screen === "clientStores" || screen === "clientProducts" || screen === "clientStoreDetail" || screen === "clientProductDetail";
+    if (!continuing) setCatalogOrigin(screen === "clientSearch" ? "clientSearch" : "clientHome");
+    setCatalogTrail((trail) => continuing ? [...trail, route] : [route]);
+    setScreen(route.screen);
+  };
+  const backCatalog = () => {
+    const trail = catalogTrail.slice(0, -1);
+    setCatalogTrail(trail);
+    setScreen(trail[trail.length - 1]?.screen ?? catalogOrigin);
+  };
+  const updateCatalogRoute = (route: CatalogRoute) => {
+    setCatalogTrail((trail) => [...trail.slice(0, -1), route]);
+  };
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [hasStore, setHasStore] = useState(false);
   const [signupRole, setSignupRole] = useState<SelectableUserRole>("CLIENTE");
@@ -104,6 +122,7 @@ export function useAppNavigation() {
 
   const signOut = async () => {
     await api.logout();
+    setClientSearch(emptyClientSearch()); setCatalogTrail([]); setCatalogOrigin("clientHome");
     setAuthUser(null); setHasStore(false); setSelectedClientService(null); setSelectedProfessionalId(null);
     setContractedClientServices([]); setStoreListKind("active-products"); setStoreListStatus(undefined); setStoreListReturnScreen("storeOwnerDashboard");
     setProfileReturnScreen("clientHome"); setClientWorkReturnScreen("clientHome");
@@ -134,6 +153,7 @@ export function useAppNavigation() {
     tab: ClientNavKey,
     from?: ClientWorkReturnScreen,
   ) => {
+    setCatalogTrail([]);
     if (tab === "search") {
       setScreen("clientSearch");
     } else if (tab === "ads") {
@@ -151,6 +171,13 @@ export function useAppNavigation() {
   };
 
   return {
+    clientSearch,
+    setClientSearch,
+    catalogRoute: catalogTrail[catalogTrail.length - 1],
+    catalogOrigin,
+    openCatalog,
+    backCatalog,
+    updateCatalogRoute,
     screen,
     setScreen,
     authUser,

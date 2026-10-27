@@ -1,4 +1,5 @@
 import type { StoreProfile } from "./store-form";
+import type { CatalogPage, ProductQuery, PublicProduct, PublicStore, PublicStoreDetail, StoreQuery } from "./public-catalog";
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
 import { File } from "expo-file-system";
@@ -66,7 +67,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return data as T;
 }
 
-function toQuery(params: Record<string, string | number | undefined>) {
+function toQuery(params: Record<string, string | number | boolean | undefined>) {
   const search = new URLSearchParams();
 
   Object.entries(params).forEach(([key, value]) => {
@@ -413,6 +414,10 @@ export const api = {
     }),
 
   me: () => request<AuthUser>("/auth/me"),
+  publicStores: (filters: StoreQuery = {}) => request<CatalogPage<PublicStore>>(`/stores${toQuery(filters)}`, { auth: false }),
+  publicStore: (id: string) => request<PublicStoreDetail>(`/stores/${encodeURIComponent(id)}`, { auth: false }),
+  publicProducts: (filters: ProductQuery = {}) => request<CatalogPage<PublicProduct>>(`/products${toQuery(filters)}`, { auth: false }),
+  publicProduct: (id: string) => request<PublicProduct>(`/products/${encodeURIComponent(id)}`, { auth: false }),
   myStore: () => request<StoreProfile>("/stores/me"),
   storeIdentity: () => request<StoreIdentity>("/stores/me/identity"),
   saveMyStore: (input: unknown) => request<StoreProfile>("/stores/me", { method: "PUT", body: JSON.stringify(input) }),

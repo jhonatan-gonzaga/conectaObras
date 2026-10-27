@@ -22,5 +22,13 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss/plugin")(({ addUtilities }) => {
+    addUtilities({
+      ".font-normal": { fontFamily: "Inter" },
+      ".font-medium": { fontFamily: "InterMedium" },
+      ".font-semibold": { fontFamily: "InterSemiBold" },
+      ".font-bold": { fontFamily: "InterBold" },
+      ".font-extrabold": { fontFamily: "InterExtraBold" },
+    });
+  })],
 };
