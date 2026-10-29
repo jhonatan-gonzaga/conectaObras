@@ -73,6 +73,12 @@ export function OrderDetails({ order, audience, disabled, onRequest }: {
       <Text className="text-xs text-muted-foreground">Realizado em {orderDate(order.createdAt)}</Text>
       {order.store?.name ? <View className="flex-row items-center gap-3 rounded-xl bg-background p-3"><Ionicons name="storefront-outline" size={24} color="#b94b50" /><Text className="flex-1 font-semibold text-foreground">{order.store.name}</Text></View> : null}
       {audience === "owner" ? <Text className="text-sm text-foreground">Cliente: {order.customer?.name ?? "Não informado"}{order.customer?.phone ? ` · ${order.customer.phone}` : ""}</Text> : null}
+      <View className="flex-row items-start gap-2 rounded-xl bg-background p-3">
+        <Ionicons name="location-outline" size={20} color="#b94b50" />
+        <Text className="min-w-0 flex-1 text-sm leading-5 text-foreground">{address && Object.values(address).some(Boolean)
+          ? `Entrega em: ${[address.street, address.number, address.complement, address.neighborhood, address.city, address.state, address.zipCode].filter(Boolean).join(", ")}`
+          : "Endereço de entrega não informado."}</Text>
+      </View>
       <Text className="text-sm text-muted-foreground">Entrega: {order.delivery ? deliveryLabels[order.delivery.status] : "Aguardando configuração"}{order.isDelayed ? " · Atrasada" : ""}</Text>
       <Text className="text-sm text-muted-foreground">Previsão: {orderDate(order.delivery?.estimatedDate)}</Text>
       {order.isDelayed ? <View className="rounded-xl bg-[#ffdad6] p-3"><Text accessibilityRole="alert" className="font-semibold text-[#93000a]">Entrega atrasada</Text><Text className="text-sm text-[#93000a]">A previsão passou e a entrega ainda não foi concluída.</Text></View> : null}
@@ -90,7 +96,6 @@ export function OrderDetails({ order, audience, disabled, onRequest }: {
       <Text className="text-sm text-muted-foreground">Subtotal: {formatMoney(order.subtotal)}</Text>
       <Text className="text-sm text-muted-foreground">Desconto: {formatMoney(order.discount)}</Text>
       <View className="flex-row items-center justify-between border-t border-input-border pt-3"><Text className="text-sm text-muted-foreground">Valor total</Text><Text className="text-xl font-bold text-primary">{formatMoney(order.total)}</Text></View>
-      {address ? <Text className="text-sm text-foreground">Entrega em: {[address.street, address.number, address.complement, address.neighborhood, address.city, address.state, address.zipCode].filter(Boolean).join(", ")}</Text> : null}
     </View>
 
     <View className="gap-3 rounded-[18px] bg-card p-4">
