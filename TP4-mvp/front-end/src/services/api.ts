@@ -110,6 +110,7 @@ export type StoreDashboardList = "active-products" | "low-stock" | "promotions" 
 export type StoreOrderStatus = "PENDING" | "CONFIRMED" | "PREPARING" | "READY" | "COMPLETED" | "CANCELED";
 export type DeliveryStatus = "PENDING" | "PREPARING" | "IN_TRANSIT" | "DELIVERED" | "FAILED" | "CANCELED";
 export type StoreOrder = {
+  store?: { id: string; name: string | null; whatsapp: string | null };
   id: string; orderNumber: string | null; status: StoreOrderStatus;
   customer: { id: string; name: string; phone: string | null } | null;
   addressSnapshot: { street?: string; number?: string; neighborhood?: string; city?: string; state?: string; zipCode?: string; complement?: string | null } | null;
@@ -117,8 +118,10 @@ export type StoreOrder = {
   subtotal: string | null; discount: string; total: string; createdAt: string;
   delivery: { id: string; status: DeliveryStatus; trackingCode: string | null; carrier: string | null; estimatedDate: string | null; deliveredAt: string | null } | null;
   isDelayed: boolean;
-  timeline: { id: string; kind: "ORDER" | "DELIVERY"; fromStatus: string | null; toStatus: string; actorId: string | null; note: string | null; createdAt: string }[];
+  allowedActions: { orderStatuses: StoreOrderStatus[]; deliveryStatuses: DeliveryStatus[]; canEditDelivery: boolean };
+  timeline: { id: string; kind: "ORDER" | "DELIVERY"; fromStatus: string | null; toStatus: string; actorId?: string | null; note: string | null; createdAt: string }[];
 };
+export type StoreOrdersFilters = { status?: StoreOrderStatus; group?: "OPEN" | "COMPLETED"; from?: string; to?: string; page?: number; limit?: number };
 
 export type Category = {
   id: string;
@@ -430,6 +433,9 @@ export const api = {
   storeDashboard: () => request<StoreDashboardSummary>("/stores/me/dashboard"),
   storeDashboardList: (kind: StoreDashboardList, status?: string) => request<unknown[]>(`/stores/me/dashboard/${kind}${status ? `?status=${encodeURIComponent(status)}` : ""}`),
   storeOrders: (filters: { status?: StoreOrderStatus; from?: string; to?: string } = {}) => request<StoreOrder[]>(`/store-orders${toQuery(filters)}`),
+  storeOrdersPage: (filters: StoreOrdersFilters = {}) => request<Paginated<StoreOrder>>(`/store-orders${toQuery({ ...filters, page: filters.page ?? 1, limit: filters.limit ?? 20 })}`),
+  clientStoreOrders: (filters: StoreOrdersFilters = {}) => request<Paginated<StoreOrder>>(`/orders${toQuery({ ...filters, page: filters.page ?? 1, limit: filters.limit ?? 20 })}`),
+  clientStoreOrder: (id: string) => request<StoreOrder>(`/orders/${encodeURIComponent(id)}`),
   storeOrder: (id: string) => request<StoreOrder>(`/store-orders/${encodeURIComponent(id)}`),
   changeStoreOrderStatus: (id: string, status: StoreOrderStatus) => request<StoreOrder>(`/store-orders/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
   upsertStoreOrderDelivery: (id: string, input: { trackingCode?: string; carrier?: string; estimatedDate?: string }) => request<StoreOrder>(`/store-orders/${encodeURIComponent(id)}/delivery`, { method: "PUT", body: JSON.stringify(input) }),

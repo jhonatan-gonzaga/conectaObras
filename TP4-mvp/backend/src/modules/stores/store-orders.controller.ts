@@ -19,7 +19,9 @@ export class StoreOrdersController {
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser, @Query() query: StoreOrdersQueryDto) {
-    return this.orders.list(user.id, query);
+    return query.page !== undefined || query.limit !== undefined
+      ? this.orders.listPage(user.id, query)
+      : this.orders.list(user.id, query);
   }
 
   @Get(':id')

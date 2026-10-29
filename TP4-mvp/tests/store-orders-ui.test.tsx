@@ -11,6 +11,7 @@ const order: StoreOrder = {
   subtotal: "20.00", discount: "0.00", total: "20.00", createdAt: "2026-10-20T12:00:00Z",
   delivery: { id: "delivery-a", status: "PREPARING", trackingCode: null, carrier: null, estimatedDate: "2026-10-21T23:59:59Z", deliveredAt: null },
   isDelayed: true, timeline: [{ id: "event-a", kind: "ORDER", fromStatus: null, toStatus: "READY", actorId: "owner-a", note: null, createdAt: "2026-10-20T12:00:00Z" }],
+  allowedActions: { orderStatuses: ["CANCELED"], deliveryStatuses: ["IN_TRANSIT", "CANCELED"], canEditDelivery: true },
 };
 
 describe("painel de pedidos da loja", () => {
