@@ -6,6 +6,7 @@ export type ProfileReturnScreen =
   | "professionalSetup"
   | "professionalHome"
   | "clientHome"
+  | "clientOrders"
   | "clientSearch"
   | "clientAds"
   | "clientServiceDetails"
@@ -14,7 +15,8 @@ export type ProfileReturnScreen =
   | "clientProfile"
   | "storeOwnerSetup"
   | "storeOwnerEdit"
-  | "storeOwnerDashboard";
+  | "storeOwnerDashboard"
+  | "storeOwnerList";
 
 export type ClientWorkReturnScreen = "clientHome" | "clientSearch" | "clientAds";
 
@@ -24,6 +26,7 @@ export type AuthScreen = ReturnScreen | "terms" | "privacy";
 
 export type ClientScreen =
   | "clientHome"
+  | "clientOrders"
   | "clientSearch"
   | "clientWork"
   | "clientAds"
@@ -62,6 +65,7 @@ export function isAuthContextScreen(
 export function isClientContextScreen(screen: Screen): screen is ClientScreen {
   return (
     screen === "clientHome" ||
+    screen === "clientOrders" ||
     screen === "clientSearch" ||
     screen === "clientWork" ||
     screen === "clientAds" ||

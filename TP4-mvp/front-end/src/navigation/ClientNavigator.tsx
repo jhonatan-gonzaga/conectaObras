@@ -7,6 +7,7 @@ import {
   ClientSettingsScreen,
 } from "../pages";
 import { ClientMessageScreen } from "../pages/cliente/mensagem-profissional";
+import { ClientOrdersScreen } from "../pages/cliente/ClientOrdersScreen";
 import { ServiceDetailsScreen } from "../pages/profissional";
 import { toProfessionalService } from "./serviceMapping";
 import type { ClientScreen } from "./types";
@@ -41,6 +42,10 @@ export function ClientNavigator({
   } = navigation;
 
   switch (screen) {
+    case "clientOrders":
+      return <ClientOrdersScreen onBack={() => setScreen("clientHome")}
+        onProfilePress={() => openAccountProfile("clientOrders")}
+        onNavigate={(tab) => openClientTab(tab)} />;
     case "clientHome":
       return (
         <ClientHomePage
