@@ -29,6 +29,11 @@ export class StoreOrdersController {
     return this.orders.get(user.id, id);
   }
 
+  @Get(':id/items/:itemId')
+  getItem(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Param('itemId') itemId: string) {
+    return this.orders.getItem(user.id, id, itemId);
+  }
+
   @Patch(':id/status')
   changeStatus(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: ChangeStoreOrderStatusDto) {
     return this.orders.changeStatus(user.id, id, dto.status);

@@ -26,6 +26,11 @@ export class ClientStoreOrdersController {
     return this.tracking.getClient(user.id, id);
   }
 
+  @Get(':id/items/:itemId')
+  getItem(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Param('itemId') itemId: string) {
+    return this.tracking.getClientItem(user.id, id, itemId);
+  }
+
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateClientStoreOrderDto) {
     return this.orders.createClientOrder(user.id, dto);

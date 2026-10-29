@@ -91,6 +91,46 @@ export class StoreOrdersService {
     return this.presentClient(order);
   }
 
+  async getItem(ownerId: string, orderId: string, itemId: string) {
+    return this.itemDetails(orderId, itemId, { storeId: await this.storeId(ownerId) }, true);
+  }
+
+  async getClientItem(customerId: string, orderId: string, itemId: string) {
+    return this.itemDetails(orderId, itemId, { customerId }, false);
+  }
+
+  private async itemDetails(orderId: string, itemId: string, scope: { storeId?: string; customerId?: string }, owner: boolean) {
+    const row = await this.prisma.storeOrderItem.findFirst({
+      where: { id: itemId, order: { id: orderId, ...scope } },
+      select: {
+        id: true, name: true, sku: true, quantity: true, unitPrice: true, lineTotal: true,
+        order: { select: { storeId: true } },
+        product: {
+          select: {
+            storeId: true, name: true, description: true, price: true, sku: true, stock: true, status: true,
+            category: { select: { name: true } },
+            images: {
+              select: { id: true, url: true, altText: true, position: true, isCover: true },
+              orderBy: [{ position: 'asc' }, { id: 'asc' }],
+            },
+          },
+        },
+      },
+    });
+    if (!row) throw new NotFoundException('Item do pedido nao encontrado.');
+    const { product, order, ...item } = row;
+    // A legacy item can outlive its catalog entry; its purchase snapshot remains valid.
+    const catalog = product?.storeId === order.storeId ? product : null;
+    return {
+      item,
+      product: catalog ? {
+        name: catalog.name, description: catalog.description, price: catalog.price, sku: catalog.sku,
+        categoryName: catalog.category.name, images: catalog.images,
+        ...(owner ? { stock: catalog.stock, status: catalog.status } : {}),
+      } : null,
+    };
+  }
+
   private presentClient(order: OrderWithTracking) {
     const result = this.present(order);
     return {
