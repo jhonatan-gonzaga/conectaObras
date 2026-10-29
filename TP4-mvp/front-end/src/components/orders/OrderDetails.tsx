@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { Linking, Text, TextInput, View } from "react-native";
+import { Linking, Pressable, Text, TextInput, View } from "react-native";
 import { api, formatMoney, type StoreOrder } from "../../services/api";
 import { deliveryLabels, localDay, orderDate, orderLabels, orderTimezone, parseOrderDay } from "../../services/store-orders";
 import { NativeDateTimeField } from "../native-date-time-field";
 import { OrderBadge, OrderButton } from "./order-ui";
 import type { OrdersAudience } from "./use-orders";
+import { OrderItemDetailsModal } from "./OrderItemDetailsModal";
 
 export type OrderIntent = { label: string; description: string; execute: () => Promise<StoreOrder>; onSuccess?: () => void };
 const field = "min-h-12 rounded-xl border border-input-border bg-card px-3 py-3 text-foreground";
@@ -54,6 +55,7 @@ export function OrderDetails({ order, audience, disabled, onRequest }: {
   order: StoreOrder; audience: OrdersAudience; disabled: boolean; onRequest: (intent: OrderIntent) => void;
 }) {
   const [contactError, setContactError] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<StoreOrder["items"][number] | null>(null);
   const address = order.addressSnapshot;
   const actions = order.allowedActions;
   const contact = async () => {
@@ -89,10 +91,11 @@ export function OrderDetails({ order, audience, disabled, onRequest }: {
 
     <View className="gap-3 rounded-[18px] bg-card p-4">
       <Text className="text-lg font-semibold text-foreground">Produtos inclusos ({order.items.length} itens)</Text>
-      {order.items.map((item) => <View key={item.id} className="flex-row items-center gap-3 rounded-xl bg-background p-3">
+      {order.items.map((item) => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`Ver detalhes de ${item.name}`} accessibilityHint="Abre as informações do produto comprado" accessibilityState={{ disabled }} disabled={disabled} onPress={() => setSelectedItem(item)} className="min-h-16 flex-row items-center gap-3 rounded-xl bg-background p-3">
         <Ionicons name="cube-outline" size={24} color="#b94b50" />
         <View className="min-w-0 flex-1"><Text className="font-medium text-foreground">{item.quantity}× {item.name}</Text><Text className="text-xs text-muted-foreground">{formatMoney(item.unitPrice)} un. · {formatMoney(item.lineTotal ?? Number(item.unitPrice) * item.quantity)}</Text></View>
-      </View>)}
+        <Ionicons name="chevron-forward" size={18} color="#b94b50" />
+      </Pressable>)}
       <Text className="text-sm text-muted-foreground">Subtotal: {formatMoney(order.subtotal)}</Text>
       <Text className="text-sm text-muted-foreground">Desconto: {formatMoney(order.discount)}</Text>
       <View className="flex-row items-center justify-between border-t border-input-border pt-3"><Text className="text-sm text-muted-foreground">Valor total</Text><Text className="text-xl font-bold text-primary">{formatMoney(order.total)}</Text></View>
@@ -113,5 +116,6 @@ export function OrderDetails({ order, audience, disabled, onRequest }: {
       {!actions.orderStatuses.length && !actions.deliveryStatuses.length && !actions.canEditDelivery ? <Text className="text-center text-sm text-muted-foreground">Nenhuma ação disponível para este estado.</Text> : null}
     </> : order.store?.whatsapp ? <OrderButton label="Conversar com a loja no WhatsApp" onPress={() => void contact()} secondary /> : null}
     {contactError ? <Text accessibilityRole="alert" className="text-sm text-primary">{contactError}</Text> : null}
+    {selectedItem ? <OrderItemDetailsModal key={selectedItem.id} orderId={order.id} item={selectedItem} audience={audience} onClose={() => setSelectedItem(null)} /> : null}
   </View>;
 }

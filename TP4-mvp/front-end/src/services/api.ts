@@ -5,7 +5,7 @@ import { File } from "expo-file-system";
 import { Platform } from "react-native";
 import type { ImagePickerAsset } from "expo-image-picker";
 import { resolveApiUrl } from "./api-url";
-import type { ProductCategory, ProductFilters, ProductImage, ProductPage, ProductStatus, StoreProduct } from "./store-products";
+import type { ProductCategory, ProductDetails, ProductFilters, ProductImage, ProductPage, ProductStatus, StoreProduct } from "./store-products";
 
 const API_URL = resolveApiUrl(
   process.env.EXPO_PUBLIC_API_URL,
@@ -122,6 +122,7 @@ export type StoreOrder = {
   timeline: { id: string; kind: "ORDER" | "DELIVERY"; fromStatus: string | null; toStatus: string; actorId?: string | null; note: string | null; createdAt: string }[];
 };
 export type StoreOrdersFilters = { status?: StoreOrderStatus; group?: "OPEN" | "COMPLETED"; from?: string; to?: string; page?: number; limit?: number };
+export type StoreOrderItemDetails = { item: StoreOrder["items"][number]; product: ProductDetails | null };
 
 export type Category = {
   id: string;
@@ -436,6 +437,8 @@ export const api = {
   storeOrdersPage: (filters: StoreOrdersFilters = {}) => request<Paginated<StoreOrder>>(`/store-orders${toQuery({ ...filters, page: filters.page ?? 1, limit: filters.limit ?? 20 })}`),
   clientStoreOrders: (filters: StoreOrdersFilters = {}) => request<Paginated<StoreOrder>>(`/orders${toQuery({ ...filters, page: filters.page ?? 1, limit: filters.limit ?? 20 })}`),
   clientStoreOrder: (id: string) => request<StoreOrder>(`/orders/${encodeURIComponent(id)}`),
+  storeOrderItem: (id: string, itemId: string) => request<StoreOrderItemDetails>(`/store-orders/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}`),
+  clientStoreOrderItem: (id: string, itemId: string) => request<StoreOrderItemDetails>(`/orders/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}`),
   storeOrder: (id: string) => request<StoreOrder>(`/store-orders/${encodeURIComponent(id)}`),
   changeStoreOrderStatus: (id: string, status: StoreOrderStatus) => request<StoreOrder>(`/store-orders/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
   upsertStoreOrderDelivery: (id: string, input: { trackingCode?: string; carrier?: string; estimatedDate?: string }) => request<StoreOrder>(`/store-orders/${encodeURIComponent(id)}/delivery`, { method: "PUT", body: JSON.stringify(input) }),

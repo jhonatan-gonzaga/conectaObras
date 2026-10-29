@@ -2,9 +2,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { ProductImageViewer } from "../../components/lojista/ProductImageViewer";
+import { ProductDetailsModal } from "../../components/lojista/ProductDetailsModal";
 import { StoreOwnerTabBar } from "../../components/lojista/StoreOwnerTabBar";
 import { ApiError, api } from "../../services/api";
-import { inventoryPayload, type ProductCategory, type ProductFilters, type ProductStatus, type StockFilter, type StoreProduct } from "../../services/store-products";
+import { inventoryPayload, productAvailability as availability, productStatusLabels as statusLabels, type ProductCategory, type ProductFilters, type ProductStatus, type StockFilter, type StoreProduct } from "../../services/store-products";
 
 const statusOptions: { label: string; value: ProductStatus | "" }[] = [
   { label: "Todos", value: "" }, { label: "Ativos", value: "ACTIVE" },
@@ -15,17 +16,6 @@ const stockOptions: { label: string; value: StockFilter | "" }[] = [
   { label: "Todo estoque", value: "" }, { label: "Em estoque", value: "IN_STOCK" },
   { label: "Esgotados", value: "OUT_OF_STOCK" },
 ];
-const statusLabels: Record<ProductStatus, string> = {
-  DRAFT: "Rascunho", ACTIVE: "Ativo", INACTIVE: "Inativo", ARCHIVED: "Arquivado",
-};
-
-function availability(product: StoreProduct) {
-  if (product.status === "ARCHIVED") return { label: "Arquivado", color: "#766a70" };
-  if (product.status !== "ACTIVE") return { label: "Indisponível para venda", color: "#9a621d" };
-  if (product.stock === 0) return { label: "Sem estoque", color: "#ba1a1a" };
-  return { label: "Disponível para venda", color: "#26734d" };
-}
-
 function FilterChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress}
     className={`mr-2 min-h-9 justify-center rounded-full px-4 ${selected ? "bg-primary" : "bg-card"}`}>
@@ -330,19 +320,12 @@ export function StoreProductsScreen({ filters, onChangeFilters, initialNotice, o
       </View>
     </ScrollView>
     <StoreOwnerTabBar selected="Produtos" onDashboard={onBack} onOrders={() => onOpenOrders?.()} onProducts={() => {}} onPromotions={() => onOpenPromotions?.()} onSettings={() => onOpenSettings?.()} />
-    <Modal visible={Boolean(details)} transparent animationType="slide" onRequestClose={() => setDetailsId(null)}>
-      <View className="flex-1 justify-end bg-black/50"><View className="max-h-[90%] rounded-t-[24px] bg-card px-5 pb-8 pt-4">
-        <View className="mb-3 flex-row items-center justify-between"><Text className="text-lg font-bold text-foreground">Detalhes do produto</Text><Pressable accessibilityRole="button" accessibilityLabel="Fechar detalhes" onPress={() => setDetailsId(null)} className="p-2"><Ionicons name="close" size={24} color="#564241" /></Pressable></View>
-        {details ? <ScrollView showsVerticalScrollIndicator={false}>
-          <Text className="text-xl font-semibold text-foreground">{details.name}</Text>
-          <Text className="mt-1 text-sm font-semibold" style={{ color: availability(details).color }}>● {availability(details).label}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="my-4">{details.images.map((image, index) => <Pressable key={image.id} accessibilityRole="button" accessibilityLabel={`Ampliar foto ${index + 1} de ${details.name}`} onPress={() => { setViewImages(details.images.map((entry) => entry.url)); setViewIndex(index); }} className="mr-2"><Image source={{ uri: image.url }} className="h-28 w-28 rounded-xl bg-[#e7eefc]" resizeMode="cover" /></Pressable>)}</ScrollView>
-          <View className="rounded-xl bg-[#fbf6f7] p-4"><Text className="text-sm text-foreground">Preço: R$ {details.price.replace(".", ",")}</Text><Text className="mt-2 text-sm text-foreground">Estoque: {details.stock} unidades</Text><Text className="mt-2 text-sm text-foreground">Categoria: {categories.find((category) => category.id === details.categoryId)?.name ?? "Categoria indisponível"}</Text><Text className="mt-2 text-sm text-foreground">Status: {statusLabels[details.status]}</Text>{details.sku ? <Text className="mt-2 text-sm text-foreground">SKU: {details.sku}</Text> : null}</View>
-          <Text className="mt-4 text-sm font-semibold text-foreground">Descrição</Text><Text className="mt-1 text-sm leading-5 text-muted-foreground">{details.description || "Sem descrição."}</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel={`${details.status === "ARCHIVED" ? "Restaurar" : "Editar detalhes de"} ${details.name}`} onPress={() => { setDetailsId(null); onEdit(details.id); }} className="mt-5 min-h-12 items-center justify-center rounded-full bg-primary"><Text className="font-semibold text-white">{details.status === "ARCHIVED" ? "Restaurar produto" : "Editar produto"}</Text></Pressable>
-        </ScrollView> : null}
-      </View></View>
-    </Modal>
+    <ProductDetailsModal visible={!!details} product={details ? { ...details, categoryName: categories.find((category) => category.id === details.categoryId)?.name ?? null } : null}
+      onClose={() => setDetailsId(null)} action={details ? {
+        label: details.status === "ARCHIVED" ? "Restaurar produto" : "Editar produto",
+        accessibilityLabel: `${details.status === "ARCHIVED" ? "Restaurar" : "Editar detalhes de"} ${details.name}`,
+        onPress: () => { setDetailsId(null); onEdit(details.id); },
+      } : undefined} />
     <ProductImageViewer images={viewImages} initialIndex={viewIndex} onClose={() => setViewImages([])} />
     <Modal visible={Boolean(promotionTarget)} transparent animationType="slide" onRequestClose={() => setPromotionTarget(null)}>
       <View className="flex-1 justify-end bg-black/50"><View className="rounded-t-[24px] bg-card px-5 pb-8 pt-5">

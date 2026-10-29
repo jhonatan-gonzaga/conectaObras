@@ -25,6 +25,8 @@ e reutiliza `ProjectHeader`, o cabeçalho da tela inicial do cliente.
 | GET | `/store-orders/:id` | Lojista proprietário |
 | GET | `/orders?page=1&limit=10` | Cliente, somente pedidos próprios |
 | GET | `/orders/:id` | Cliente do pedido |
+| GET | `/store-orders/:id/items/:itemId` | Lojista proprietário do pedido |
+| GET | `/orders/:id/items/:itemId` | Cliente do pedido |
 
 As consultas paginadas retornam `{ items, total, page, limit }`, ordenadas por
 `createdAt DESC, id DESC`. Página começa em 1, limite padrão da API é 20 e máximo
@@ -45,8 +47,27 @@ contato, mesmo quando a loja deixa de estar ativa e o pedido permanece no histó
 
 O detalhe mostra itens, quantidade, preço unitário, subtotal, desconto, total,
 endereço, rastreio, transportadora, previsão e histórico real com status traduzido.
+O endereço aparece no card superior de resumo do pedido, junto aos dados de entrega.
 O selo de atraso vem de `isDelayed` da API, recalculado em cada leitura; entregas
 concluídas ou canceladas deixam de exibir o atraso após atualização.
+
+### Produtos inclusos
+
+Tocar em um produto incluso abre `ProductDetailsModal`, também utilizado no
+catálogo. A consulta usa o ID do item dentro do pedido, verifica propriedade pelo
+JWT e rejeita um item que não pertença ao pedido informado. Não é necessário
+expor `productId` na resposta do cliente.
+
+O modal mostra descrição, categoria, SKU e fotos atuais com ampliação. Quantidade,
+nome e valores comprados vêm do snapshot do pedido; o preço atual do catálogo é
+rotulado separadamente. Se o produto foi removido ou o pedido é legado sem vínculo
+com o catálogo, os dados comprados continuam disponíveis. Produtos arquivados
+vinculados ao pedido continuam consultáveis; estoque e status de gestão são
+exibidos apenas ao lojista.
+
+A abertura pelo pedido é somente para consulta e não apresenta edição do produto.
+Erros mantêm os dados comprados e oferecem nova tentativa. Fechar o modal ou a
+foto retorna ao contexto anterior; respostas tardias são ignoradas após fechar.
 
 ## Ações e concorrência
 
@@ -111,8 +132,10 @@ com MySQL nem execução física no Android.
 - [Detalhe do cliente, 320 px](../prints/loja-022/cliente-pedido-320-web.png).
 - [Detalhe do lojista, 390 px](../prints/loja-022/lojista-pedido-web.png).
 - [Formulário de rastreio do lojista](../prints/loja-022/lojista-rastreio-web.png).
+- [Produto incluso no pedido do lojista](../prints/loja-022/lojista-produto-do-pedido-web.png).
+- [Produto incluso no pedido do cliente, 320 px](../prints/loja-022/cliente-produto-do-pedido-web.png).
 
-Na validação desta implementação: 174 testes do frontend aprovados; 297 testes do
+Na validação desta implementação: 181 testes do frontend aprovados; 300 testes do
 backend aprovados e 5 integrações opcionais de banco ignoradas, pois as variáveis
 de banco descartável não foram configuradas. Build e typecheck passaram; bundles
 Android e Web exportados. As medidas do cabeçalho foram conferidas no navegador

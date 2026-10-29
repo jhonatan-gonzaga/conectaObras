@@ -3,6 +3,14 @@ import { ApiError, api } from "../front-end/src/services/api";
 jest.mock("expo-secure-store", () => ({ getItemAsync: jest.fn(), setItemAsync: jest.fn(), deleteItemAsync: jest.fn() }));
 afterEach(() => jest.restoreAllMocks());
 
+it("consulta o produto pelo item do pedido, escapando os IDs e respeitando o perfil", async () => {
+  const request = jest.spyOn(global, "fetch").mockResolvedValue({ ok: true, status: 200, text: async () => JSON.stringify({ item: {}, product: null }) } as Response);
+  await api.storeOrderItem("order/1", "item/1");
+  await api.clientStoreOrderItem("order/1", "item/1");
+  expect(request.mock.calls[0][0]).toContain("/store-orders/order%2F1/items/item%2F1");
+  expect(request.mock.calls[1][0]).toContain("/orders/order%2F1/items/item%2F1");
+});
+
 it("envia filtros e paginação para as rotas corretas de cada perfil", async () => {
   const request = jest.spyOn(global, "fetch").mockResolvedValue({ ok: true, status: 200, text: async () => JSON.stringify({ items: [], total: 0, page: 2, limit: 10 }) } as Response);
   await api.storeOrdersPage({ status: "READY", from: "2026-10-01T00:00:00Z", page: 2, limit: 10 });
