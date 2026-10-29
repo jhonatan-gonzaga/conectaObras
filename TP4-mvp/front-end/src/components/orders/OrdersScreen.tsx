@@ -80,19 +80,19 @@ export function OrdersScreen({ audience, status, onBack, onOpenProfile, renderFo
         </ScrollView>
         <View className="mb-4 gap-3 rounded-[18px] bg-card p-4">
           <Text className="font-semibold text-foreground">Período do pedido</Text>
-          <View className="flex-row gap-2">
-            <View className="flex-1"><NativeDateTimeField label="Data inicial" mode="date" value={from} onChange={setFrom} disabled={locked} placeholder="AAAA-MM-DD" /></View>
-            <View className="flex-1"><NativeDateTimeField label="Data final" mode="date" value={to} onChange={setTo} disabled={locked} placeholder="AAAA-MM-DD" /></View>
+          <View className="flex-row flex-wrap gap-2">
+            <View className="min-w-[150px] flex-1"><NativeDateTimeField label="Data inicial" mode="date" value={from} onChange={setFrom} disabled={locked} placeholder="AAAA-MM-DD" /></View>
+            <View className="min-w-[150px] flex-1"><NativeDateTimeField label="Data final" mode="date" value={to} onChange={setTo} disabled={locked} placeholder="AAAA-MM-DD" /></View>
           </View>
           {periodError ? <Text accessibilityRole="alert" className="text-sm text-primary">{periodError}</Text> : null}
           <View className="flex-row flex-wrap gap-2"><OrderButton label="Aplicar período" disabled={locked} onPress={applyPeriod} /><OrderButton label="Limpar período" disabled={locked} secondary onPress={() => { setFrom(""); setTo(""); setPeriodError(null); orders.changeFilters({ from: undefined, to: undefined, page: 1 }); }} /></View>
         </View>
         <View className="mb-4 flex-row items-center justify-between"><Text className="text-sm text-muted-foreground">{orders.data.total} pedido(s)</Text><OrderButton label="Atualizar pedidos" secondary disabled={locked || orders.loading} onPress={() => void orders.refresh(true)} /></View>
-        {orders.loading ? <LoadingState label="Carregando pedidos..." /> : orders.data.items.length ? orders.data.items.map((order) => <OrderCard key={order.id} order={order} onPress={() => orders.open(order.id)} disabled={locked} />) : !orders.error ? <EmptyState message="Nenhum pedido encontrado com esses filtros." /> : null}
+        {orders.loading ? <LoadingState label="Carregando pedidos..." /> : orders.data.items.length ? orders.data.items.map((order) => <OrderCard key={order.id} order={order} audience={audience} onPress={() => orders.open(order.id)} disabled={locked} />) : !orders.error ? <EmptyState message="Nenhum pedido encontrado com esses filtros." /> : null}
         <View className="mt-4 flex-row items-center justify-between gap-2">
-          <OrderButton label="Página anterior" secondary disabled={locked || orders.loading || (orders.filters.page ?? 1) <= 1} onPress={() => orders.changeFilters({ page: (orders.filters.page ?? 1) - 1 })} />
+          <OrderButton label="Anterior" accessibilityLabel="Página anterior" secondary disabled={locked || orders.loading || (orders.filters.page ?? 1) <= 1} onPress={() => orders.changeFilters({ page: (orders.filters.page ?? 1) - 1 })} />
           <Text className="text-xs text-muted-foreground">{orders.filters.page ?? 1} / {pages}</Text>
-          <OrderButton label="Próxima página" secondary disabled={locked || orders.loading || (orders.filters.page ?? 1) >= pages} onPress={() => orders.changeFilters({ page: (orders.filters.page ?? 1) + 1 })} />
+          <OrderButton label="Próxima" accessibilityLabel="Próxima página" secondary disabled={locked || orders.loading || (orders.filters.page ?? 1) >= pages} onPress={() => orders.changeFilters({ page: (orders.filters.page ?? 1) + 1 })} />
         </View>
       </>}
     </ScrollView>

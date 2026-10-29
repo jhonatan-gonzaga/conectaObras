@@ -3,10 +3,10 @@ import { Pressable, Text, View } from "react-native";
 import { formatMoney, type StoreOrder } from "../../services/api";
 import { deliveryLabels, orderDate, orderLabels } from "../../services/store-orders";
 
-export function OrderButton({ label, onPress, disabled = false, secondary = false }: {
-  label: string; onPress: () => void; disabled?: boolean; secondary?: boolean;
+export function OrderButton({ label, accessibilityLabel = label, onPress, disabled = false, secondary = false }: {
+  label: string; accessibilityLabel?: string; onPress: () => void; disabled?: boolean; secondary?: boolean;
 }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled}
+  return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} accessibilityState={{ disabled }} disabled={disabled}
     onPress={onPress} className={`min-h-11 items-center justify-center rounded-full px-4 py-3 ${disabled ? "opacity-40" : ""} ${secondary ? "bg-muted" : "bg-primary"}`}>
     <Text className={`text-sm font-semibold ${secondary ? "text-primary" : "text-white"}`}>{label}</Text>
   </Pressable>;
@@ -21,7 +21,7 @@ export function OrderBadge({ order }: { order: StoreOrder }) {
   </View>;
 }
 
-export function OrderCard({ order, onPress, disabled }: { order: StoreOrder; onPress: () => void; disabled: boolean }) {
+export function OrderCard({ order, onPress, disabled, audience }: { order: StoreOrder; onPress: () => void; disabled: boolean; audience: "owner" | "client" }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={`Abrir pedido ${order.orderNumber ?? order.id}`} disabled={disabled}
     onPress={onPress} className="mb-3 gap-3 rounded-[18px] bg-card p-4 shadow-sm shadow-black/5">
     <View className="flex-row items-center justify-between gap-2">
@@ -32,7 +32,7 @@ export function OrderCard({ order, onPress, disabled }: { order: StoreOrder; onP
     <View className="flex-row items-center gap-3 rounded-xl bg-background p-3">
       <Ionicons name="storefront-outline" size={24} color="#b94b50" />
       <View className="min-w-0 flex-1">
-        <Text className="font-semibold text-foreground">{order.store?.name || order.customer?.name || "Pedido da loja"}</Text>
+        <Text className="font-semibold text-foreground">{audience === "owner" ? order.customer?.name || "Cliente não informado" : order.store?.name || "Pedido da loja"}</Text>
         <Text numberOfLines={2} className="text-xs text-muted-foreground">{order.items.map((item) => `${item.quantity}× ${item.name}`).join(" · ")}</Text>
       </View>
     </View>

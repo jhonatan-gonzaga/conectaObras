@@ -71,6 +71,30 @@ it("rejeita período invertido e data inexistente antes da API", async () => {
   expect(api.storeOrdersPage).toHaveBeenCalledTimes(1);
 });
 
+it("volta à última página existente quando uma atualização esvazia a página atual", async () => {
+  jest.mocked(api.storeOrdersPage).mockImplementation(async (filters) => orderPage([order], filters?.page, 11));
+  const screen = render(<StoreOrdersScreen onBack={jest.fn()} />);
+  await screen.findByLabelText("Abrir pedido PED-A");
+  fireEvent.press(screen.getByLabelText("Próxima página"));
+  await waitFor(() => expect(api.storeOrdersPage).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 })));
+  await screen.findByLabelText("Abrir pedido PED-A");
+  jest.mocked(api.storeOrdersPage).mockImplementation(async (filters) => orderPage(filters?.page === 2 ? [] : [order], filters?.page, 10));
+  fireEvent.press(screen.getByLabelText("Atualizar pedidos"));
+  await waitFor(() => expect(api.storeOrdersPage).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 })));
+  expect(await screen.findByLabelText("Abrir pedido PED-A")).toBeTruthy();
+  expect(screen.getByLabelText("Próxima página")).toBeDisabled();
+});
+
+it("trata falha ao carregar detalhe sem mostrar as ações do pedido anterior", async () => {
+  jest.mocked(api.storeOrder).mockRejectedValueOnce(new ApiError("Pedido não encontrado", 404));
+  const screen = render(<StoreOrdersScreen onBack={jest.fn()} />);
+  fireEvent.press(await screen.findByLabelText("Abrir pedido PED-A"));
+  await screen.findByText("Pedido não encontrado");
+  expect(screen.queryByLabelText("Pedido: Cancelado")).toBeNull();
+  fireEvent.press(screen.getByLabelText("Tentar novamente"));
+  expect(await screen.findByText("Pedido PED-A")).toBeTruthy();
+});
+
 it("pede confirmação, permite desistir e bloqueia duplo toque durante a gravação", async () => {
   let finish!: (value: StoreOrder) => void;
   const change = jest.spyOn(api, "changeStoreOrderDeliveryStatus").mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
