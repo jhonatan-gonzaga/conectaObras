@@ -8,6 +8,7 @@ import {
 } from "../pages";
 import { ClientMessageScreen } from "../pages/cliente/mensagem-profissional";
 import { ClientProductsPage, ClientStoresPage, ClientProductDetailPage, ClientStoreDetailPage } from "../pages/cliente/catalog";
+import { CommerceHomePage, CommerceSearchPage, CommerceCartPage, CommerceOrdersPage } from "../pages/cliente/commerce";
 import { useEffect } from "react";
 import { BackHandler } from "react-native";
 import type { ClientNavKey } from "../components/cliente";
@@ -30,13 +31,17 @@ export function ClientNavigator({
   onToggleDarkMode,
 }: ClientNavigatorProps) {
   useEffect(() => {
+    if (navigation.clientMode === "commerce" && !navigation.catalogRoute && screen !== "clientCommerceHome") {
+      const subscription = BackHandler.addEventListener("hardwareBackPress", () => { navigation.openCommerceTab("home"); return true; });
+      return () => subscription.remove();
+    }
     if (!navigation.catalogRoute || navigation.catalogRoute.screen !== screen) return;
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       navigation.backCatalog();
       return true;
     });
     return () => subscription.remove();
-  }, [screen, navigation.catalogRoute, navigation.backCatalog]);
+  }, [screen, navigation.catalogRoute, navigation.backCatalog, navigation.clientMode]);
   const {
     setScreen,
     openClientTab,
@@ -52,7 +57,19 @@ export function ClientNavigator({
     setContractedClientServices,
   } = navigation;
 
+  const commerceFrame = { onBack: () => screen === "clientCommerceHome" ? setScreen("profileChoice") : navigation.openCommerceTab("home"), onProfilePress: () => openAccountProfile(screen === "clientCommerceSearch" || screen === "clientCart" || screen === "clientOrders" ? screen : "clientCommerceHome") };
+  const commerceLinks = {
+    onStores: () => navigation.openCatalog({ screen: "clientStores" }),
+    onProducts: (filters?: import("../services/public-catalog").ProductQuery) => navigation.openCatalog({ screen: "clientProducts", filters }),
+    onStore: (id: string) => navigation.openCatalog({ screen: "clientStoreDetail", id }),
+    onProduct: (id: string) => navigation.openCatalog({ screen: "clientProductDetail", id }),
+  };
+
   switch (screen) {
+    case "clientCommerceHome": return <CommerceHomePage {...commerceFrame} {...commerceLinks} />;
+    case "clientCommerceSearch": return <CommerceSearchPage {...commerceFrame} {...commerceLinks} userId={navigation.authUser?.id} state={navigation.commerceSearch} onChange={(state) => navigation.setCommerceSearch({ ...state, domain: state.domain === "stores" ? "stores" : "products" })} />;
+    case "clientCart": return <CommerceCartPage {...commerceFrame} {...commerceLinks} />;
+    case "clientOrders": return <CommerceOrdersPage {...commerceFrame} />;
     case "clientStores":
     case "clientProducts":
     case "clientStoreDetail":
@@ -62,7 +79,7 @@ export function ClientNavigator({
       const frame = {
         onBack: navigation.backCatalog,
         onProfilePress: () => openAccountProfile(screen),
-        onNavigate: (tab: ClientNavKey) => openClientTab(tab, navigation.catalogOrigin),
+        onNavigate: (tab: ClientNavKey) => openClientTab(tab, navigation.catalogOrigin === "clientSearch" ? "clientSearch" : "clientHome"),
         active: navigation.catalogOrigin === "clientSearch" ? "search" as const : "home" as const,
       };
       const onStore = (id: string) => navigation.openCatalog({ screen: "clientStoreDetail", id });

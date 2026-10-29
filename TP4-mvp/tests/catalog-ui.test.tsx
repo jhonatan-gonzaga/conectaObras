@@ -54,12 +54,12 @@ describe("customer commercial screens", () => {
     const screen = render(<Screen />);
     expect(screen.getByLabelText("Aberto agora").props.value).toBe(false);
     fireEvent.changeText(screen.getByLabelText("Buscar lojas"), "Materiais");
-    fireEvent.changeText(screen.getByLabelText("Cidade"), "Itacoatiara");
+    expect(screen.queryByLabelText("Cidade")).toBeNull();
     fireEvent.changeText(screen.getByLabelText("Bairro"), "Centro");
     fireEvent(screen.getByLabelText("Aberto agora"), "valueChange", true);
     expect(fetch).not.toHaveBeenCalled();
     await act(async () => jest.advanceTimersByTime(350));
-    expect(fetch).toHaveBeenLastCalledWith({ q: "Materiais", city: "Itacoatiara", neighborhood: "Centro", openNow: true, page: 1 });
+    expect(fetch).toHaveBeenLastCalledWith({ q: "Materiais", neighborhood: "Centro", openNow: true, page: 1 });
     fireEvent.press(screen.getByLabelText(`Ver loja ${publicStore.name}`));
     expect(open).toHaveBeenCalledWith(publicStore.id);
     expect(screen.getByText("Mostrando 1 de 1 resultados")).toBeTruthy();
@@ -116,6 +116,17 @@ describe("customer commercial screens", () => {
     fireEvent.press(screen.getByLabelText(`Ver produto ${publicProduct.name}`));
     expect(openProduct.mock.calls).toEqual([[publicProduct.id], [publicProduct.id]]);
     expect(screen.queryByText(/avaliações|Entrega rápida|km de/)).toBeNull();
+  });
+
+  it("refuses products from a different store even if the API returns them", async () => {
+    jest.useFakeTimers();
+    jest.spyOn(api, "publicStore").mockResolvedValue(publicStore);
+    jest.spyOn(api, "publicProducts").mockResolvedValue({ items: [{ ...publicProduct, store: { ...publicStore, id: "other-store" } }], total: 1, page: 1, limit: 20 });
+    const screen = render(<ClientStoreDetailPage id={publicStore.id} onProduct={jest.fn()} onBack={jest.fn()} />);
+    await act(async () => {});
+    await act(async () => jest.advanceTimersByTime(350));
+    expect(screen.getByText(/confirmar os produtos desta loja/)).toBeTruthy();
+    expect(screen.queryByLabelText(`Ver produto ${publicProduct.name}`)).toBeNull();
   });
 
   it("shows API prices and real store navigation in product details without a purchase flow", async () => {

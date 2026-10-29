@@ -7,25 +7,29 @@ import { ProjectHeader } from "../profissional/components";
 import { resolveImageUrl } from "../../services/api";
 import { formatCatalogPrice, formatPublicAddress, type PublicProduct, type PublicStore } from "../../services/public-catalog";
 import type { RecentSearch, useRecentSearches } from "../../services/recent-searches";
+import { useCommerce } from "./CommerceContext";
+import { CommerceHeader, CommerceBottomNav } from "./CommerceNavigation";
+import { confirmedStock } from "../../services/commerce-cart";
 
 export function CatalogFrame({ title, children, onBack, onProfilePress, onNavigate, active = "home" }: {
   title: string; children: ReactNode; onBack: () => void; onProfilePress?: () => void;
   onNavigate?: (tab: ClientNavKey) => void; active?: ClientNavKey;
 }) {
+  const commerce = useCommerce();
   return <View className="flex-1 w-full max-w-[480px] bg-background">
-    <ProjectHeader onBack={onBack} onProfilePress={onProfilePress} />
+    {commerce?.active ? <CommerceHeader title={title} onBack={onBack} onProfilePress={onProfilePress} /> : <ProjectHeader onBack={onBack} onProfilePress={onProfilePress} />}
     <ScrollView className="flex-1" contentContainerClassName="gap-5 px-4 pb-8 pt-5" keyboardShouldPersistTaps="handled">
       <Text accessibilityRole="header" className="font-sans text-[26px] font-bold leading-8 text-foreground">{title}</Text>
       {children}
     </ScrollView>
-    <View className="px-5 pb-2"><ClientBottomNav active={active} onSelect={onNavigate} /></View>
+    {commerce?.active ? <CommerceBottomNav /> : <View className="px-5 pb-2"><ClientBottomNav active={active} onSelect={onNavigate} /></View>}
   </View>;
 }
 
-export function CatalogAction({ label, onPress, primary = false, disabled = false }: { label: string; onPress: () => void; primary?: boolean; disabled?: boolean }) {
+export function CatalogAction({ label, text, onPress, primary = false, disabled = false }: { label: string; text?: string; onPress: () => void; primary?: boolean; disabled?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} accessibilityState={{ disabled }} onPress={onPress}
     className={`min-h-11 items-center justify-center rounded-full px-4 py-3 ${primary ? "bg-primary" : "bg-card border border-input-border"} ${disabled ? "opacity-50" : ""}`}>
-    <Text className={`font-sans text-sm font-semibold ${primary ? "text-white" : "text-primary"}`}>{label}</Text>
+    <Text className={`text-center font-sans text-sm font-semibold ${primary ? "text-white" : "text-primary"}`}>{text ?? label}</Text>
   </Pressable>;
 }
 
@@ -43,11 +47,11 @@ export function CatalogInput({ label, ...props }: TextInputProps & { label: stri
   </View>;
 }
 
-export function CatalogSearchInput({ query, onChange, placeholder }: { query: string; onChange: (value: string) => void; placeholder: string }) {
+export function CatalogSearchInput({ query, onChange, placeholder, onSubmit }: { query: string; onChange: (value: string) => void; placeholder: string; onSubmit?: () => void }) {
   return <View className="min-h-12 flex-row items-center gap-2 rounded-full border border-input-border bg-card pl-4 pr-1">
     <Ionicons name="search-outline" size={20} color="#8b7b7e" />
     <TextInput accessibilityLabel={placeholder} value={query} onChangeText={onChange} maxLength={120} placeholder={placeholder} placeholderTextColor="#8b7b7e"
-      returnKeyType="search" className="min-h-12 flex-1 py-3 font-sans text-sm text-foreground" />
+      returnKeyType="search" onSubmitEditing={onSubmit} className="min-h-12 flex-1 py-3 font-sans text-sm text-foreground" />
     {query ? <Pressable accessibilityRole="button" accessibilityLabel="Limpar texto da busca" onPress={() => onChange("")} className="h-11 w-11 items-center justify-center"><Ionicons name="close" size={18} color="#8b7b7e" /></Pressable> : null}
   </View>;
 }
@@ -107,9 +111,10 @@ export function ProductPrice({ product, large = false }: { product: PublicProduc
   </View>;
 }
 
-export function ProductCard({ product, onPress }: { product: PublicProduct; onPress: () => void }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={`Ver produto ${product.name}`} onPress={onPress} className="w-[48%] overflow-hidden rounded-2xl border border-black/5 bg-card shadow-sm shadow-black/5">
-    <View className="relative"><CatalogImage uri={product.coverUrl} label={product.name} height={150} />
+export function ProductCard({ product, onPress, fullWidth = false }: { product: PublicProduct; onPress: () => void; fullWidth?: boolean }) {
+  return <View className={`${fullWidth ? "w-full" : "w-[48%]"} overflow-hidden rounded-2xl border border-black/5 bg-card shadow-sm shadow-black/5`}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Ver produto ${product.name}`} onPress={onPress} className="flex-1">
+    <View className="relative"><CatalogImage uri={product.coverUrl} label={product.name} height={fullWidth ? 200 : 150} />
       {product.onPromotion ? <View className="absolute left-2 top-2 rounded-full bg-primary px-2 py-1"><Text className="font-sans text-[10px] font-semibold text-white">Promoção</Text></View> : null}
     </View>
     <View className="flex-1 gap-2 p-3">
@@ -118,7 +123,20 @@ export function ProductCard({ product, onPress }: { product: PublicProduct; onPr
       <View className="mt-auto pt-2"><ProductPrice product={product} /></View>
       <Text className="font-sans text-xs text-muted-foreground">{product.inStock ? `Em estoque: ${product.stock}` : "Sem estoque"}</Text>
     </View>
-  </Pressable>;
+    </Pressable>
+    <View className="px-3 pb-3"><AddToCart product={product} /></View>
+  </View>;
+}
+
+export function AddToCart({ product }: { product: PublicProduct }) {
+  const commerce = useCommerce();
+  const [notice, setNotice] = useState(false);
+  if (!commerce?.active) return null;
+  const busy = commerce.cart.busy.includes(product.id);
+  return <View className="gap-2">
+    <CatalogAction label={`Adicionar ao carrinho: ${product.name}`} text={busy ? "Confirmando estoque..." : "+ Adicionar ao carrinho"} disabled={!commerce.cart.ready || busy || !confirmedStock(product)} primary onPress={() => { setNotice(true); void commerce.cart.add(product.id); }} />
+    {notice && !busy ? <Text accessibilityLiveRegion="polite" className="font-sans text-xs text-primary">{commerce.cart.error ?? (commerce.cart.lines.some((line) => line.id === product.id) ? "Item no carrinho" : "Consulte o carrinho para atualizar os itens.")}</Text> : null}
+  </View>;
 }
 
 export function CatalogSkeleton() {

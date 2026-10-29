@@ -7,7 +7,7 @@ import { ApiError, api, type StoreIdentity } from "../services/api";
 
 const logo = require("../../assets/logotipo.png");
 
-type ProfileType = "cliente" | "profissional" | "lojista";
+type ProfileType = "cliente" | "profissional" | "lojista" | "loja";
 
 export function ProfileChoiceScreen({
   onBack,
@@ -63,10 +63,10 @@ export function ProfileChoiceScreen({
       showsVerticalScrollIndicator={false}
     >
       <View className="w-full bg-background" style={{ minHeight: height }}>
-      <View className="flex-row items-center justify-between px-5 pb-4 pt-12">
+      <View className="flex-row items-center justify-between px-5 py-4">
         <Pressable
           onPress={onBack}
-          className="h-9 w-9 items-center justify-center"
+          className="h-11 w-11 items-center justify-center"
           accessibilityRole="button"
           accessibilityLabel={isAuthenticated ? "Voltar" : "Voltar para entrar"}
         >
@@ -77,12 +77,7 @@ export function ProfileChoiceScreen({
           />
         </Pressable>
 
-        <Image
-          source={logo}
-          className="h-10 w-[150px]"
-          resizeMode="contain"
-          accessibilityLabel="Conecta Obras Itacoatiara"
-        />
+        <Text className="text-base font-bold text-foreground">Escolher Perfil</Text>
 
         <View className="h-10 w-10" />
       </View>
@@ -90,19 +85,18 @@ export function ProfileChoiceScreen({
       <View className="h-px bg-muted" />
 
       <View className="items-center px-5 pb-6 pt-7">
+        <Image source={logo} className="mb-6 h-12 w-[200px]" resizeMode="contain" accessibilityLabel="Conecta Obras Itacoatiara" />
         <View className="mb-5 rounded-full bg-[#f7e8e9] px-5 py-2">
           <Text className="text-sm font-bold uppercase tracking-[1.6px] text-primary">
             {isAuthenticated ? "Perfil ativo" : "Ola, bem-vindo(a)!"}
           </Text>
         </View>
 
-        <Text className="mb-3 text-center text-3xl font-bold text-foreground">
-          {isAuthenticated ? "Como deseja usar o Conecta Obras?" : "Informe o seu perfil"}
+        <Text className="mb-3 text-center text-[22px] font-extrabold text-foreground">
+          Como você quer usar o aplicativo?
         </Text>
-        <Text className="mb-8 text-center text-base leading-7 text-muted-foreground">
-          {isAuthenticated
-            ? "Voce pode usar o perfil Cliente sem criar perfil profissional ou loja. Profissional e Lojista sao opcionais e iniciam cadastros especificos; os perfis concluidos continuam salvos."
-            : "Comece como Cliente sem cadastros adicionais. Profissional e Lojista sao opcionais e so iniciam seus cadastros especificos se voce escolher um deles."}
+        <Text className="mb-6 text-center text-sm leading-6 text-muted-foreground">
+          Escolha seu acesso. Cliente e Loja usam sua conta de cliente. Profissional e Dono de Loja têm cadastros próprios; seus perfis continuam salvos.
         </Text>
 
         <View
@@ -112,23 +106,31 @@ export function ProfileChoiceScreen({
           <ProfileCard
             label="Cliente"
             description="Busque por servicos e produtos locais"
-            icon="person-outline"
+            icon="bag-outline"
             selected={selectedProfile === "cliente"}
             onPress={() => setSelectedProfile("cliente")}
           />
           <ProfileCard
             label="Profissional"
             description="Ofereca sua mao de obra e servicos"
-            icon="color-palette-outline"
+            icon="construct-outline"
             selected={selectedProfile === "profissional"}
             onPress={() => setSelectedProfile("profissional")}
           />
           <ProfileCard
-            label={store?.name?.trim() || "Lojista"}
+            label="Dono de Loja"
             description={store ? "Sua loja já está cadastrada. Toque para acessar o painel." : storeLookupError ? "Não foi possível consultar sua loja. Você ainda pode acessar o perfil Lojista." : "Cadastre sua loja e venda produtos locais"}
             icon="storefront-outline"
             selected={selectedProfile === "lojista"}
             onPress={() => setSelectedProfile("lojista")}
+          />
+          {store?.name?.trim() ? <Text className="px-4 text-sm font-semibold text-primary">{store.name}</Text> : null}
+          <ProfileCard
+            label="Loja"
+            description="Comercial · Veja lojas, produtos e compras"
+            icon="bag-outline"
+            selected={selectedProfile === "loja"}
+            onPress={() => setSelectedProfile("loja")}
           />
         </View>
       </View>

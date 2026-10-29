@@ -1,7 +1,7 @@
 import { Linking, Text, View } from "react-native";
 import type { ClientNavKey } from "../../components/cliente";
 import { ProductCatalog, StoreCatalog } from "../../components/cliente/catalog-results";
-import { CatalogAction, CatalogError, CatalogFrame, CatalogImage, CatalogSkeleton, ProductPrice, RecentSearches } from "../../components/cliente/catalog-ui";
+import { AddToCart, CatalogAction, CatalogError, CatalogFrame, CatalogImage, CatalogSkeleton, ProductPrice, RecentSearches } from "../../components/cliente/catalog-ui";
 import { api, ApiError } from "../../services/api";
 import { formatCatalogPrice, formatPublicAddress, weekDayLabels, weekDays, type ProductQuery, type StoreQuery } from "../../services/public-catalog";
 import { useRecentSearches } from "../../services/recent-searches";
@@ -43,10 +43,11 @@ export function ClientStoreDetailPage({ id, onProduct, filters: savedFilters, on
     try { await Linking.openURL(kind === "tel" ? `tel:+${phone}` : `https://wa.me/${phone}`); }
     catch { setContactError("Não foi possível abrir o contato da loja neste dispositivo."); }
   };
-  return <CatalogFrame title="Detalhes da loja" {...frame}>
+  return <CatalogFrame title="Página da Loja" {...frame}>
     {detail.loading ? <CatalogSkeleton /> : detail.error ? <DetailError error={detail.error} kind="Loja" onRetry={detail.retry} /> : store ? <>
       <CatalogImage uri={store.backgroundUrl ?? store.coverUrl} label={store.name || "Loja"} height={200} />
       <View className="gap-3 rounded-2xl bg-card p-4">
+        {store.logoUrl ? <View className="w-20"><CatalogImage uri={store.logoUrl} label={`Logo ${store.name || "da loja"}`} height={70} /></View> : null}
         <Text className="font-sans text-2xl font-bold text-foreground">{store.name || "Loja"}</Text>
         <Text className="font-sans text-sm font-semibold text-primary">{store.openNow ? "Aberto agora" : "Fechado"}</Text>
         {store.description ? <Text className="font-sans text-sm leading-6 text-foreground">{store.description}</Text> : null}
@@ -68,7 +69,7 @@ export function ClientStoreDetailPage({ id, onProduct, filters: savedFilters, on
         </View>)}
       </View> : null}
       <Text className="font-sans text-xl font-bold text-foreground">Produtos da loja</Text>
-      <ProductCatalog filters={{ ...(savedFilters ?? filters), storeId: id }} onChange={onFiltersChange ?? setFilters} onProduct={onProduct} />
+      <ProductCatalog fullWidth filters={{ ...(savedFilters ?? filters), storeId: id }} onChange={onFiltersChange ?? setFilters} onProduct={onProduct} />
     </> : null}
   </CatalogFrame>;
 }
@@ -84,7 +85,9 @@ export function ClientProductDetailPage({ id, onStore, ...frame }: FrameProps & 
       <View className="gap-3 rounded-2xl bg-card p-4"><ProductPrice product={product} large />
         {product.onPromotion ? <Text className="font-sans text-sm font-semibold text-primary">Promoção vigente</Text> : null}
         <Text className="font-sans text-sm text-foreground">{product.inStock ? `Disponível em estoque (${product.stock} unidades)` : "Produto sem estoque"}</Text>
+        <AddToCart product={product} />
       </View>
+      {product.images.length > 1 ? <View className="gap-3">{product.images.filter((image) => image.url !== product.coverUrl).map((image) => <CatalogImage key={image.url} uri={image.url} label={image.altText || product.name} height={220} />)}</View> : null}
       <View className="gap-3 rounded-2xl bg-card p-4"><Text className="font-sans text-lg font-semibold text-foreground">Descrição do produto</Text><Text className="font-sans text-sm leading-6 text-muted-foreground">{product.description || "Descrição não informada."}</Text></View>
       <View className="gap-3 rounded-2xl bg-card p-4">
         <Text className="font-sans text-lg font-bold text-foreground">{product.store.name || "Loja"}</Text>

@@ -13,7 +13,7 @@ describe("ProfileChoiceScreen store identity", () => {
 
     expect(await screen.findByText("Loja Central")).toBeTruthy();
     expect(screen.getByText("Sua loja já está cadastrada. Toque para acessar o painel.")).toBeTruthy();
-    expect(screen.getByLabelText("Loja Central")).toBeTruthy();
+    expect(screen.getByLabelText("Dono de Loja")).toBeTruthy();
   });
 
   it("keeps the signup option when there is no store", async () => {
@@ -21,7 +21,7 @@ describe("ProfileChoiceScreen store identity", () => {
     const screen = render(<ProfileChoiceScreen onBack={jest.fn()} onContinue={jest.fn()} isAuthenticated />);
 
     expect(await screen.findByText("Cadastre sua loja e venda produtos locais")).toBeTruthy();
-    expect(screen.getByLabelText("Lojista")).toBeTruthy();
+    expect(screen.getByLabelText("Dono de Loja")).toBeTruthy();
   });
 
   it("does not suggest a new registration when the lookup fails", async () => {

@@ -4,7 +4,7 @@ import type { ClientNavKey } from "../components/cliente";
 import type { ProductFilters } from "../services/store-products";
 import { ApiError, api, restoreAccessToken, type AuthUser, type SelectableUserRole, type StoreDashboardList } from "../services/api";
 import { isStoreRegistrationComplete } from "../services/store-form";
-import { emptyClientSearch, type CatalogRoute } from "./types";
+import { emptyClientSearch, type CatalogRoute, type CommerceTab, type CommerceScreen } from "./types";
 import type {
   ClientProfileReturnScreen,
   ClientWorkReturnScreen,
@@ -17,11 +17,15 @@ import type {
 export function useAppNavigation() {
   const [screen, setScreen] = useState<Screen>("login");
   const [clientSearch, setClientSearch] = useState(emptyClientSearch);
+  const [commerceSearch, setCommerceSearch] = useState(() => ({ ...emptyClientSearch(), domain: "stores" as "stores" | "products" }));
+  const [clientMode, setClientMode] = useState<"services" | "commerce">("services");
+  const [commerceTab, setCommerceTab] = useState<CommerceTab>("home");
   const [catalogTrail, setCatalogTrail] = useState<CatalogRoute[]>([]);
-  const [catalogOrigin, setCatalogOrigin] = useState<"clientHome" | "clientSearch">("clientHome");
+  const [catalogOrigin, setCatalogOrigin] = useState<"clientHome" | "clientSearch" | CommerceScreen>("clientHome");
   const openCatalog = (route: CatalogRoute) => {
+    if (clientMode === "commerce" && (route.screen === "clientStores" || route.screen === "clientProducts")) setCommerceTab("search");
     const continuing = screen === "clientStores" || screen === "clientProducts" || screen === "clientStoreDetail" || screen === "clientProductDetail";
-    if (!continuing) setCatalogOrigin(screen === "clientSearch" ? "clientSearch" : "clientHome");
+    if (!continuing) setCatalogOrigin(clientMode === "commerce" ? (screen === "clientCommerceSearch" ? "clientCommerceSearch" : screen === "clientCart" ? "clientCart" : "clientCommerceHome") : screen === "clientSearch" ? "clientSearch" : "clientHome");
     setCatalogTrail((trail) => continuing ? [...trail, route] : [route]);
     setScreen(route.screen);
   };
@@ -29,6 +33,7 @@ export function useAppNavigation() {
     const trail = catalogTrail.slice(0, -1);
     setCatalogTrail(trail);
     setScreen(trail[trail.length - 1]?.screen ?? catalogOrigin);
+    if (clientMode === "commerce" && !trail.length) setCommerceTab(catalogOrigin === "clientCommerceSearch" ? "search" : catalogOrigin === "clientCart" ? "cart" : "home");
   };
   const updateCatalogRoute = (route: CatalogRoute) => {
     setCatalogTrail((trail) => [...trail.slice(0, -1), route]);
@@ -68,7 +73,7 @@ export function useAppNavigation() {
 
   const routeForAuthenticatedUser = async (user: AuthUser) => {
     setAuthUser(user);
-    if (user.role === "CLIENTE") { setHasStore(false); setScreen("clientHome"); return; }
+    if (user.role === "CLIENTE") { setHasStore(false); setScreen(clientMode === "commerce" ? "clientCommerceHome" : "clientHome"); return; }
     if (user.role === "PROFISSIONAL") {
       setHasStore(false);
       try { await api.professionalMe(); setScreen("professionalHome"); }
@@ -109,6 +114,7 @@ export function useAppNavigation() {
   };
 
   const selectPersona = async (role: SelectableUserRole) => {
+    setClientMode("services");
     if (!authUser) {
       setSignupRole(role);
       setScreen("signup");
@@ -118,11 +124,33 @@ export function useAppNavigation() {
     const response = await api.switchRole(role);
     setAuthUser(response.user);
     await routeForAuthenticatedUser(response.user);
+    if (role === "CLIENTE") setScreen("clientHome");
+  };
+
+  const openCommerceTab = (tab: CommerceTab) => {
+    setCatalogTrail([]);
+    setCommerceTab(tab);
+    const destinations: Record<CommerceTab, CommerceScreen> = { home: "clientCommerceHome", search: "clientCommerceSearch", cart: "clientCart", orders: "clientOrders" };
+    setScreen(destinations[tab]);
+  };
+
+  const selectCommerce = async () => {
+    // Loja is a consumer mode of CLIENTE, never an authorization role.
+    if (!authUser) { setClientMode("commerce"); setSignupRole("CLIENTE"); setScreen("signup"); return; }
+    if (authUser.role !== "CLIENTE") {
+      const response = await api.switchRole("CLIENTE");
+      setAuthUser(response.user);
+    }
+    setHasStore(false);
+    setClientMode("commerce");
+    openCommerceTab("home");
   };
 
   const signOut = async () => {
     await api.logout();
     setClientSearch(emptyClientSearch()); setCatalogTrail([]); setCatalogOrigin("clientHome");
+    setClientMode("services"); setCommerceTab("home");
+    setCommerceSearch({ ...emptyClientSearch(), domain: "stores" });
     setAuthUser(null); setHasStore(false); setSelectedClientService(null); setSelectedProfessionalId(null);
     setContractedClientServices([]); setStoreListKind("active-products"); setStoreListStatus(undefined); setStoreListReturnScreen("storeOwnerDashboard");
     setProfileReturnScreen("clientHome"); setClientWorkReturnScreen("clientHome");
@@ -153,6 +181,7 @@ export function useAppNavigation() {
     tab: ClientNavKey,
     from?: ClientWorkReturnScreen,
   ) => {
+    setClientMode("services");
     setCatalogTrail([]);
     if (tab === "search") {
       setScreen("clientSearch");
@@ -171,6 +200,12 @@ export function useAppNavigation() {
   };
 
   return {
+    commerceSearch,
+    setCommerceSearch,
+    clientMode,
+    commerceTab,
+    openCommerceTab,
+    selectCommerce,
     clientSearch,
     setClientSearch,
     catalogRoute: catalogTrail[catalogTrail.length - 1],

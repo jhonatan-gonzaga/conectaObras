@@ -7,11 +7,14 @@ export type CatalogRoute =
   | { screen: "clientStoreDetail"; id: string; filters?: ProductQuery }
   | { screen: "clientProductDetail"; id: string };
 export type ClientSearchState = { domain: CatalogDomain; query: string; stores: StoreQuery; products: ProductQuery };
+export type CommerceTab = "home" | "search" | "cart" | "orders";
+export type CommerceScreen = "clientCommerceHome" | "clientCommerceSearch" | "clientCart" | "clientOrders";
 export const emptyClientSearch = (): ClientSearchState => ({ domain: "professionals", query: "", stores: {}, products: {} });
 
 export type ReturnScreen = "login" | "signup";
 
 export type ProfileReturnScreen =
+  | CommerceScreen
   | "professionalSetup"
   | "professionalHome"
   | "clientHome"
@@ -33,6 +36,7 @@ export type ClientProfileReturnScreen = "clientHome" | "clientSearch" | "clientW
 export type AuthScreen = ReturnScreen | "terms" | "privacy";
 
 export type ClientScreen =
+  | CommerceScreen
   | CatalogRoute["screen"]
   | "clientHome"
   | "clientSearch"
@@ -72,6 +76,7 @@ export function isAuthContextScreen(
 /** Telas do fluxo do cliente. */
 export function isClientContextScreen(screen: Screen): screen is ClientScreen {
   return (
+    screen === "clientCommerceHome" || screen === "clientCommerceSearch" || screen === "clientCart" || screen === "clientOrders" ||
     screen === "clientHome" ||
     screen === "clientSearch" ||
     screen === "clientWork" ||
