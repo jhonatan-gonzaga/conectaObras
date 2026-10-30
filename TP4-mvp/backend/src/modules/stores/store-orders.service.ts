@@ -7,6 +7,7 @@ import { StoreOrdersQueryDto } from './dto/store-orders-query.dto';
 import { UpsertDeliveryDto } from './dto/upsert-delivery.dto';
 
 const orderInclude = Prisma.validator<Prisma.StoreOrderInclude>()({
+  store: { select: { id: true, name: true, whatsapp: true } },
   customer: { select: { id: true, name: true, phone: true } },
   items: { select: { id: true, productId: true, name: true, sku: true, quantity: true, unitPrice: true, lineTotal: true } },
   statusHistory: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
@@ -35,17 +36,23 @@ export class StoreOrdersService {
       ...fields,
       delivery: delivery ? { id: delivery.id, status: delivery.status, trackingCode: delivery.trackingCode, carrier: delivery.carrier, estimatedDate: delivery.estimatedDate, deliveredAt: delivery.deliveredAt, createdAt: delivery.createdAt, updatedAt: delivery.updatedAt } : null,
       isDelayed: !!delivery?.estimatedDate && delivery.estimatedDate.getTime() < Date.now() && delivery.status !== DeliveryStatus.DELIVERED && delivery.status !== DeliveryStatus.CANCELED,
+      allowedActions: {
+        orderStatuses: Object.values(StoreOrderStatus).filter((target) =>
+          canTransitionOrder({ currentStatus: order.status, targetStatus: target, actor: UserRole.LOJISTA }) &&
+          (target !== StoreOrderStatus.COMPLETED || delivery?.status === DeliveryStatus.DELIVERED) &&
+          (target !== StoreOrderStatus.CANCELED || !delivery || canTransitionDelivery(delivery.status, DeliveryStatus.CANCELED, order.status))),
+        deliveryStatuses: delivery ? Object.values(DeliveryStatus).filter((target) => canTransitionDelivery(delivery.status, target, order.status)) : [],
+        canEditDelivery: new Set<StoreOrderStatus>([StoreOrderStatus.CONFIRMED, StoreOrderStatus.PREPARING, StoreOrderStatus.READY]).has(order.status) &&
+          delivery?.status !== DeliveryStatus.DELIVERED && delivery?.status !== DeliveryStatus.CANCELED,
+      },
       timeline,
     };
   }
 
   async list(ownerId: string, query: StoreOrdersQueryDto) {
     const storeId = await this.storeId(ownerId);
-    const from = query.from ? new Date(query.from) : undefined;
-    const to = query.to ? new Date(query.to) : undefined;
-    if (from && to && from > to) throw new BadRequestException('Periodo invalido.');
     const orders = await this.prisma.storeOrder.findMany({
-      where: { storeId, status: query.status, createdAt: { gte: from, lte: to } },
+      where: { ...this.filters(query), storeId },
       include: orderInclude,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
@@ -57,6 +64,98 @@ export class StoreOrdersService {
     const order = await this.prisma.storeOrder.findFirst({ where: { id, storeId }, include: orderInclude });
     if (!order) throw new NotFoundException('Pedido nao encontrado.');
     return this.present(order);
+  }
+
+  private filters(query: StoreOrdersQueryDto): Prisma.StoreOrderWhereInput {
+    const from = query.from ? new Date(query.from) : undefined;
+    const to = query.to ? new Date(query.to) : undefined;
+    if (from && to && from > to) throw new BadRequestException('Periodo invalido.');
+    if (query.status && query.group) throw new BadRequestException('Use status ou grupo, não ambos.');
+    const status = query.status ?? (query.group === 'COMPLETED' ? StoreOrderStatus.COMPLETED :
+      query.group === 'OPEN' ? { notIn: [StoreOrderStatus.COMPLETED, StoreOrderStatus.CANCELED] } : undefined);
+    return { status, createdAt: { gte: from, lte: to } };
+  }
+
+  async listPage(ownerId: string, query: StoreOrdersQueryDto) {
+    const storeId = await this.storeId(ownerId);
+    return this.page({ ...this.filters(query), storeId }, query, false);
+  }
+
+  async listClient(customerId: string, query: StoreOrdersQueryDto) {
+    return this.page({ ...this.filters(query), customerId }, query, true);
+  }
+
+  async getClient(customerId: string, id: string) {
+    const order = await this.prisma.storeOrder.findFirst({ where: { id, customerId }, include: orderInclude });
+    if (!order) throw new NotFoundException('Pedido nao encontrado.');
+    return this.presentClient(order);
+  }
+
+  async getItem(ownerId: string, orderId: string, itemId: string) {
+    return this.itemDetails(orderId, itemId, { storeId: await this.storeId(ownerId) }, true);
+  }
+
+  async getClientItem(customerId: string, orderId: string, itemId: string) {
+    return this.itemDetails(orderId, itemId, { customerId }, false);
+  }
+
+  private async itemDetails(orderId: string, itemId: string, scope: { storeId?: string; customerId?: string }, owner: boolean) {
+    const row = await this.prisma.storeOrderItem.findFirst({
+      where: { id: itemId, order: { id: orderId, ...scope } },
+      select: {
+        id: true, name: true, sku: true, quantity: true, unitPrice: true, lineTotal: true,
+        order: { select: { storeId: true } },
+        product: {
+          select: {
+            storeId: true, name: true, description: true, price: true, sku: true, stock: true, status: true,
+            category: { select: { name: true } },
+            images: {
+              select: { id: true, url: true, altText: true, position: true, isCover: true },
+              orderBy: [{ position: 'asc' }, { id: 'asc' }],
+            },
+          },
+        },
+      },
+    });
+    if (!row) throw new NotFoundException('Item do pedido nao encontrado.');
+    const { product, order, ...item } = row;
+    // A legacy item can outlive its catalog entry; its purchase snapshot remains valid.
+    const catalog = product?.storeId === order.storeId ? product : null;
+    return {
+      item,
+      product: catalog ? {
+        name: catalog.name, description: catalog.description, price: catalog.price, sku: catalog.sku,
+        categoryName: catalog.category.name, images: catalog.images,
+        ...(owner ? { stock: catalog.stock, status: catalog.status } : {}),
+      } : null,
+    };
+  }
+
+  private presentClient(order: OrderWithTracking) {
+    const result = this.present(order);
+    return {
+      id: result.id, orderNumber: result.orderNumber, status: result.status,
+      store: result.store, customer: null, addressSnapshot: result.addressSnapshot,
+      items: result.items.map(({ productId, ...item }) => item),
+      subtotal: result.subtotal, discount: result.discount, total: result.total, createdAt: result.createdAt,
+      delivery: result.delivery, isDelayed: result.isDelayed,
+      timeline: result.timeline.map(({ actorId, ...event }) => event),
+      allowedActions: { orderStatuses: [], deliveryStatuses: [], canEditDelivery: false },
+    };
+  }
+
+  private async page(where: Prisma.StoreOrderWhereInput, query: StoreOrdersQueryDto, client: boolean) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    return this.prisma.$transaction(async (tx) => {
+      const total = await tx.storeOrder.count({ where });
+      const orders = await tx.storeOrder.findMany({
+        where, include: orderInclude,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * limit, take: limit,
+      });
+      return { items: orders.map((order) => client ? this.presentClient(order) : this.present(order)), total, page, limit };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
 
   private async notify(tx: Prisma.TransactionClient, customerId: string | null, orderId: string, title: string, body: string) {

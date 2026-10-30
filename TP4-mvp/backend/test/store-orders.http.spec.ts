@@ -16,6 +16,11 @@ import { StoreDashboardService } from '../src/modules/stores/store-dashboard.ser
 test('LOJA-020: rotas exigem lojista e recusam loja arbitrária', async () => {
   const calls: unknown[][] = [];
   const service = {
+    getItem: async (...args: unknown[]) => { calls.push(['owner-item', ...args]); return { item: { id: 'item-a' }, product: null }; },
+    getClientItem: async (...args: unknown[]) => { calls.push(['client-item', ...args]); return { item: { id: 'item-a' }, product: null }; },
+    listClient: async (...args: unknown[]) => { calls.push(['client-list', ...args]); return { items: [], total: 0, page: 1, limit: 20 }; },
+    getClient: async (...args: unknown[]) => { calls.push(['client-get', ...args]); return {}; },
+    listPage: async (...args: unknown[]) => { calls.push(['page', ...args]); return { items: [], total: 0, page: 2, limit: 10 }; },
     list: async (...args: unknown[]) => { calls.push(['list', ...args]); return []; },
     get: async (...args: unknown[]) => { calls.push(['get', ...args]); return {}; },
     changeStatus: async (...args: unknown[]) => { calls.push(['status', ...args]); return {}; },
@@ -64,5 +69,30 @@ test('LOJA-020: rotas exigem lojista e recusam loja arbitrária', async () => {
       ['delivery', 'owner-a', 'order-a', { estimatedDate: '2026-10-24T12:00:00Z' }],
       ['delivery-status', 'owner-a', 'order-a', 'IN_TRANSIT'],
     ]);
+    const paginated = await request('?page=2&limit=10&status=READY', 'GET', owner);
+    assert.equal(paginated.status, 200);
+    assert.deepEqual(await paginated.json(), { items: [], total: 0, page: 2, limit: 10 });
+    assert.deepEqual(JSON.parse(JSON.stringify(calls.at(-1))), ['page', 'owner-a', { page: 2, limit: 10, status: 'READY' }]);
+    for (const query of ['page=0', 'page=1.5', 'page=1e2', 'page=21474837', 'limit=101', 'limit=-1', 'page=1&page=2', 'page[x]=1']) {
+      assert.equal((await request(`?${query}`, 'GET', owner)).status, 400, query);
+    }
+    assert.equal((await fetch(clientOrderUrl)).status, 401);
+    assert.equal((await fetch(clientOrderUrl, { headers: { authorization: `Bearer ${owner}` } })).status, 403);
+    assert.equal((await fetch(`${clientOrderUrl}?group=OPEN&page=1`, { headers: { authorization: `Bearer ${client}` } })).status, 200);
+    assert.deepEqual(JSON.parse(JSON.stringify(calls.at(-1))), ['client-list', 'client-a', { group: 'OPEN', page: 1 }]);
+    assert.equal((await fetch(`${clientOrderUrl}/order-a`, { headers: { authorization: `Bearer ${client}` } })).status, 200);
+    assert.deepEqual(calls.at(-1), ['client-get', 'client-a', 'order-a']);
+    for (const query of ['customerId=victim', 'storeId=other', 'group=INVALID', 'limit=0']) {
+      assert.equal((await fetch(`${clientOrderUrl}?${query}`, { headers: { authorization: `Bearer ${client}` } })).status, 400);
+    }
+    assert.equal((await request('/order-a/items/item-a')).status, 401);
+    assert.equal((await request('/order-a/items/item-a', 'GET', client)).status, 403);
+    assert.equal((await request('/order-a/items/item-a', 'GET', owner)).status, 200);
+    assert.deepEqual(calls.at(-1), ['owner-item', 'owner-a', 'order-a', 'item-a']);
+    const itemUrl = `${clientOrderUrl}/order-a/items/item-a`;
+    assert.equal((await fetch(itemUrl)).status, 401);
+    assert.equal((await fetch(itemUrl, { headers: { authorization: `Bearer ${owner}` } })).status, 403);
+    assert.equal((await fetch(itemUrl, { headers: { authorization: `Bearer ${client}` } })).status, 200);
+    assert.deepEqual(calls.at(-1), ['client-item', 'client-a', 'order-a', 'item-a']);
   } finally { await app.close(); }
 });
