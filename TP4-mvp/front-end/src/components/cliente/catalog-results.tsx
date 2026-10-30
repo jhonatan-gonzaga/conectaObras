@@ -35,7 +35,7 @@ export function StoreCatalog({ filters, onChange, onStore, history }: {
   return <View className="gap-5">
     <CatalogSearchInput query={filters.q ?? ""} onChange={(q) => patch({ q })} placeholder="Buscar lojas" />
     <View className="gap-3 rounded-2xl bg-muted p-3">
-      <View className="flex-row gap-3"><CatalogInput label="Cidade" value={filters.city ?? ""} maxLength={120} onChangeText={(city) => patch({ city })} /><CatalogInput label="Bairro" value={filters.neighborhood ?? ""} maxLength={120} onChangeText={(neighborhood) => patch({ neighborhood })} /></View>
+      <CatalogInput label="Bairro" value={filters.neighborhood ?? ""} maxLength={120} placeholder="Todos os bairros" onChangeText={(neighborhood) => patch({ neighborhood })} />
       <CatalogToggle label="Aberto agora" value={filters.openNow === true} onChange={(value) => patch({ openNow: value || undefined })} />
     </View>
     <CatalogAction label="Limpar filtros de lojas" onPress={() => onChange({})} />
@@ -45,8 +45,8 @@ export function StoreCatalog({ filters, onChange, onStore, history }: {
   </View>;
 }
 
-export function ProductCatalog({ filters, onChange, onProduct, history, showSearch = true }: {
-  filters: ProductQuery; onChange: (filters: ProductQuery) => void; onProduct: (id: string) => void; history?: History; showSearch?: boolean;
+export function ProductCatalog({ filters, onChange, onProduct, history, showSearch = true, fullWidth = false }: {
+  filters: ProductQuery; onChange: (filters: ProductQuery) => void; onProduct: (id: string) => void; history?: History; showSearch?: boolean; fullWidth?: boolean;
 }) {
   const [minPrice, setMinPrice] = useState(filters.minPrice ?? "");
   const [maxPrice, setMaxPrice] = useState(filters.maxPrice ?? "");
@@ -61,7 +61,10 @@ export function ProductCatalog({ filters, onChange, onProduct, history, showSear
   const categories = useCatalogDetail(api.productCategories, "categories");
   const fetchPage = useCallback((query: ProductQuery): Promise<CatalogPage<PublicProduct>> => {
     history?.record("products", query.q ?? "");
-    return api.publicProducts(query);
+    return api.publicProducts(query).then((page) => {
+      if (query.storeId && page.items.some((product) => product.store.id !== query.storeId)) throw new Error("Não foi possível confirmar os produtos desta loja. Tente novamente.");
+      return page;
+    });
   }, [history?.record]);
   const query = { ...filters, minPrice: catalogPriceInput(minPrice), maxPrice: catalogPriceInput(maxPrice) };
   const result = useCatalogPage<PublicProduct, ProductQuery>(fetchPage, query, !priceError);
@@ -88,7 +91,7 @@ export function ProductCatalog({ filters, onChange, onProduct, history, showSear
     </View>
     <CatalogAction label="Limpar filtros de produtos" onPress={() => { setMinPrice(""); setMaxPrice(""); onChange(filters.storeId ? { storeId: filters.storeId } : {}); }} />
     {!priceError ? <PageResults result={result} empty="Nenhum produto encontrado. Experimente outros filtros.">
-      <View className="flex-row flex-wrap justify-between gap-y-4">{result.items.map((product) => <ProductCard key={product.id} product={product} onPress={() => onProduct(product.id)} />)}</View>
+      <View className="flex-row flex-wrap justify-between gap-y-4">{result.items.map((product) => <ProductCard key={product.id} product={product} fullWidth={fullWidth} onPress={() => onProduct(product.id)} />)}</View>
     </PageResults> : null}
   </View>;
 }

@@ -15,6 +15,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { RootNavigator } from "./navigation/RootNavigator";
 import { isProfessionalContextScreen } from "./navigation/types";
 import { useAppNavigation } from "./navigation/useAppNavigation";
+import { CommerceProvider } from "./components/cliente/CommerceContext";
 
 const lightThemeVars = vars({
   "--color-background": "251 246 247",
@@ -62,11 +63,13 @@ export default function App() {
               isProfessionalScreen ? "" : "items-center"
             }`}
           >
+            <CommerceProvider userId={navigation.authUser?.id} active={navigation.clientMode === "commerce"} tab={navigation.commerceTab} onNavigate={navigation.openCommerceTab}>
             <RootNavigator
               navigation={navigation}
               isDarkMode={isDarkMode}
               onToggleDarkMode={setIsDarkMode}
             />
+            </CommerceProvider>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
