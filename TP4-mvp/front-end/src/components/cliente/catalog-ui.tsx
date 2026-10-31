@@ -17,7 +17,7 @@ export function CatalogFrame({ title, children, onBack, onProfilePress, onNaviga
 }) {
   const commerce = useCommerce();
   return <View className="flex-1 w-full max-w-[480px] bg-background">
-    {commerce?.active ? <CommerceHeader title={title} onBack={onBack} onProfilePress={onProfilePress} /> : <ProjectHeader onBack={onBack} onProfilePress={onProfilePress} />}
+    {commerce?.active ? <CommerceHeader onBack={onBack} onProfilePress={onProfilePress} /> : <ProjectHeader onBack={onBack} onProfilePress={onProfilePress} />}
     <ScrollView className="flex-1" contentContainerClassName="gap-5 px-4 pb-8 pt-5" keyboardShouldPersistTaps="handled">
       <Text accessibilityRole="header" className="font-sans text-[26px] font-bold leading-8 text-foreground">{title}</Text>
       {children}

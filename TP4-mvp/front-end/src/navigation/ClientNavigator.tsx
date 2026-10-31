@@ -8,7 +8,8 @@ import {
 } from "../pages";
 import { ClientMessageScreen } from "../pages/cliente/mensagem-profissional";
 import { ClientProductsPage, ClientStoresPage, ClientProductDetailPage, ClientStoreDetailPage } from "../pages/cliente/catalog";
-import { CommerceHomePage, CommerceSearchPage, CommerceCartPage, CommerceOrdersPage } from "../pages/cliente/commerce";
+import { CommerceHomePage, CommerceSearchPage, CommerceCartPage } from "../pages/cliente/commerce";
+import { CommerceOrdersPage } from "../pages/cliente/CommerceOrdersPage";
 import { useEffect } from "react";
 import { BackHandler } from "react-native";
 import type { ClientNavKey } from "../components/cliente";
@@ -69,7 +70,7 @@ export function ClientNavigator({
     case "clientCommerceHome": return <CommerceHomePage {...commerceFrame} {...commerceLinks} />;
     case "clientCommerceSearch": return <CommerceSearchPage {...commerceFrame} {...commerceLinks} userId={navigation.authUser?.id} state={navigation.commerceSearch} onChange={(state) => navigation.setCommerceSearch({ ...state, domain: state.domain === "stores" ? "stores" : "products" })} />;
     case "clientCart": return <CommerceCartPage {...commerceFrame} {...commerceLinks} />;
-    case "clientOrders": return <CommerceOrdersPage {...commerceFrame} />;
+    case "clientOrders": return <CommerceOrdersPage {...commerceFrame} onStores={commerceLinks.onStores} />;
     case "clientStores":
     case "clientProducts":
     case "clientStoreDetail":

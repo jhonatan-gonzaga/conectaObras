@@ -7,13 +7,15 @@ jest.mock("expo-secure-store", () => ({ getItemAsync: jest.fn().mockResolvedValu
 describe("ProfileChoiceScreen store identity", () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it("shows the registered store name and a return message for an authenticated user", async () => {
-    jest.spyOn(api, "storeIdentity").mockResolvedValue({ name: "Loja Central", status: "ACTIVE" });
+  it("hides the additional store name and preserves the return message and all four profiles", async () => {
+    jest.spyOn(api, "storeIdentity").mockResolvedValue({ name: "Loja teste", status: "ACTIVE" });
     const screen = render(<ProfileChoiceScreen onBack={jest.fn()} onContinue={jest.fn()} isAuthenticated activeRole="cliente" />);
 
-    expect(await screen.findByText("Loja Central")).toBeTruthy();
-    expect(screen.getByText("Sua loja já está cadastrada. Toque para acessar o painel.")).toBeTruthy();
-    expect(screen.getByLabelText("Dono de Loja")).toBeTruthy();
+    expect(await screen.findByText("Sua loja já está cadastrada. Toque para acessar o painel.")).toBeTruthy();
+    expect(screen.queryByText("Loja teste")).toBeNull();
+    for (const label of ["Cliente", "Profissional", "Dono de Loja", "Loja"]) {
+      expect(screen.getByLabelText(label)).toBeTruthy();
+    }
   });
 
   it("keeps the signup option when there is no store", async () => {

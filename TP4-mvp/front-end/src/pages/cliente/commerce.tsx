@@ -29,7 +29,7 @@ export function CommerceHomePage({ onStores, onProducts, onStore, onProduct, ...
       {[
         { label: "Lista de Lojas", detail: "Ver estabelecimentos", icon: "storefront-outline" as const, press: onStores },
         { label: "Carrinho", detail: `${commerce?.cart.count ?? 0} itens salvos`, icon: "basket-outline" as const, press: () => commerce?.onNavigate("cart") },
-        { label: "Meus Pedidos", detail: "Disponibilidade", icon: "receipt-outline" as const, press: () => commerce?.onNavigate("orders") },
+        { label: "Meus Pedidos", detail: "Consultar pedidos", icon: "receipt-outline" as const, press: () => commerce?.onNavigate("orders") },
       ].map((item) => <Pressable key={item.label} accessibilityRole="button" accessibilityLabel={item.label} onPress={item.press} className="min-h-28 flex-1 gap-2 rounded-2xl bg-card p-3">
         <View className="h-10 w-10 items-center justify-center rounded-2xl bg-muted"><Ionicons name={item.icon} size={22} color="#b94b50" /></View>
         <Text className="font-sans text-xs font-bold text-foreground">{item.label}</Text><Text className="font-sans text-[10px] leading-4 text-muted-foreground">{item.detail}</Text>
@@ -58,7 +58,6 @@ export function CommerceHomePage({ onStores, onProducts, onStore, onProduct, ...
     <CatalogAction label="Ver promoções no catálogo" onPress={() => onProducts({ onPromotion: true })} />
   </CatalogFrame>;
 }
-
 export function CommerceSearchPage({ state, onChange, userId, onStore, onProduct, ...frame }: Frame & { state: ClientSearchState; onChange: (state: ClientSearchState) => void; userId?: string; onStore: (id: string) => void; onProduct: (id: string) => void }) {
   const history = useRecentSearches(userId);
   const domain = state.domain === "stores" ? "stores" : "products";
@@ -94,8 +93,4 @@ export function CommerceCartPage({ onProduct, onStore, ...frame }: Frame & { onP
     })}
     {cart.lines.length ? <View className="gap-4 rounded-2xl bg-card p-5"><Text className="font-sans text-sm font-bold uppercase tracking-wide text-muted-foreground">Resumo do carrinho</Text><View className="flex-row justify-between"><Text className="font-sans text-sm text-muted-foreground">Subtotal dos produtos</Text><Text testID="cart-subtotal" className="font-sans text-sm font-bold text-foreground">{formatCatalogPrice(centsAsDecimal(cart.total))}</Text></View><View className="h-px bg-muted" /><View className="flex-row items-center justify-between"><Text className="font-sans text-base font-bold text-foreground">Total dos produtos</Text><Text testID="cart-total" className="font-sans text-2xl font-extrabold text-primary">{formatCatalogPrice(centsAsDecimal(cart.total))}</Text></View><Text className="font-sans text-xs leading-5 text-muted-foreground">Carrinho salvo neste dispositivo. Não há reserva de estoque nem finalização de compra disponível. Valores e disponibilidade podem mudar.</Text><CatalogAction label="Atualizar preços e estoque" disabled={cart.busy.length > 0} onPress={cart.retry} /><CatalogAction label="Adicionar mais produtos" onPress={() => commerce.onNavigate("search")} /></View> : null}
   </CatalogFrame>;
-}
-
-export function CommerceOrdersPage(frame: Frame) {
-  return <CatalogFrame title="Pedidos" {...frame}><View className="items-center gap-4 rounded-3xl bg-card p-8"><Ionicons name="receipt-outline" size={40} color="#b94b50" /><Text className="text-center font-sans text-lg font-bold text-foreground">Consulta de pedidos indisponível</Text><Text className="text-center font-sans text-sm leading-6 text-muted-foreground">O acompanhamento de pedidos para clientes ainda não está disponível. Você pode consultar lojas e organizar os produtos no carrinho local.</Text></View></CatalogFrame>;
 }

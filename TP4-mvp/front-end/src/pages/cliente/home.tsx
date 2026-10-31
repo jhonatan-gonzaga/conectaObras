@@ -206,17 +206,6 @@ export function ClientHomePage({
           </Pressable>
         </View>
 
-        <View className="mb-6 flex-row gap-3">
-          {([
-            { label: "Lojas de materiais", icon: "storefront-outline", action: () => onOpenStores?.() },
-            { label: "Catálogo de produtos", icon: "cube-outline", action: () => onOpenProducts?.() },
-            { label: "Ofertas e promoções", icon: "pricetag-outline", action: () => onOpenProducts?.({ onPromotion: true }) },
-          ] as const).map((item) => <Pressable key={item.label} accessibilityRole="button" accessibilityLabel={item.label} onPress={item.action} className="min-h-[100px] flex-1 items-center justify-center gap-2 rounded-2xl border border-black/5 bg-card p-3 shadow-sm shadow-black/5">
-            <View className="h-9 w-9 items-center justify-center rounded-full bg-muted"><Ionicons name={item.icon} size={20} color="#b94b50" /></View>
-            <Text className="text-center font-sans text-xs font-semibold leading-4 text-foreground">{item.label}</Text>
-          </Pressable>)}
-        </View>
-
         {showFilters ? (
           <View className="mb-6 gap-7 rounded-[16px] bg-background">
             <ClientSearchFilters

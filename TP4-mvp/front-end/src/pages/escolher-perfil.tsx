@@ -124,7 +124,6 @@ export function ProfileChoiceScreen({
             selected={selectedProfile === "lojista"}
             onPress={() => setSelectedProfile("lojista")}
           />
-          {store?.name?.trim() ? <Text className="px-4 text-sm font-semibold text-primary">{store.name}</Text> : null}
           <ProfileCard
             label="Loja"
             description="Comercial · Veja lojas, produtos e compras"
