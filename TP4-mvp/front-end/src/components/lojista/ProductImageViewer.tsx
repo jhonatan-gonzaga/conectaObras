@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
-import { Image, Modal, Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
+import { Image, Modal, Pressable, ScrollView, Text, View, useWindowDimensions, type ScrollViewInstance } from "react-native";
 
 export function ProductImageViewer({ images, initialIndex = 0, onClose }: { images: string[]; initialIndex?: number; onClose: () => void }) {
   const { width, height } = useWindowDimensions();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const [index, setIndex] = useState(initialIndex);
   const visibleIndex = Math.min(Math.max(initialIndex, 0), Math.max(images.length - 1, 0));
 
