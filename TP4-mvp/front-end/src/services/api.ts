@@ -107,6 +107,14 @@ export type StoreDashboardSummary = {
 };
 export type StoreIdentity = { name: string | null; status: string };
 export type StoreDashboardList = "active-products" | "low-stock" | "promotions" | "orders" | "messages";
+export type StoreReview = {
+  id: string; storeId: string; rating: number; comment: string | null;
+  createdAt: string; updatedAt: string; customer: { name: string };
+};
+export type StoreReviewsResponse = {
+  items: StoreReview[]; total: number; page: number; limit: number;
+  reputation: { averageRating: number | null; reviewCount: number; distribution: Record<1 | 2 | 3 | 4 | 5, number> };
+};
 export type StoreOrderStatus = "PENDING" | "CONFIRMED" | "PREPARING" | "READY" | "COMPLETED" | "CANCELED";
 export type DeliveryStatus = "PENDING" | "PREPARING" | "IN_TRANSIT" | "DELIVERED" | "FAILED" | "CANCELED";
 export type StoreOrder = {
@@ -432,6 +440,7 @@ export const api = {
   storeActivationReadiness: () => request<{ allowed: boolean; pending: string[] }>("/stores/me/activation-readiness"),
   changeMyStoreStatus: (status: "ACTIVE" | "INACTIVE") => request<StoreProfile>("/stores/me/status", { method: "PATCH", body: JSON.stringify({ status }) }),
   storeDashboard: () => request<StoreDashboardSummary>("/stores/me/dashboard"),
+  storeReviews: (page = 1, limit = 20) => request<StoreReviewsResponse>(`/stores/me/reviews${toQuery({ page, limit })}`),
   storeDashboardList: (kind: StoreDashboardList, status?: string) => request<unknown[]>(`/stores/me/dashboard/${kind}${status ? `?status=${encodeURIComponent(status)}` : ""}`),
   storeOrders: (filters: { status?: StoreOrderStatus; from?: string; to?: string } = {}) => request<StoreOrder[]>(`/store-orders${toQuery(filters)}`),
   storeOrdersPage: (filters: StoreOrdersFilters = {}) => request<Paginated<StoreOrder>>(`/store-orders${toQuery({ ...filters, page: filters.page ?? 1, limit: filters.limit ?? 20 })}`),

@@ -23,11 +23,12 @@ function DashboardCard({ title, detail, icon, badge, accessibilityLabel, onPress
   </Pressable>;
 }
 
-export function StoreOwnerScreen({ onOpenList, onOpenOrders, onOpenProducts, onStoreMissing, onSwitchProfile, onOpenProfile, onSignOut, onEditStore, userName, avatarUrl }: {
+export function StoreOwnerScreen({ onOpenList, onOpenOrders, onOpenProducts, onOpenReviews, onStoreMissing, onSwitchProfile, onOpenProfile, onSignOut, onEditStore, userName, avatarUrl }: {
   onEditStore?: () => void;
   onOpenList: (kind: StoreDashboardList) => void;
   onOpenOrders: (status: string) => void;
   onOpenProducts: () => void;
+  onOpenReviews: () => void;
   onStoreMissing: () => void;
   onSwitchProfile: () => void;
   onOpenProfile: () => void;
@@ -94,6 +95,12 @@ export function StoreOwnerScreen({ onOpenList, onOpenOrders, onOpenProducts, onS
               <DashboardCard title="Pedidos" detail={`${pendingOrders} aguardando confirmação`} icon="bag-handle-outline" badge={pendingOrders} accessibilityLabel={`Pedidos pendentes: ${pendingOrders}`} onPress={() => onOpenList("orders")} />
             </View>
           </View>
+
+          <Pressable onPress={onOpenReviews} accessibilityRole="button" accessibilityLabel="Ver avaliações da loja" className="mb-6 flex-row items-center gap-3 rounded-[18px] bg-card p-4 shadow-sm shadow-primary/10">
+            <View className="h-10 w-10 items-center justify-center rounded-full bg-[#fbe7e8]"><Ionicons name="star-outline" size={21} color="#b94b50" /></View>
+            <View className="flex-1"><Text className="font-semibold text-foreground">Avaliações da loja</Text><Text className="text-sm text-muted-foreground">Veja as notas e os comentários dos clientes</Text></View>
+            <Ionicons name="chevron-forward" size={18} color="#897171" />
+          </Pressable>
 
           {summary.lowStockProducts > 0 ? <Pressable onPress={() => onOpenList("low-stock")} accessibilityRole="button" accessibilityLabel={`Estoque baixo: ${summary.lowStockProducts}`} className="mb-6 flex-row items-center gap-3 rounded-[18px] bg-card p-4"><View className="h-10 w-10 items-center justify-center rounded-full bg-[#fbe7e8]"><Ionicons name="alert-circle-outline" size={21} color="#b94b50" /></View><View className="flex-1"><Text className="font-semibold text-foreground">Estoque baixo</Text><Text className="text-sm text-muted-foreground">{summary.lowStockProducts} {summary.lowStockProducts === 1 ? "produto precisa" : "produtos precisam"} de atenção</Text></View><Ionicons name="chevron-forward" size={18} color="#897171" /></Pressable> : null}
 

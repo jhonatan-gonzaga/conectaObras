@@ -1,4 +1,5 @@
 import { StoreOwnerScreen } from "../pages/lojista/StoreOwnerScreen";
+import { StoreReviewsScreen } from "../pages/lojista/StoreReviewsScreen";
 import { StoreOwnerSetupScreen } from "../pages/lojista/StoreOwnerSetupScreen";
 import { StoreOwnerEditScreen } from "../pages/lojista/StoreOwnerEditScreen";
 import { StoreOwnerPreviewScreen } from "../pages/lojista/StoreOwnerPreviewScreen";
@@ -27,7 +28,9 @@ export function StoreOwnerNavigator({ screen, navigation }: { screen: StoreOwner
     case "storeOwnerPreview":
       return <StoreOwnerPreviewScreen onBack={() => navigation.setScreen("storeOwnerEdit")} />;
     case "storeOwnerDashboard":
-      return <StoreOwnerScreen userName={navigation.authUser?.name} avatarUrl={navigation.authUser?.avatarUrl} onEditStore={() => navigation.setScreen("storeOwnerEdit")} onOpenProfile={() => navigation.openAccountProfile("storeOwnerDashboard")} onSwitchProfile={switchProfile} onSignOut={signOut} onStoreMissing={() => { navigation.markStoreMissing(); navigation.setScreen("storeOwnerSetup"); }} onOpenList={(kind) => openList(kind, "storeOwnerDashboard")} onOpenOrders={(status) => openList("orders", "storeOwnerDashboard", status)} onOpenProducts={() => navigation.setScreen("storeProducts")} />;
+      return <StoreOwnerScreen userName={navigation.authUser?.name} avatarUrl={navigation.authUser?.avatarUrl} onEditStore={() => navigation.setScreen("storeOwnerEdit")} onOpenProfile={() => navigation.openAccountProfile("storeOwnerDashboard")} onSwitchProfile={switchProfile} onSignOut={signOut} onStoreMissing={() => { navigation.markStoreMissing(); navigation.setScreen("storeOwnerSetup"); }} onOpenList={(kind) => openList(kind, "storeOwnerDashboard")} onOpenOrders={(status) => openList("orders", "storeOwnerDashboard", status)} onOpenProducts={() => navigation.setScreen("storeProducts")} onOpenReviews={() => navigation.setScreen("storeReviews")} />;
+    case "storeReviews":
+      return <StoreReviewsScreen onBack={dashboard} />;
     case "storeOwnerList":
       return <StoreOwnerListScreen
         kind={navigation.storeListKind}
