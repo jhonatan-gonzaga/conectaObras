@@ -25,7 +25,7 @@ export function useAppNavigation() {
   const openCatalog = (route: CatalogRoute) => {
     if (clientMode === "commerce" && (route.screen === "clientStores" || route.screen === "clientProducts")) setCommerceTab("search");
     const continuing = screen === "clientStores" || screen === "clientProducts" || screen === "clientStoreDetail" || screen === "clientProductDetail";
-    if (!continuing) setCatalogOrigin(clientMode === "commerce" ? (screen === "clientCommerceSearch" ? "clientCommerceSearch" : screen === "clientCart" ? "clientCart" : "clientCommerceHome") : screen === "clientSearch" ? "clientSearch" : "clientHome");
+    if (!continuing) setCatalogOrigin(clientMode === "commerce" ? (screen === "clientCommerceSearch" ? "clientCommerceSearch" : screen === "clientCart" ? "clientCart" : screen === "clientOrders" ? "clientOrders" : "clientCommerceHome") : screen === "clientSearch" ? "clientSearch" : "clientHome");
     setCatalogTrail((trail) => continuing ? [...trail, route] : [route]);
     setScreen(route.screen);
   };
@@ -33,7 +33,7 @@ export function useAppNavigation() {
     const trail = catalogTrail.slice(0, -1);
     setCatalogTrail(trail);
     setScreen(trail[trail.length - 1]?.screen ?? catalogOrigin);
-    if (clientMode === "commerce" && !trail.length) setCommerceTab(catalogOrigin === "clientCommerceSearch" ? "search" : catalogOrigin === "clientCart" ? "cart" : "home");
+    if (clientMode === "commerce" && !trail.length) setCommerceTab(catalogOrigin === "clientCommerceSearch" ? "search" : catalogOrigin === "clientCart" ? "cart" : catalogOrigin === "clientOrders" ? "orders" : "home");
   };
   const updateCatalogRoute = (route: CatalogRoute) => {
     setCatalogTrail((trail) => [...trail.slice(0, -1), route]);

@@ -23,7 +23,7 @@ describe("customer commercial screens", () => {
   });
   afterEach(() => { jest.restoreAllMocks(); jest.useRealTimers(); });
 
-  it("adds commercial access to the existing home and opens real catalog IDs", async () => {
+  it("removes only the three commercial shortcuts and preserves the original home and existing catalog content", async () => {
     jest.spyOn(api, "categories").mockResolvedValue([]);
     jest.spyOn(api, "professionals").mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 });
     jest.spyOn(api, "publicStores").mockResolvedValue({ items: [publicStore], total: 1, page: 1, limit: 3 });
@@ -34,14 +34,19 @@ describe("customer commercial screens", () => {
     expect(screen.getByText("O que você precisa hoje?")).toBeTruthy();
     expect(screen.getByLabelText("Buscar servicos ou profissionais")).toBeTruthy();
     expect(screen.getByText("Profissionais em destaque")).toBeTruthy();
-    fireEvent.press(screen.getByLabelText("Lojas de materiais"));
-    fireEvent.press(screen.getByLabelText("Catálogo de produtos"));
-    fireEvent.press(screen.getByLabelText("Ofertas e promoções"));
+    expect(screen.queryByLabelText("Lojas de materiais")).toBeNull();
+    expect(screen.queryByLabelText("Catálogo de produtos")).toBeNull();
+    expect(screen.queryByLabelText("Ofertas e promoções")).toBeNull();
+    expect(screen.getByText("Categorias")).toBeTruthy();
+    for (const label of ["Inicio", "Obra", "Buscar", "Anunciar", "Ajustes"]) {
+      expect(screen.getByLabelText(label)).toBeTruthy();
+    }
+    fireEvent.press(screen.getByLabelText("Ver todas as lojas"));
     fireEvent.press(screen.getByLabelText(publicProduct.category.name));
     fireEvent.press(screen.getByLabelText(`Ver produto ${publicProduct.name}`));
     fireEvent.press(screen.getByLabelText(`Ver loja ${publicStore.name}`));
     expect(onStores).toHaveBeenCalledTimes(1);
-    expect(onProducts.mock.calls).toEqual([[], [{ onPromotion: true }], [{ categoryId: publicProduct.category.id }]]);
+    expect(onProducts.mock.calls).toEqual([[{ categoryId: publicProduct.category.id }]]);
     expect(onProduct).toHaveBeenCalledWith(publicProduct.id);
     expect(onStore).toHaveBeenCalledWith(publicStore.id);
   });
