@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
-import { api, ApiError } from "../front-end/src/services/api";
+import { api, ApiError, type ProfessionalProfile } from "../front-end/src/services/api";
 import { ClientProductDetailPage, ClientStoreDetailPage } from "../front-end/src/pages/cliente/catalog";
 import { ProductCatalog, StoreCatalog } from "../front-end/src/components/cliente/catalog-results";
 import { CatalogImage } from "../front-end/src/components/cliente/catalog-ui";
@@ -23,32 +23,69 @@ describe("customer commercial screens", () => {
   });
   afterEach(() => { jest.restoreAllMocks(); jest.useRealTimers(); });
 
-  it("removes only the three commercial shortcuts and preserves the original home and existing catalog content", async () => {
-    jest.spyOn(api, "categories").mockResolvedValue([]);
-    jest.spyOn(api, "professionals").mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 });
-    jest.spyOn(api, "publicStores").mockResolvedValue({ items: [publicStore], total: 1, page: 1, limit: 3 });
-    jest.spyOn(api, "publicProducts").mockResolvedValue({ items: [publicProduct], total: 1, page: 1, limit: 4 });
-    const onStores = jest.fn(), onProducts = jest.fn(), onStore = jest.fn(), onProduct = jest.fn();
-    const screen = render(<ClientHomePage onOpenStores={onStores} onOpenProducts={onProducts} onOpenStore={onStore} onOpenProduct={onProduct} />);
-    expect(await screen.findByText(publicProduct.name)).toBeTruthy();
+  it("keeps the works home dedicated to services without commercial content or requests", async () => {
+    jest.useFakeTimers();
+    const categories = [{ id: "paint", name: "Pintura" }, { id: "brick", name: "Alvenaria" }];
+    const professionals: ProfessionalProfile[] = categories.map((category, index) => ({
+      id: `professional-${index}`,
+      user: { id: `user-${index}`, name: index === 0 ? "Ana pintora" : "Bruno pedreiro", role: "PROFISSIONAL" },
+      specialties: [{ category }], dailyRate: "200.00", ratingAvg: "4.8",
+      servicesDone: 3, availability: [], portfolio: [],
+    }));
+    const serviceCategories = jest.spyOn(api, "categories").mockResolvedValue(categories);
+    const serviceProfessionals = jest.spyOn(api, "professionals").mockResolvedValue({ items: professionals, total: 2, page: 1, limit: 20 });
+    const stores = jest.spyOn(api, "publicStores").mockResolvedValue({ items: [publicStore], total: 1, page: 1, limit: 3 });
+    const products = jest.spyOn(api, "publicProducts").mockResolvedValue({ items: [publicProduct], total: 1, page: 1, limit: 4 });
+    const store = jest.spyOn(api, "publicStore");
+    const product = jest.spyOn(api, "publicProduct");
+    const onOpenProfessional = jest.fn(), onNavigate = jest.fn();
+    const screen = render(<ClientHomePage onOpenProfessional={onOpenProfessional} onNavigate={onNavigate} />);
+    await act(async () => jest.advanceTimersByTime(350));
+
+    expect(screen.getByText("Ana pintora")).toBeTruthy();
+    expect(screen.getByText("Bruno pedreiro")).toBeTruthy();
+    expect(screen.getByLabelText("Conecta Obras Itacoatiara")).toBeTruthy();
     expect(screen.getByText("O que você precisa hoje?")).toBeTruthy();
     expect(screen.getByLabelText("Buscar servicos ou profissionais")).toBeTruthy();
     expect(screen.getByText("Profissionais em destaque")).toBeTruthy();
-    expect(screen.queryByLabelText("Lojas de materiais")).toBeNull();
-    expect(screen.queryByLabelText("Catálogo de produtos")).toBeNull();
-    expect(screen.queryByLabelText("Ofertas e promoções")).toBeNull();
     expect(screen.getByText("Categorias")).toBeTruthy();
-    for (const label of ["Inicio", "Obra", "Buscar", "Anunciar", "Ajustes"]) {
-      expect(screen.getByLabelText(label)).toBeTruthy();
+    for (const label of ["Lojas de materiais", "Catálogo de produtos", "Ofertas e promoções", "Ver todas as promoções", "Ver todas as lojas"]) {
+      expect(screen.queryByLabelText(label)).toBeNull();
     }
-    fireEvent.press(screen.getByLabelText("Ver todas as lojas"));
-    fireEvent.press(screen.getByLabelText(publicProduct.category.name));
-    fireEvent.press(screen.getByLabelText(`Ver produto ${publicProduct.name}`));
-    fireEvent.press(screen.getByLabelText(`Ver loja ${publicStore.name}`));
-    expect(onStores).toHaveBeenCalledTimes(1);
-    expect(onProducts.mock.calls).toEqual([[{ categoryId: publicProduct.category.id }]]);
-    expect(onProduct).toHaveBeenCalledWith(publicProduct.id);
-    expect(onStore).toHaveBeenCalledWith(publicStore.id);
+    expect(screen.queryByText(/Produtos em promoção|Nenhuma promoção disponível|Lojas e materiais|Materiais e insumos|Ver catálogo/)).toBeNull();
+    expect(screen.queryByText(publicProduct.name)).toBeNull();
+    expect(screen.queryByText(publicStore.name!)).toBeNull();
+    for (const label of ["Inicio", "Obra", "Buscar", "Anunciar", "Ajustes"]) {
+      fireEvent.press(screen.getByLabelText(label));
+    }
+    expect(onNavigate.mock.calls).toEqual([["home"], ["work"], ["search"], ["ads"], ["settings"]]);
+    fireEvent.press(screen.getByText("Ana pintora"));
+    expect(onOpenProfessional).toHaveBeenCalledWith("professional-0");
+
+    const search = screen.getByLabelText("Buscar servicos ou profissionais");
+    fireEvent.changeText(search, "Bruno");
+    await act(async () => jest.advanceTimersByTime(350));
+    expect(screen.queryByText("Ana pintora")).toBeNull();
+    expect(screen.getByText("Bruno pedreiro")).toBeTruthy();
+    fireEvent.changeText(search, "Pintura");
+    await act(async () => jest.advanceTimersByTime(350));
+    expect(screen.getByText("Ana pintora")).toBeTruthy();
+    expect(screen.queryByText("Bruno pedreiro")).toBeNull();
+    fireEvent.changeText(search, "");
+    await act(async () => jest.advanceTimersByTime(350));
+    fireEvent.press(screen.getAllByRole("button", { name: "Alvenaria" })[0]);
+    expect(screen.getByText("Profissionais: Alvenaria")).toBeTruthy();
+    expect(screen.queryByText("Ana pintora")).toBeNull();
+    fireEvent.press(screen.getByLabelText("Limpar categoria"));
+    expect(screen.getByText("Ana pintora")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Filtros"));
+    expect(screen.getByText("Faixa de Preco (por dia)")).toBeTruthy();
+
+    expect(serviceCategories).toHaveBeenCalledTimes(1);
+    expect(serviceProfessionals).toHaveBeenCalledTimes(1);
+    for (const commercialRequest of [api.productCategories, stores, products, store, product]) {
+      expect(commercialRequest).not.toHaveBeenCalled();
+    }
   });
 
   it("combines store filters after debounce and opens the exact store ID", async () => {
