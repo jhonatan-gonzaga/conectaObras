@@ -18,6 +18,7 @@ export type ProfileReturnScreen =
   | "professionalSetup"
   | "professionalHome"
   | "clientHome"
+  | "clientOrders"
   | "clientSearch"
   | "clientAds"
   | "clientServiceDetails"
@@ -27,7 +28,8 @@ export type ProfileReturnScreen =
   | CatalogRoute["screen"]
   | "storeOwnerSetup"
   | "storeOwnerEdit"
-  | "storeOwnerDashboard";
+  | "storeOwnerDashboard"
+  | "storeOwnerList";
 
 export type ClientWorkReturnScreen = "clientHome" | "clientSearch" | "clientAds";
 
@@ -39,6 +41,7 @@ export type ClientScreen =
   | CommerceScreen
   | CatalogRoute["screen"]
   | "clientHome"
+  | "clientOrders"
   | "clientSearch"
   | "clientWork"
   | "clientAds"
@@ -78,6 +81,7 @@ export function isClientContextScreen(screen: Screen): screen is ClientScreen {
   return (
     screen === "clientCommerceHome" || screen === "clientCommerceSearch" || screen === "clientCart" || screen === "clientOrders" ||
     screen === "clientHome" ||
+    screen === "clientOrders" ||
     screen === "clientSearch" ||
     screen === "clientWork" ||
     screen === "clientAds" ||

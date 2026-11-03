@@ -185,6 +185,8 @@ export function useAppNavigation() {
     setCatalogTrail([]);
     if (tab === "search") {
       setScreen("clientSearch");
+    } else if (tab === "orders") {
+      setScreen("clientOrders");
     } else if (tab === "ads") {
       setScreen("clientAds");
     } else if (tab === "settings") {

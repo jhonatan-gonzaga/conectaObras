@@ -19,12 +19,19 @@ export class StoreOrdersController {
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser, @Query() query: StoreOrdersQueryDto) {
-    return this.orders.list(user.id, query);
+    return query.page !== undefined || query.limit !== undefined
+      ? this.orders.listPage(user.id, query)
+      : this.orders.list(user.id, query);
   }
 
   @Get(':id')
   get(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.orders.get(user.id, id);
+  }
+
+  @Get(':id/items/:itemId')
+  getItem(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Param('itemId') itemId: string) {
+    return this.orders.getItem(user.id, id, itemId);
   }
 
   @Patch(':id/status')

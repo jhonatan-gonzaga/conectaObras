@@ -37,10 +37,10 @@ export function ProfessionalHeader({
           <Ionicons name="arrow-back" size={18} color="#b94b50" />
         </Pressable>
 
-        <View className="h-11 flex-1 items-center justify-center px-3">
+        <View className="h-11 min-w-0 flex-1 items-center justify-center px-3">
           <Image
             source={logo}
-            className="h-11 w-[170px]"
+            style={{ height: 44, width: 170, maxWidth: "100%" }}
             resizeMode="contain"
             accessibilityLabel="Conecta Obras Itacoatiara"
           />

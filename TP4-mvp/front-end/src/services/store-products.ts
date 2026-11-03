@@ -11,6 +11,20 @@ export type StoreProduct = {
   promotion?: { id: string; promotionalPrice: string | null; discountPercent: string | null; startAt: string; endAt: string; enabled: boolean; effectivePrice: string } | null;
 };
 export type ProductPage = { items: StoreProduct[]; total: number; page: number; limit: number };
+export type ProductDetails = Pick<StoreProduct, "name" | "description" | "price" | "sku" | "images"> & {
+  categoryName: string | null; stock?: number; status?: ProductStatus;
+};
+
+export const productStatusLabels: Record<ProductStatus, string> = {
+  DRAFT: "Rascunho", ACTIVE: "Ativo", INACTIVE: "Inativo", ARCHIVED: "Arquivado",
+};
+
+export function productAvailability(product: { status: ProductStatus; stock: number }) {
+  if (product.status === "ARCHIVED") return { label: "Arquivado", color: "#766a70" };
+  if (product.status !== "ACTIVE") return { label: "Indisponível para venda", color: "#9a621d" };
+  if (product.stock === 0) return { label: "Sem estoque", color: "#ba1a1a" };
+  return { label: "Disponível para venda", color: "#26734d" };
+}
 export type ProductFilters = { q: string; categoryId: string; status: ProductStatus | ""; stock: StockFilter | "" };
 export type ProductForm = {
   name: string; price: string; stock: string; categoryId: string; sku: string; description: string;

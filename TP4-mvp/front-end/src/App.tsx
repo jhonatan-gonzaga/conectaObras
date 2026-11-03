@@ -38,30 +38,28 @@ const darkThemeVars = vars({
   "--color-input-border": "255 255 255",
   "--color-input-border-alpha": "0.14",
 });
+import { AppThemeContext, appThemeStyles } from "./components/app-theme";
 
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({ Inter: Inter_400Regular, InterMedium: Inter_500Medium, InterSemiBold: Inter_600SemiBold, InterBold: Inter_700Bold, InterExtraBold: Inter_800ExtraBold });
   const [isDarkMode, setIsDarkMode] = useState(false);
   const navigation = useAppNavigation();
   const isProfessionalScreen = isProfessionalContextScreen(navigation.screen);
+  const theme = isDarkMode ? appThemeStyles.dark : appThemeStyles.light;
 
   if (!fontsLoaded && !fontError) return <View className="flex-1 items-center justify-center bg-[#fbf6f7]"><ActivityIndicator accessibilityLabel="Carregando fontes" color="#b94b50" /></View>;
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView
-        className="flex-1 bg-background"
-        style={isDarkMode ? darkThemeVars : lightThemeVars}
-      >
-        <StatusBar style={isDarkMode ? "light" : "dark"} />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="flex-1"
+    <AppThemeContext.Provider value={theme}>
+      <SafeAreaProvider>
+        <SafeAreaView
+          className="flex-1 bg-background"
+          style={theme}
         >
-          <View
-            className={`flex-1 w-full bg-background ${
-              isProfessionalScreen ? "" : "items-center"
-            }`}
+          <StatusBar style={isDarkMode ? "light" : "dark"} />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            className="flex-1"
           >
             <CommerceProvider userId={navigation.authUser?.id} active={navigation.clientMode === "commerce"} tab={navigation.commerceTab} onNavigate={navigation.openCommerceTab}>
             <RootNavigator
@@ -74,5 +72,20 @@ export default function App() {
         </KeyboardAvoidingView>
       </SafeAreaView>
     </SafeAreaProvider>
+            <View
+              className={`flex-1 w-full bg-background ${
+                isProfessionalScreen ? "" : "items-center"
+              }`}
+            >
+              <RootNavigator
+                navigation={navigation}
+                isDarkMode={isDarkMode}
+                onToggleDarkMode={setIsDarkMode}
+              />
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    </AppThemeContext.Provider>
   );
 }

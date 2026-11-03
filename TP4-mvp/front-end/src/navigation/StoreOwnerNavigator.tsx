@@ -35,7 +35,7 @@ export function StoreOwnerNavigator({ screen, navigation }: { screen: StoreOwner
         avatarUrl={navigation.authUser?.avatarUrl}
         onBack={() => navigation.setScreen("storeOwnerDashboard")}
         onSwitchProfile={() => navigation.setScreen("profileChoice")}
-        onOpenProfile={() => navigation.openAccountProfile("storeOwnerDashboard")}
+        onOpenProfile={() => navigation.openAccountProfile("storeOwnerList")}
         onOrders={() => { navigation.setStoreListKind("orders"); navigation.setStoreListStatus(undefined); navigation.setScreen("storeOwnerList"); }}
         onProducts={() => navigation.setScreen("storeProducts")}
         onPromotions={() => { navigation.setStoreListKind("promotions"); navigation.setStoreListStatus(undefined); navigation.setScreen("storeOwnerList"); }}

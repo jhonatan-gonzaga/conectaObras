@@ -130,6 +130,7 @@ model User {
   clientConversations       Conversation[]       @relation("ClientConversationUser")
   professionalConversations Conversation[]       @relation("ProfessionalConversationUser")
   storeOrders               StoreOrder[]
+  storeReviews              StoreReview[]
   orderStatusChanges        OrderStatusHistory[]
   createdAt                 DateTime             @default(now())
   updatedAt                 DateTime             @updatedAt
@@ -156,6 +157,7 @@ model StoreProfile {
   products     Product[]
   promotions   StorePromotion[]
   orders       StoreOrder[]
+  reviews      StoreReview[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
@@ -296,11 +298,32 @@ model StoreOrder {
   items       StoreOrderItem[]
   statusHistory OrderStatusHistory[]
   delivery Delivery?
+  review   StoreReview?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
   @@index([storeId, status, createdAt])
   @@map("store_orders")
+}
+
+model StoreReview {
+  id         String       @id @default(cuid())
+  orderId    String       @unique
+  storeId    String
+  customerId String
+  /// Verified order review; SQL CHECK also restricts the rating to 1..5.
+  rating     Int
+  comment    String?      @db.Text
+  order      StoreOrder   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  store      StoreProfile @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  customer   User         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([storeId, createdAt, id])
+  @@index([storeId, rating])
+  @@index([customerId])
+  @@map("store_reviews")
 }
 
 model StoreOrderItem {

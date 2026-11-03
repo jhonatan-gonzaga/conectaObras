@@ -13,6 +13,7 @@ import { CommerceOrdersPage } from "../pages/cliente/CommerceOrdersPage";
 import { useEffect } from "react";
 import { BackHandler } from "react-native";
 import type { ClientNavKey } from "../components/cliente";
+import { ClientOrdersScreen } from "../pages/cliente/ClientOrdersScreen";
 import { ServiceDetailsScreen } from "../pages/profissional";
 import { toProfessionalService } from "./serviceMapping";
 import type { ClientScreen } from "./types";
@@ -90,6 +91,10 @@ export function ClientNavigator({
       if (route.screen === "clientStores") return <ClientStoresPage {...frame} userId={navigation.authUser?.id} filters={route.filters ?? {}} onChange={(filters) => navigation.updateCatalogRoute({ screen: "clientStores", filters })} onStore={onStore} onProduct={onProduct} />;
       return <ClientProductsPage {...frame} userId={navigation.authUser?.id} filters={route.filters ?? {}} onChange={(filters) => navigation.updateCatalogRoute({ screen: "clientProducts", filters })} onProduct={onProduct} onStore={onStore} />;
     }
+    case "clientOrders":
+      return <ClientOrdersScreen onBack={() => setScreen("clientHome")}
+        onProfilePress={() => openAccountProfile("clientOrders")}
+        onNavigate={(tab) => openClientTab(tab)} />;
     case "clientHome":
       return (
         <ClientHomePage
