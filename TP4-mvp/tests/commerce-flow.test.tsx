@@ -98,6 +98,13 @@ describe("commercial mode and existing personas", () => {
     expect(screen.getByLabelText("Conecta Obras Itacoatiara")).toBeTruthy();
     expect(screen.getByLabelText("Abrir perfil")).toBeTruthy();
     expect(screen.queryByLabelText(/Abrir carrinho,/)).toBeNull();
+    expect(await screen.findByLabelText(`Ver produto ${publicProduct.name}`)).toBeTruthy();
+    expect(screen.getByLabelText(`Ver loja ${publicStore.name}`)).toBeTruthy();
+    expect(screen.getByText("Categorias de produtos")).toBeTruthy();
+    expect(screen.getByText("Promoções vigentes")).toBeTruthy();
+    expect(screen.getByLabelText("Ver promoções no catálogo")).toBeTruthy();
+    expect(api.publicProducts).toHaveBeenCalledWith(expect.objectContaining({ onPromotion: true, inStock: true }));
+    expect(api.publicStores).toHaveBeenCalled();
     fireEvent.press(screen.getByLabelText("Lista de Lojas"));
     fireEvent.press(await screen.findByLabelText(`Ver loja ${publicStore.name}`));
     expect(await screen.findByRole("header", { name: "Página da Loja" })).toBeTruthy();

@@ -13,7 +13,6 @@ import {
 import { ProjectHeader } from "../../components/profissional/components";
 import { ApiError, Category, ProfessionalProfile, api, formatMoney } from "../../services/api";
 import type { ProductQuery } from "../../services/public-catalog";
-import { HomeCommerce } from "../../components/cliente/home-commerce";
 import { useRecentSearches } from "../../services/recent-searches";
 import { useDebouncedValue } from "../../services/use-debounced-value";
 
@@ -30,10 +29,6 @@ function getProfessionalCategoryIds(professional: ProfessionalProfile) {
 
 export function ClientHomePage({
   userId,
-  onOpenStores,
-  onOpenProducts,
-  onOpenStore,
-  onOpenProduct,
   onNavigate,
   onOpenProfessional,
   onProfilePress,
@@ -303,7 +298,6 @@ export function ClientHomePage({
             </View>
           )}
         </View>
-        <HomeCommerce onProducts={onOpenProducts} onStores={onOpenStores} onProduct={onOpenProduct} onStore={onOpenStore} />
       </ScrollView>
 
       <View className="absolute inset-x-0 bottom-0 px-5 pb-2">
