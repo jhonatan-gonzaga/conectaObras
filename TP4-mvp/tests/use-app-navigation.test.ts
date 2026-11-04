@@ -10,6 +10,23 @@ const completeStore: StoreProfile = { ...emptyStoreForm(), id: "s1", name: "Loja
 jest.mock("expo-secure-store", () => ({ getItemAsync: jest.fn().mockResolvedValue(null), setItemAsync: jest.fn().mockResolvedValue(undefined), deleteItemAsync: jest.fn().mockResolvedValue(undefined) }));
 
 describe("useAppNavigation", () => {
+  it("navigates catalog IDs and restores nested origins and filters", async () => {
+    const { result } = await renderNavigation();
+    act(() => result.current.setScreen("clientSearch"));
+    act(() => result.current.openCatalog({ screen: "clientStores", filters: { city: "Itacoatiara" } }));
+    act(() => result.current.openCatalog({ screen: "clientStoreDetail", id: "store-id" }));
+    act(() => result.current.openCatalog({ screen: "clientProductDetail", id: "product-id" }));
+    act(() => result.current.openCatalog({ screen: "clientStoreDetail", id: "other-store" }));
+    expect(result.current.catalogRoute).toEqual({ screen: "clientStoreDetail", id: "other-store" });
+    act(() => result.current.backCatalog());
+    expect(result.current.catalogRoute).toEqual({ screen: "clientProductDetail", id: "product-id" });
+    act(() => result.current.backCatalog());
+    expect(result.current.catalogRoute).toEqual({ screen: "clientStoreDetail", id: "store-id" });
+    act(() => result.current.backCatalog());
+    expect(result.current.catalogRoute).toEqual({ screen: "clientStores", filters: { city: "Itacoatiara" } });
+    act(() => result.current.backCatalog());
+    expect(result.current.screen).toBe("clientSearch");
+  });
   async function renderNavigation() {
     const hook = renderHook(() => useAppNavigation());
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });

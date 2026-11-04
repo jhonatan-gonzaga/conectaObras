@@ -12,6 +12,9 @@ import {
 } from "../../components/cliente";
 import { ProjectHeader } from "../../components/profissional/components";
 import { ApiError, Category, ProfessionalProfile, api, formatMoney } from "../../services/api";
+import type { ProductQuery } from "../../services/public-catalog";
+import { useRecentSearches } from "../../services/recent-searches";
+import { useDebouncedValue } from "../../services/use-debounced-value";
 
 const fallbackCategoryImage =
   "https://storage.googleapis.com/banani-generated-images/generated-images/25cb0462-d71b-43d5-9eb9-e76966027a00.jpg";
@@ -25,11 +28,17 @@ function getProfessionalCategoryIds(professional: ProfessionalProfile) {
 }
 
 export function ClientHomePage({
+  userId,
   onNavigate,
   onOpenProfessional,
   onProfilePress,
   onBack,
 }: {
+  userId?: string;
+  onOpenStores?: () => void;
+  onOpenProducts?: (filters?: ProductQuery) => void;
+  onOpenStore?: (id: string) => void;
+  onOpenProduct?: (id: string) => void;
   onNavigate?: (key: ClientNavKey) => void;
   onOpenProfessional?: (professionalId: string) => void;
   onProfilePress?: () => void;
@@ -40,6 +49,9 @@ export function ClientHomePage({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query);
+  const history = useRecentSearches(userId);
+  useEffect(() => { history.record("professionals", debouncedQuery); }, [debouncedQuery, history.record]);
   const [showFilters, setShowFilters] = useState(false);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(["Todos"]);
@@ -96,7 +108,7 @@ export function ClientHomePage({
     rating === "5.0" ? 5 : rating === "4.5+" ? 4.5 : rating === "4.0+" ? 4 : 0;
   const minPriceNumber = Number(minPrice || 0);
   const maxPriceNumber = Number(maxPrice || 9999);
-  const normalizedQuery = query.trim().toLowerCase();
+  const normalizedQuery = debouncedQuery.trim().toLowerCase();
   const visibleCategories = showAllCategories ? categories : categories.slice(0, 4);
   const selectedCategoryLabel = selectedCategories.includes("Todos")
     ? null

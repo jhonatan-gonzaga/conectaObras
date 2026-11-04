@@ -7,6 +7,12 @@ import {
   ClientSettingsScreen,
 } from "../pages";
 import { ClientMessageScreen } from "../pages/cliente/mensagem-profissional";
+import { ClientProductsPage, ClientStoresPage, ClientProductDetailPage, ClientStoreDetailPage } from "../pages/cliente/catalog";
+import { CommerceHomePage, CommerceSearchPage, CommerceCartPage } from "../pages/cliente/commerce";
+import { CommerceOrdersPage } from "../pages/cliente/CommerceOrdersPage";
+import { useEffect } from "react";
+import { BackHandler } from "react-native";
+import type { ClientNavKey } from "../components/cliente";
 import { ClientOrdersScreen } from "../pages/cliente/ClientOrdersScreen";
 import { ServiceDetailsScreen } from "../pages/profissional";
 import { toProfessionalService } from "./serviceMapping";
@@ -26,6 +32,18 @@ export function ClientNavigator({
   isDarkMode,
   onToggleDarkMode,
 }: ClientNavigatorProps) {
+  useEffect(() => {
+    if (navigation.clientMode === "commerce" && !navigation.catalogRoute && screen !== "clientCommerceHome") {
+      const subscription = BackHandler.addEventListener("hardwareBackPress", () => { navigation.openCommerceTab("home"); return true; });
+      return () => subscription.remove();
+    }
+    if (!navigation.catalogRoute || navigation.catalogRoute.screen !== screen) return;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      navigation.backCatalog();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [screen, navigation.catalogRoute, navigation.backCatalog, navigation.clientMode]);
   const {
     setScreen,
     openClientTab,
@@ -41,7 +59,38 @@ export function ClientNavigator({
     setContractedClientServices,
   } = navigation;
 
+  const commerceFrame = { onBack: () => screen === "clientCommerceHome" ? setScreen("profileChoice") : navigation.openCommerceTab("home"), onProfilePress: () => openAccountProfile(screen === "clientCommerceSearch" || screen === "clientCart" || screen === "clientOrders" ? screen : "clientCommerceHome") };
+  const commerceLinks = {
+    onStores: () => navigation.openCatalog({ screen: "clientStores" }),
+    onProducts: (filters?: import("../services/public-catalog").ProductQuery) => navigation.openCatalog({ screen: "clientProducts", filters }),
+    onStore: (id: string) => navigation.openCatalog({ screen: "clientStoreDetail", id }),
+    onProduct: (id: string) => navigation.openCatalog({ screen: "clientProductDetail", id }),
+  };
+
   switch (screen) {
+    case "clientCommerceHome": return <CommerceHomePage {...commerceFrame} {...commerceLinks} />;
+    case "clientCommerceSearch": return <CommerceSearchPage {...commerceFrame} {...commerceLinks} userId={navigation.authUser?.id} state={navigation.commerceSearch} onChange={(state) => navigation.setCommerceSearch({ ...state, domain: state.domain === "stores" ? "stores" : "products" })} />;
+    case "clientCart": return <CommerceCartPage {...commerceFrame} {...commerceLinks} />;
+    case "clientOrders": return <CommerceOrdersPage {...commerceFrame} onStores={commerceLinks.onStores} />;
+    case "clientStores":
+    case "clientProducts":
+    case "clientStoreDetail":
+    case "clientProductDetail": {
+      const route = navigation.catalogRoute;
+      if (!route || route.screen !== screen) return null;
+      const frame = {
+        onBack: navigation.backCatalog,
+        onProfilePress: () => openAccountProfile(screen),
+        onNavigate: (tab: ClientNavKey) => openClientTab(tab, navigation.catalogOrigin === "clientSearch" ? "clientSearch" : "clientHome"),
+        active: navigation.catalogOrigin === "clientSearch" ? "search" as const : "home" as const,
+      };
+      const onStore = (id: string) => navigation.openCatalog({ screen: "clientStoreDetail", id });
+      const onProduct = (id: string) => navigation.openCatalog({ screen: "clientProductDetail", id });
+      if (route.screen === "clientStoreDetail") return <ClientStoreDetailPage key={route.id} id={route.id} filters={route.filters} onFiltersChange={(filters) => navigation.updateCatalogRoute({ ...route, filters })} onProduct={onProduct} {...frame} />;
+      if (route.screen === "clientProductDetail") return <ClientProductDetailPage key={route.id} id={route.id} onStore={onStore} {...frame} />;
+      if (route.screen === "clientStores") return <ClientStoresPage {...frame} userId={navigation.authUser?.id} filters={route.filters ?? {}} onChange={(filters) => navigation.updateCatalogRoute({ screen: "clientStores", filters })} onStore={onStore} onProduct={onProduct} />;
+      return <ClientProductsPage {...frame} userId={navigation.authUser?.id} filters={route.filters ?? {}} onChange={(filters) => navigation.updateCatalogRoute({ screen: "clientProducts", filters })} onProduct={onProduct} onStore={onStore} />;
+    }
     case "clientOrders":
       return <ClientOrdersScreen onBack={() => setScreen("clientHome")}
         onProfilePress={() => openAccountProfile("clientOrders")}
@@ -49,6 +98,11 @@ export function ClientNavigator({
     case "clientHome":
       return (
         <ClientHomePage
+          userId={navigation.authUser?.id}
+          onOpenStores={() => navigation.openCatalog({ screen: "clientStores" })}
+          onOpenProducts={(filters) => navigation.openCatalog({ screen: "clientProducts", filters })}
+          onOpenStore={(id) => navigation.openCatalog({ screen: "clientStoreDetail", id })}
+          onOpenProduct={(id) => navigation.openCatalog({ screen: "clientProductDetail", id })}
           onNavigate={(tab) => openClientTab(tab, "clientHome")}
           onOpenProfessional={(professionalId) => {
             setSelectedProfessionalId(professionalId);
@@ -63,6 +117,11 @@ export function ClientNavigator({
     case "clientSearch":
       return (
         <ClientSearchPage
+          userId={navigation.authUser?.id}
+          searchState={navigation.clientSearch}
+          onSearchStateChange={navigation.setClientSearch}
+          onOpenStore={(id) => navigation.openCatalog({ screen: "clientStoreDetail", id })}
+          onOpenProduct={(id) => navigation.openCatalog({ screen: "clientProductDetail", id })}
           onBack={() => setScreen("clientHome")}
           onNavigate={(tab) => openClientTab(tab, "clientSearch")}
           onOpenProfessional={(professionalId) => {

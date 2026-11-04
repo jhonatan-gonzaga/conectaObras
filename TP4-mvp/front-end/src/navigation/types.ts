@@ -1,8 +1,20 @@
 import type { ClientWorkService } from "../pages";
+import type { CatalogDomain, ProductQuery, StoreQuery } from "../services/public-catalog";
+
+export type CatalogRoute =
+  | { screen: "clientStores"; filters?: StoreQuery }
+  | { screen: "clientProducts"; filters?: ProductQuery }
+  | { screen: "clientStoreDetail"; id: string; filters?: ProductQuery }
+  | { screen: "clientProductDetail"; id: string };
+export type ClientSearchState = { domain: CatalogDomain; query: string; stores: StoreQuery; products: ProductQuery };
+export type CommerceTab = "home" | "search" | "cart" | "orders";
+export type CommerceScreen = "clientCommerceHome" | "clientCommerceSearch" | "clientCart" | "clientOrders";
+export const emptyClientSearch = (): ClientSearchState => ({ domain: "professionals", query: "", stores: {}, products: {} });
 
 export type ReturnScreen = "login" | "signup";
 
 export type ProfileReturnScreen =
+  | CommerceScreen
   | "professionalSetup"
   | "professionalHome"
   | "clientHome"
@@ -13,6 +25,7 @@ export type ProfileReturnScreen =
   | "clientServiceMessage"
   | "clientSettings"
   | "clientProfile"
+  | CatalogRoute["screen"]
   | "storeOwnerSetup"
   | "storeOwnerEdit"
   | "storeOwnerDashboard"
@@ -25,6 +38,8 @@ export type ClientProfileReturnScreen = "clientHome" | "clientSearch" | "clientW
 export type AuthScreen = ReturnScreen | "terms" | "privacy";
 
 export type ClientScreen =
+  | CommerceScreen
+  | CatalogRoute["screen"]
   | "clientHome"
   | "clientOrders"
   | "clientSearch"
@@ -64,6 +79,7 @@ export function isAuthContextScreen(
 /** Telas do fluxo do cliente. */
 export function isClientContextScreen(screen: Screen): screen is ClientScreen {
   return (
+    screen === "clientCommerceHome" || screen === "clientCommerceSearch" || screen === "clientCart" || screen === "clientOrders" ||
     screen === "clientHome" ||
     screen === "clientOrders" ||
     screen === "clientSearch" ||
@@ -72,7 +88,11 @@ export function isClientContextScreen(screen: Screen): screen is ClientScreen {
     screen === "clientServiceDetails" ||
     screen === "clientServiceMessage" ||
     screen === "clientSettings" ||
-    screen === "clientProfile"
+    screen === "clientProfile" ||
+    screen === "clientStores" ||
+    screen === "clientProducts" ||
+    screen === "clientStoreDetail" ||
+    screen === "clientProductDetail"
   );
 }
 

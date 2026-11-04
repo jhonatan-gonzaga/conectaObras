@@ -15,7 +15,6 @@ export const clientSortOptions = [
   "Relevancia",
   "Menor Preco",
   "Maior Avaliacao",
-  "Mais Proximo",
 ];
 
 export const clientRatingOptions = ["Qualquer", "4.0+", "4.5+", "5.0"];

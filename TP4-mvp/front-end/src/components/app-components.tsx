@@ -233,35 +233,27 @@ export function ProfileCard({
   return (
     <Pressable
       onPress={onPress}
-      className={`relative rounded-[20px] px-5 pb-6 pt-6 ${
-        selected ? "border-2 border-primary bg-card" : "border border-input-border bg-card"
+      className={`min-h-[96px] flex-row items-center gap-4 rounded-[20px] border-2 p-4 ${
+        selected ? "border-primary bg-[#fff0f0]" : "border-transparent bg-card"
       }`}
       accessibilityRole="radio"
       accessibilityState={{ selected }}
       accessibilityLabel={label}
     >
-      <View className="absolute right-4 top-4">
-        {selected ? (
-          <View className="h-6 w-6 items-center justify-center rounded-full bg-primary">
-            <View className="h-2.5 w-2.5 rounded-full bg-white" />
-          </View>
-        ) : (
-          <View className="h-6 w-6 rounded-full border-2 border-muted" />
-        )}
+      <View className="h-12 w-12 items-center justify-center rounded-full bg-[#f7e8e9]">
+        <Ionicons name={icon} size={28} color="#b94b50" />
       </View>
-
-      <View className="mb-4 items-center">
-        <View className="h-14 w-14 items-center justify-center rounded-full bg-[#f7e8e9]">
-          <Ionicons name={icon} size={28} color="#b94b50" />
-        </View>
+      <View className="flex-1 gap-1">
+        <Text className="text-base font-bold text-foreground">
+          {label}
+        </Text>
+        <Text className="text-xs leading-5 text-muted-foreground">
+          {description}
+        </Text>
       </View>
-
-      <Text className="mb-2 text-center text-lg font-bold text-foreground">
-        {label}
-      </Text>
-      <Text className="text-center text-sm leading-6 text-muted-foreground">
-        {description}
-      </Text>
+      <View className={`h-5 w-5 items-center justify-center rounded-full ${selected ? "bg-primary" : "bg-muted"}`}>
+        {selected ? <View className="h-2 w-2 rounded-full bg-white" /> : null}
+      </View>
     </Pressable>
   );
 }

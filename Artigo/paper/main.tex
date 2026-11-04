@@ -81,109 +81,45 @@ O objetivo geral é analisar os efeitos da aplicação de State e Facade na qual
 
 
 
-\section{General Information}
+\section{Fundamentação Teórica}
 
-All full papers and posters (short papers) submitted to some SBC conference,
-including any supporting documents, should be written in English or in
-Portuguese. The format paper should be A4 with single column, 3.5 cm for upper
-margin, 2.5 cm for bottom margin and 3.0 cm for lateral margins, without
-headers or footers. The main font must be Times, 12 point nominal size, with 6
-points of space before each paragraph. Page numbers must be suppressed.
+\subsection{Desenvolvimento de software}
 
-Full papers must respect the page limits defined by the conference.
-Conferences that publish just abstracts ask for \textbf{one}-page texts.
+O desenvolvimento de software compreende as atividades pelas quais uma necessidade é transformada em um sistema utilizável. Requisitos, projeto, implementação, verificação, implantação e manutenção são partes desse trabalho, ainda que sua ordem e seu grau de sobreposição variem conforme o processo adotado. O produto não se reduz ao código: inclui decisões sobre comportamento, estrutura e formas de verificar se o sistema atende ao que foi solicitado. Depois da entrega, correções e novas demandas continuam a alterar o software. Por isso, o ciclo de vida abrange tanto a construção inicial quanto sua evolução \cite{hsu2024}.
 
-\section{First Page} \label{sec:firstpage}
+Um processo de desenvolvimento define como essas atividades são organizadas, acompanhadas e revistas. Em processos tradicionais, costuma-se estabelecer um planejamento mais detalhado antes da implementação e formalizar a passagem entre etapas. Essa organização facilita o registro de decisões e a previsão de entregas quando os requisitos estão relativamente estáveis, mas torna mais custosa a incorporação de mudanças descobertas tardiamente. As abordagens ágeis trabalham com incrementos menores, avaliações frequentes do produto e ajuste das prioridades a partir do retorno obtido. A distinção não significa ausência de planejamento em um caso ou de revisões no outro; diz respeito, sobretudo, ao momento em que se assumem compromissos e à frequência com que eles são reavaliados.
 
-The first page must display the paper title, the name and address of the
-authors, the abstract in English and ``resumo'' in Portuguese (``resumos'' are
-required only for papers written in Portuguese). The title must be centered
-over the whole page, in 16 point boldface font and with 12 points of space
-before itself. Author names must be centered in 12 point font, bold, all of
-them disposed in the same line, separated by commas and with 12 points of
-space after the title. Addresses must be centered in 12 point font, also with
-12 points of space after the authors' names. E-mail addresses should be
-written using font Courier New, 10 point nominal size, with 6 points of space
-before and 6 points of space after.
+A qualidade deve ser considerada durante todo o ciclo de vida. A verificação funcional examina se o sistema executa as operações esperadas; a qualidade interna diz respeito, entre outros aspectos, à facilidade de compreender, testar e modificar sua implementação. Uma funcionalidade pode estar correta hoje e, ainda assim, exigir alterações extensas para atender a um requisito novo. Estudos sobre evolução e manutenção mostram a utilidade de examinar a estrutura do código juntamente com seu comportamento, pois os efeitos de uma mudança dependem das dependências existentes e da tarefa realizada \cite{prechelt2001,hsu2024}.
 
-The abstract and ``resumo'' (if is the case) must be in 12 point Times font,
-indented 0.8cm on both sides. The word \textbf{Abstract} and \textbf{Resumo},
-should be written in boldface and must precede the text.
+\subsection{Projeto e design de software}
 
-\section{CD-ROMs and Printed Proceedings}
+O design de software é a definição da estrutura de uma solução antes e durante sua implementação: quais responsabilidades pertencem a cada componente, por quais interfaces eles se comunicam e onde ficam as regras do domínio. Essas escolhas influenciam o alcance de uma alteração. Quando uma regra está distribuída por vários pontos, sua revisão exige localizar todos eles; quando as dependências são explícitas e as responsabilidades estão bem delimitadas, é mais fácil identificar o que precisa mudar \cite{gamma1994}.
 
-In some conferences, the papers are published on CD-ROM while only the
-abstract is published in the printed Proceedings. In this case, authors are
-invited to prepare two final versions of the paper. One, complete, to be
-published on the CD and the other, containing only the first page, with
-abstract and ``resumo'' (for papers in Portuguese).
+Coesão descreve o quanto as responsabilidades de um componente se relacionam entre si. Acoplamento expressa o grau de dependência entre componentes. Alta coesão e acoplamento controlado são objetivos de projeto porque favorecem alterações localizadas, mas não se alcançam apenas pelo aumento do número de classes. Dividir uma operação simples entre muitos objetos pode deslocar a complexidade para as interações. Da mesma forma, concentrar operações sem relação em uma única classe dificulta compreender sua finalidade. Em uma análise empírica, o tamanho das classes mostrou influência maior sobre a propensão a mudanças do que o papel exercido por elas em padrões de projeto \cite{posnett2011}. Esse resultado recomenda cautela ao atribuir efeitos de qualidade a uma única decisão estrutural.
 
-\section{Sections and Paragraphs}
+Encapsulamento consiste em manter detalhes e invariantes de um componente sob seu controle, expondo operações pelas quais outros componentes podem utilizá-lo. Abstração permite descrever essas operações por contratos relevantes para o cliente, sem exigir conhecimento de cada implementação concreta. A decomposição divide o problema em partes tratáveis; a separação de responsabilidades orienta essa divisão para que cada parte tenha um motivo identificável para mudar. São princípios relacionados, mas distintos: uma interface abstrata pode esconder detalhes e ainda oferecer operações demais, enquanto uma decomposição em vários módulos pode preservar dependências excessivas entre eles \cite{gamma1994}.
 
-Section titles must be in boldface, 13pt, flush left. There should be an extra
-12 pt of space before each title. Section numbering is optional. The first
-paragraph of each section should not be indented, while the first lines of
-subsequent paragraphs should be indented by 1.27 cm.
+A relação entre design e qualidade, portanto, deve ser examinada por atributo e por contexto. Interfaces e responsabilidades bem definidas podem facilitar substituições e testes isolados; também podem acrescentar camadas de indireção que dificultam rastrear a execução. Uma análise das estruturas de interação entre classes discute riscos para a testabilidade \cite{baudry2003}; outra investiga mudanças nas dependências durante a evolução de exemplos com padrões \cite{hsu2024}. Nenhum desses indicadores, isoladamente, demonstra menor esforço de manutenção em todo sistema.
 
-\subsection{Subsections}
+\subsection{Padrões de projeto de software}
 
-The subsection titles must be in boldface, 12pt, flush left.
+Padrões de projeto, ou \emph{design patterns}, descrevem soluções recorrentes para problemas de design em um contexto determinado. Um padrão apresenta uma intenção, os participantes envolvidos e as consequências de organizar suas relações de certa maneira. Ele não é um trecho de código pronto: sua aplicação exige adaptar a estrutura proposta às regras e às restrições do sistema. O catálogo de Gamma e colaboradores reuniu 23 padrões orientados a objetos e consolidou um vocabulário para discutir essas decisões \cite{gamma1994}.
 
-\section{Figures and Captions}\label{sec:figs}
+A noção de padrão veio da documentação de soluções recorrentes em arquitetura e foi incorporada ao desenvolvimento de software orientado a objetos. Após a publicação do catálogo, o tema passou a incluir estudos sobre identificação de padrões em código, formas de aplicá-los e seus efeitos na qualidade. Um mapeamento da pesquisa sobre padrões registra essa ampliação e mostra que estudos sobre um mesmo padrão podem chegar a conclusões diferentes quanto aos atributos avaliados \cite{ampatzoglou2013}.
 
+Os problemas tratados pelos padrões são específicos. \emph{State}, por exemplo, organiza comportamentos que variam conforme o estado de um objeto; \emph{Facade} oferece uma interface para operações de um subsistema cujos detalhes os clientes não precisam coordenar diretamente \cite{gamma1994}. Nesses casos, a solução pode reunir regras dispersas ou reduzir o conhecimento exigido do cliente. A reutilização está principalmente na ideia de organização, e não na cópia de uma implementação. Nomear o padrão também facilita explicar por que determinadas responsabilidades foram distribuídas entre componentes.
 
-Figure and table captions should be centered if less than one line
-(Figure~\ref{fig:exampleFig1}), otherwise justified and indented by 0.8cm on
-both margins, as shown in Figure~\ref{fig:exampleFig2}. The caption font must
-be Helvetica, 10 point, boldface, with 6 points of space before and after each
-caption.
+Esses benefícios têm custos. Novas interfaces, classes e delegações aumentam o trabalho de leitura quando a variação prevista não existe ou a operação já é simples. Em um experimento controlado, soluções com padrões favoreceram parte das tarefas de manutenção, mas alternativas mais simples tiveram melhor resultado em outras \cite{prechelt2001}. Uma revisão da literatura também relata resultados divergentes entre estudos, associados a diferenças de contexto, métricas e implementação \cite{wedyan2020}. Assim, empregar um padrão como boa prática requer identificar o problema que ele resolve, explicitar seus custos e verificar seus efeitos no código concreto.
 
-\begin{figure}[ht]
-\centering
-\includegraphics[width=.5\textwidth]{fig1.jpg}
-\caption{A typical figure}
-\label{fig:exampleFig1}
-\end{figure}
+\subsection{Classificação dos padrões de projeto}
 
-\begin{figure}[ht]
-\centering
-\includegraphics[width=.3\textwidth]{fig2.jpg}
-\caption{This figure is an example of a figure caption taking more than one
-  line and justified considering margins mentioned in Section~\ref{sec:figs}.}
-\label{fig:exampleFig2}
-\end{figure}
+O catálogo clássico organiza os padrões pela finalidade principal em três categorias: criacionais, estruturais e comportamentais \cite{gamma1994}. A classificação ajuda a localizar soluções para problemas semelhantes, mas não determina, por si, qual padrão convém a uma implementação.
 
-In tables, try to avoid the use of colored or shaded backgrounds, and avoid
-thick, doubled, or unnecessary framing lines. When reporting empirical data,
-do not use more decimal digits than warranted by their precision and
-reproducibility. Table caption must be placed before the table (see Table 1)
-and the font used must also be Helvetica, 10 point, boldface, with 6 points of
-space before and after each caption.
+Os \emph{padrões criacionais} tratam da criação de objetos. Eles separam, em graus diferentes, o uso de um objeto da escolha de sua classe concreta e da forma de construí-lo. \emph{Factory Method} transfere a decisão de instanciação para uma operação especializada; \emph{Abstract Factory} reúne a criação de objetos relacionados. Essas alternativas são pertinentes quando a criação direta espalharia decisões sobre tipos concretos por vários clientes \cite{gamma1994}.
 
-\begin{table}[ht]
-\centering
-\caption{Variables to be considered on the evaluation of interaction
-  techniques}
-\label{tab:exTable1}
-\includegraphics[width=.7\textwidth]{table.jpg}
-\end{table}
+Os \emph{padrões estruturais} descrevem como classes e objetos se combinam para formar estruturas maiores. \emph{Composite} permite tratar objetos individuais e composições por uma interface comum; \emph{Decorator} acrescenta responsabilidades por composição. \emph{Facade} pertence a essa categoria porque organiza o acesso a um subsistema por meio de uma interface de mais alto nível. A Facade simplifica o contato dos clientes com o subsistema, mas não elimina a necessidade de distribuir adequadamente as responsabilidades entre seus componentes internos \cite{gamma1994}.
 
-\section{Images}
-
-All images and illustrations should be in black-and-white, or gray tones,
-excepting for the papers that will be electronically available (on CD-ROMs,
-internet, etc.). The image resolution on paper should be about 600 dpi for
-black-and-white images, and 150-300 dpi for grayscale images.  Do not include
-images with excessive resolution, as they may take hours to print, without any
-visible difference in the result. 
-
-\section{References}
-
-As referências citadas ao longo do artigo são listadas a seguir.
-
-The references must be listed using 12 point font size, with 6 points of space
-before each reference. The first line of each reference should not be
-indented, while the subsequent should be indented by 0.5 cm.
+Os \emph{padrões comportamentais} tratam da distribuição de algoritmos, decisões e comunicação entre objetos. \emph{Strategy} encapsula alternativas de algoritmo; \emph{Observer} organiza a comunicação entre um objeto e seus observadores. Em \emph{State}, o contexto delega o comportamento a um objeto que representa seu estado atual, permitindo que operações e transições variem conforme esse estado \cite{gamma1994}. Essa organização pode tornar regras de estado mais localizadas, mas a quantidade de interações e a posição das transições ainda precisam ser consideradas nos testes \cite{baudry2003}.
 
 \bibliographystyle{sbc}
 \bibliography{referencias}
