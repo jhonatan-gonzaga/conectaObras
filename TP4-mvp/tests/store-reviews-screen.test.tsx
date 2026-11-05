@@ -171,8 +171,7 @@ describe("StoreReviewsScreen", () => {
 
     const screen = render(<StoreReviewsScreen onBack={jest.fn()} />);
 
-    expect(await screen.findByText("1 avaliações no total")).toBeTruthy();
-
+    expect(await screen.findByText("1 avaliação no total")).toBeTruthy();
     fireEvent.press(screen.getByLabelText("Atualizar avaliações"));
 
     expect(await screen.findByText("2 avaliações no total")).toBeTruthy();
