@@ -49,6 +49,8 @@ export function useAppNavigation() {
   const [productFilters, setProductFilters] = useState<ProductFilters>({ q: "", categoryId: "", status: "", stock: "" });
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [productNotice, setProductNotice] = useState<string | null>(null);
+  const [selectedSupportTicketId, setSelectedSupportTicketId] = useState<string | null>(null);
+  const [supportTicketReturnScreen, setSupportTicketReturnScreen] = useState<"supportDashboard" | "mySupportTickets">("supportDashboard");
   const [profileReturnScreen, setProfileReturnScreen] =
     useState<ProfileReturnScreen>("clientHome");
   const [clientWorkReturnScreen, setClientWorkReturnScreen] =
@@ -96,6 +98,7 @@ export function useAppNavigation() {
       }
       return;
     }
+    if (user.role === "SUPORTE") { setHasStore(false); setScreen("supportDashboard"); return; }
     await api.logout(); setAuthUser(null); setScreen("login");
   };
 
@@ -152,6 +155,8 @@ export function useAppNavigation() {
     setClientMode("services"); setCommerceTab("home");
     setCommerceSearch({ ...emptyClientSearch(), domain: "stores" });
     setAuthUser(null); setHasStore(false); setSelectedClientService(null); setSelectedProfessionalId(null);
+    setSelectedSupportTicketId(null);
+    setSupportTicketReturnScreen("supportDashboard");
     setContractedClientServices([]); setStoreListKind("active-products"); setStoreListStatus(undefined); setStoreListReturnScreen("storeOwnerDashboard");
     setProfileReturnScreen("clientHome"); setClientWorkReturnScreen("clientHome");
     setClientProfileReturnScreen("clientHome"); setLegalReturnScreen("login"); setScreen("login");
@@ -241,6 +246,10 @@ export function useAppNavigation() {
     setSelectedProductId,
     productNotice,
     setProductNotice,
+    selectedSupportTicketId,
+    setSelectedSupportTicketId,
+    supportTicketReturnScreen,
+    setSupportTicketReturnScreen,
     profileReturnScreen,
     clientWorkReturnScreen,
     clientProfileReturnScreen,

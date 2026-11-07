@@ -30,7 +30,10 @@ export type ProfileReturnScreen =
   | "storeOwnerEdit"
   | "storeOwnerDashboard"
   | "storeOwnerList"
-  | "storeReviews";
+  | "storeReviews"
+  | "mySupportTickets"
+  | "supportDashboard"
+  | "supportTicket";
 
 export type ClientWorkReturnScreen = "clientHome" | "clientSearch" | "clientAds";
 
@@ -53,6 +56,7 @@ export type ClientScreen =
 
 export type ProfessionalScreen = "professionalSetup" | "professionalHome";
 export type StoreOwnerScreen = "storeOwnerSetup" | "storeOwnerEdit" | "storeOwnerPreview" | "storeOwnerDashboard" | "storeOwnerList" | "storeProducts" | "storeProductForm" | "storeReviews";
+export type SupportScreen = "supportDashboard" | "supportTicket" | "mySupportTickets";
 
 export type Screen =
   | AuthScreen
@@ -60,7 +64,8 @@ export type Screen =
   | "accountProfile"
   | ClientScreen
   | ProfessionalScreen
-  | StoreOwnerScreen;
+  | StoreOwnerScreen
+  | SupportScreen;
 
 export type { ClientWorkService };
 
@@ -82,7 +87,6 @@ export function isClientContextScreen(screen: Screen): screen is ClientScreen {
   return (
     screen === "clientCommerceHome" || screen === "clientCommerceSearch" || screen === "clientCart" || screen === "clientOrders" ||
     screen === "clientHome" ||
-    screen === "clientOrders" ||
     screen === "clientSearch" ||
     screen === "clientWork" ||
     screen === "clientAds" ||
@@ -106,4 +110,8 @@ export function isProfessionalContextScreen(
 
 export function isStoreOwnerContextScreen(screen: Screen): screen is StoreOwnerScreen {
   return screen === "storeOwnerSetup" || screen === "storeOwnerEdit" || screen === "storeOwnerPreview" || screen === "storeOwnerDashboard" || screen === "storeOwnerList" || screen === "storeProducts" || screen === "storeProductForm" || screen === "storeReviews";
+}
+
+export function isSupportContextScreen(screen: Screen): screen is SupportScreen {
+  return screen === "supportDashboard" || screen === "supportTicket" || screen === "mySupportTickets";
 }

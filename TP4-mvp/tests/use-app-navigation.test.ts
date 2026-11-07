@@ -221,7 +221,7 @@ describe("useAppNavigation", () => {
   it.each([
     ["CLIENTE", "clientHome"],
     ["PROFISSIONAL", "professionalHome"],
-    ["SUPORTE", "login"],
+    ["SUPORTE", "supportDashboard"],
   ] as const)("routes role %s without entering store flow", async (role, expectedScreen) => {
     jest.spyOn(api, "me").mockResolvedValue({ id: "u1", role } as never);
     jest.spyOn(api, "professionalMe").mockResolvedValue({} as never);
