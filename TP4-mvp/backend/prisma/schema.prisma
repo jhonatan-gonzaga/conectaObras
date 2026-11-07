@@ -127,6 +127,8 @@ model User {
   deviceTokens              DeviceToken[]
   sentMessages              Message[]
   supportTickets            SupportTicket[]
+  supportMessages           SupportMessage[]      @relation("SupportMessageActor")
+  supportAuditLogs          SupportAuditLog[]     @relation("SupportAuditActor")
   clientConversations       Conversation[]       @relation("ClientConversationUser")
   professionalConversations Conversation[]       @relation("ProfessionalConversationUser")
   storeOrders               StoreOrder[]
@@ -798,10 +800,57 @@ model SupportTicket {
   context   String?
   status    SupportTicketStatus @default(OPEN)
   user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  SupportMessage[]
+  auditLogs SupportAuditLog[]
   createdAt DateTime            @default(now())
   updatedAt DateTime            @updatedAt
 
   @@index([userId])
   @@index([status])
   @@map("support_tickets")
+}
+
+model SupportMessage {
+  id         String        @id @default(cuid())
+  ticketId   String
+  actorId    String
+  type       MessageType   @default(TEXT)
+  text       String?       @db.Text
+  imageUrl   String?       @db.Text
+  audioUrl   String?       @db.Text
+  durationMs Int?
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor      User          @relation("SupportMessageActor", fields: [actorId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
+  @@map("support_messages")
+}
+
+model SupportAuditLog {
+  id         String        @id @default(cuid())
+  ticketId   String
+  actorId    String
+  action     String
+  fromStatus SupportTicketStatus?
+  toStatus   SupportTicketStatus?
+  note       String?       @db.Text
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor      User          @relation("SupportAuditActor", fields: [actorId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
+  @@map("support_audit_logs")
+}
+
+model SupportRoleGrant {
+  id           String   @id @default(cuid())
+  userId       String
+  userEmail    String
+  previousRole UserRole
+  operator     String
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("support_role_grants")
 }

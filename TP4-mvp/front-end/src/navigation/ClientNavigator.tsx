@@ -71,7 +71,9 @@ export function ClientNavigator({
     case "clientCommerceHome": return <CommerceHomePage {...commerceFrame} {...commerceLinks} />;
     case "clientCommerceSearch": return <CommerceSearchPage {...commerceFrame} {...commerceLinks} userId={navigation.authUser?.id} state={navigation.commerceSearch} onChange={(state) => navigation.setCommerceSearch({ ...state, domain: state.domain === "stores" ? "stores" : "products" })} />;
     case "clientCart": return <CommerceCartPage {...commerceFrame} {...commerceLinks} />;
-    case "clientOrders": return <CommerceOrdersPage {...commerceFrame} onStores={commerceLinks.onStores} />;
+    case "clientOrders": return navigation.clientMode === "commerce"
+      ? <CommerceOrdersPage {...commerceFrame} onStores={commerceLinks.onStores} />
+      : <ClientOrdersScreen onBack={() => setScreen("clientHome")} onProfilePress={() => openAccountProfile("clientOrders")} onNavigate={(tab) => openClientTab(tab)} />;
     case "clientStores":
     case "clientProducts":
     case "clientStoreDetail":
@@ -91,10 +93,6 @@ export function ClientNavigator({
       if (route.screen === "clientStores") return <ClientStoresPage {...frame} userId={navigation.authUser?.id} filters={route.filters ?? {}} onChange={(filters) => navigation.updateCatalogRoute({ screen: "clientStores", filters })} onStore={onStore} onProduct={onProduct} />;
       return <ClientProductsPage {...frame} userId={navigation.authUser?.id} filters={route.filters ?? {}} onChange={(filters) => navigation.updateCatalogRoute({ screen: "clientProducts", filters })} onProduct={onProduct} onStore={onStore} />;
     }
-    case "clientOrders":
-      return <ClientOrdersScreen onBack={() => setScreen("clientHome")}
-        onProfilePress={() => openAccountProfile("clientOrders")}
-        onNavigate={(tab) => openClientTab(tab)} />;
     case "clientHome":
       return (
         <ClientHomePage
