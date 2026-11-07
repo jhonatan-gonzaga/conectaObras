@@ -27,6 +27,7 @@ describe("navigation screen guards", () => {
     "professionalHome",
     "storeProducts",
     "storeProductForm",
+    "storeReviews",
   ];
 
   it.each([
@@ -48,6 +49,7 @@ describe("navigation screen guards", () => {
     ["professionalHome", "professional"],
     ["storeProducts", "store"],
     ["storeProductForm", "store"],
+    ["storeReviews", "store"],
   ] as const)("classifies %s as %s", (screen, context) => {
     expect({
       auth: isAuthContextScreen(screen),
