@@ -5,7 +5,7 @@ describe("authenticated persona routing", () => {
     ["CLIENTE", "client", "clientHome"],
     ["PROFISSIONAL", "professional", "professionalHome"],
     ["LOJISTA", "storeOwner", "storeOwnerSetup"],
-    ["SUPORTE", "unsupported", "login"],
+    ["SUPORTE", "support", "supportDashboard"],
   ] as const)("routes %s by role", (role, persona, route) => {
     expect(personaForRole(role)).toBe(persona);
     expect(initialScreenForRole(role, false)).toBe(route);
@@ -31,6 +31,9 @@ describe("authenticated persona routing", () => {
     expect(guardPersonaScreen("professionalHome", "LOJISTA", true)).toBe("storeOwnerDashboard");
     expect(guardPersonaScreen("storeOwnerDashboard", "LOJISTA", false)).toBe("storeOwnerSetup");
     expect(guardPersonaScreen("storeOwnerSetup", "LOJISTA", true)).toBe("storeOwnerDashboard");
+    expect(guardPersonaScreen("supportDashboard", "CLIENTE")).toBe("clientHome");
+    expect(guardPersonaScreen("clientHome", "SUPORTE")).toBe("supportDashboard");
+    expect(guardPersonaScreen("supportTicket", "SUPORTE")).toBe("supportTicket");
   });
 
   it("sends an invalid anonymous deep link to login", () => {

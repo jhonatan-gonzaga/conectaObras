@@ -1,14 +1,14 @@
 import type { UserRole } from "../services/api";
 import { isStoreOwnerContextScreen, type Screen } from "./types";
 
-export type PersonaRoute = "client" | "professional" | "storeOwner" | "unsupported";
+export type PersonaRoute = "client" | "professional" | "storeOwner" | "support";
 
 export function personaForRole(role: UserRole): PersonaRoute {
   switch (role) {
     case "CLIENTE": return "client";
     case "PROFISSIONAL": return "professional";
     case "LOJISTA": return "storeOwner";
-    case "SUPORTE": return "unsupported";
+    case "SUPORTE": return "support";
   }
 }
 
@@ -17,7 +17,7 @@ export function initialScreenForRole(role: UserRole, hasStore: boolean): Screen 
     case "client": return "clientHome";
     case "professional": return "professionalHome";
     case "storeOwner": return hasStore ? "storeOwnerDashboard" : "storeOwnerSetup";
-    case "unsupported": return "login";
+    case "support": return "supportDashboard";
   }
 }
 
@@ -29,6 +29,8 @@ export function guardPersonaScreen(screen: Screen, role: UserRole | null, hasSto
   const isProfessionalScreen = screen.startsWith("professional");
   const isStoreScreen = isStoreOwnerContextScreen(screen);
   if ((isClientScreen && role !== "CLIENTE") || (isProfessionalScreen && role !== "PROFISSIONAL") || (isStoreScreen && role !== "LOJISTA")) return initialScreenForRole(role, hasStore);
+  if (screen === "supportDashboard" && role !== "SUPORTE") return initialScreenForRole(role, hasStore);
+  if (role === "SUPORTE" && screen !== "supportDashboard" && screen !== "supportTicket" && screen !== "mySupportTickets" && screen !== "accountProfile" && screen !== "terms" && screen !== "privacy") return "supportDashboard";
   if (role === "LOJISTA" && hasStore && screen === "storeOwnerSetup") return "storeOwnerDashboard";
   if (role === "LOJISTA" && !hasStore && isStoreScreen && screen !== "storeOwnerSetup") return "storeOwnerSetup";
   return screen;

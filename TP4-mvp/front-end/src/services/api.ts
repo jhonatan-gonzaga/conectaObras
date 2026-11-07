@@ -293,7 +293,20 @@ export type SupportTicket = {
   status: "OPEN" | "IN_REVIEW" | "RESOLVED";
   createdAt: string;
   updatedAt: string;
+  user?: { id: string; name: string; email?: string; phone?: string | null; role: UserRole };
+  _count?: { messages: number };
 };
+export type SupportMessage = {
+  id: string; ticketId: string; actorId: string; type: "TEXT" | "IMAGE" | "AUDIO";
+  text: string | null; imageUrl: string | null; audioUrl: string | null; durationMs: number | null;
+  actor: { id: string; name: string; role: UserRole }; createdAt: string;
+};
+export type SupportAuditLog = {
+  id: string; action: string; fromStatus: SupportTicket["status"] | null; toStatus: SupportTicket["status"] | null;
+  note: string | null; actor: { id: string; name: string; role: UserRole }; createdAt: string;
+};
+export type SupportTicketDetail = SupportTicket & { user: NonNullable<SupportTicket["user"]>; messages: SupportMessage[]; auditLogs: SupportAuditLog[] };
+export type SupportQueue = { items: SupportTicket[]; total: number; page: number; limit: number };
 
 export type PortfolioProject = ProfessionalProfile["portfolio"][number];
 
@@ -634,6 +647,11 @@ export const api = {
       body: JSON.stringify(input),
     }),
   mySupportTickets: () => request<SupportTicket[]>("/support-tickets/my"),
+  supportQueue: (filters: { status?: SupportTicket["status"]; page?: number; limit?: number } = {}) => request<SupportQueue>(`/support-tickets${toQuery(filters)}`),
+  supportTicket: (id: string) => request<SupportTicketDetail>(`/support-tickets/${encodeURIComponent(id)}`),
+  sendSupportMessage: (id: string, input: { type: SupportMessage["type"]; text?: string; imageUrl?: string; audioUrl?: string; durationMs?: number }) => request<SupportMessage>(`/support-tickets/${encodeURIComponent(id)}/messages`, { method: "POST", body: JSON.stringify(input) }),
+  updateSupportStatus: (id: string, status: SupportTicket["status"], note?: string) => request<SupportTicketDetail>(`/support-tickets/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status, note }) }),
+  supportWhatsApp: (id: string) => request<{ url: string }>(`/support-tickets/${encodeURIComponent(id)}/whatsapp`, { method: "POST" }),
 };
 
 function uploadStoreProductImage(id: string, asset: ImagePickerAsset, onProgress: (percent: number) => void): Promise<ProductImage> {

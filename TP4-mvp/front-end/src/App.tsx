@@ -62,27 +62,14 @@ export default function App() {
             className="flex-1"
           >
             <CommerceProvider userId={navigation.authUser?.id} active={navigation.clientMode === "commerce"} tab={navigation.commerceTab} onNavigate={navigation.openCommerceTab}>
-            <RootNavigator
-              navigation={navigation}
-              isDarkMode={isDarkMode}
-              onToggleDarkMode={setIsDarkMode}
-            />
+              <View className={`flex-1 w-full bg-background ${isProfessionalScreen ? "" : "items-center"}`}>
+                <RootNavigator
+                  navigation={navigation}
+                  isDarkMode={isDarkMode}
+                  onToggleDarkMode={setIsDarkMode}
+                />
+              </View>
             </CommerceProvider>
-          </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </SafeAreaProvider>
-            <View
-              className={`flex-1 w-full bg-background ${
-                isProfessionalScreen ? "" : "items-center"
-              }`}
-            >
-              <RootNavigator
-                navigation={navigation}
-                isDarkMode={isDarkMode}
-                onToggleDarkMode={setIsDarkMode}
-              />
-            </View>
           </KeyboardAvoidingView>
         </SafeAreaView>
       </SafeAreaProvider>

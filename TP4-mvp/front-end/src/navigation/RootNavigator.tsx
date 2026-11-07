@@ -4,12 +4,14 @@ import { AuthNavigator } from "./AuthNavigator";
 import { ClientNavigator } from "./ClientNavigator";
 import { ProfessionalNavigator } from "./ProfessionalNavigator";
 import { StoreOwnerNavigator } from "./StoreOwnerNavigator";
+import { SupportNavigator } from "./SupportNavigator";
 import { guardPersonaScreen } from "./persona-routing";
 import {
   isAuthContextScreen,
   isClientContextScreen,
   isProfessionalContextScreen,
   isStoreOwnerContextScreen,
+  isSupportContextScreen,
 } from "./types";
 import type { AppNavigation } from "./useAppNavigation";
 
@@ -47,6 +49,7 @@ export function RootNavigator({
         onDeleteAccount={() => setScreen("signup")}
         canSwitchProfile={navigation.authUser?.role === "CLIENTE" || navigation.authUser?.role === "PROFISSIONAL" || navigation.authUser?.role === "LOJISTA"}
         onSwitchProfile={() => setScreen("profileChoice")}
+        onSupportTickets={() => setScreen("mySupportTickets")}
       />
     );
   }
@@ -85,6 +88,10 @@ export function RootNavigator({
 
   if (isStoreOwnerContextScreen(screen)) {
     return <StoreOwnerNavigator screen={screen} navigation={navigation} />;
+  }
+
+  if (isSupportContextScreen(screen)) {
+    return <SupportNavigator screen={screen} navigation={navigation} />;
   }
 
   return null;
