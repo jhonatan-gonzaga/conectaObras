@@ -131,25 +131,20 @@ A escolha considera responsabilidades observáveis no código, e não apenas a p
 
 \subsection{Aplicação dos padrões: problema, solução, diagrama e implementação}
 
+\emph{State} e \emph{Facade} são os nomes dos padrões estudados; \emph{antes} e \emph{depois} indicam versões históricas do mesmo fluxo. Os blocos \emph{antes} foram extraídos do histórico Git imediatamente anterior a cada refatoração; os blocos \emph{depois} vêm da revisão que introduziu o respectivo padrão. Os códigos alfanuméricos citados na Seção~4 são identificadores abreviados dos commits Git e permitem recuperar as duas versões. Os trechos apresentam apenas as linhas relevantes, com recuos e quebras ajustados à página; cada bloco informa o arquivo e o método de origem.
+
 \subsubsection{State no ciclo de vida dos contratos}
 
-Antes da refatoração, o controlador chamava uma política com mapas de permissões separados para cliente e profissional. Em seguida, o serviço de contratos consultava outro mapa em \texttt{assertStatusTransition}. Uma requisição só avançava se passasse pelas duas verificações. Essa duplicidade dificultava identificar qual conjunto definia a regra efetiva de transição. O trecho a seguir reúne código das duas fontes; as quebras de linha foram ajustadas à largura da página.
+Antes da refatoração, o controlador chamava uma política com mapas de permissões separados para cliente e profissional. Em seguida, o serviço de contratos consultava outro mapa em \texttt{assertStatusTransition}. Uma requisição só avançava se passasse pelas duas verificações. Essa duplicidade dificultava identificar qual conjunto definia a regra efetiva de transição. O trecho abaixo é de \texttt{ContractsService.updateStatus}, na versão anterior.
 
-\noindent\textbf{State, antes (\texttt{b034e0e}).}
+\noindent\textbf{Antes -- \texttt{contracts.service.ts}, método \texttt{updateStatus}.}
 \begin{verbatim}
-// ContractStatusPolicyService: regra por ator
-const allowedForProfessional:
-  Partial<Record<ContractStatus, ContractStatus[]>> = {
-    PENDING_START: [ContractStatus.IN_PROGRESS],
-    REOPENED: [ContractStatus.IN_PROGRESS],
-    IN_PROGRESS: [],
-  };
-
-// ContractsService: segunda verificacao
+const contract = await this.getVisibleContract(
+  userId, id);
 this.assertStatusTransition(contract.status, dto.status);
 \end{verbatim}
 
-Na revisão refatorada, \texttt{ContractStatusPolicyService} recebe status atual, destino, ator e presença de avaliação. Ele seleciona, por status, uma implementação da interface \texttt{ContractState} e delega a validação. Há seis classes, uma para cada valor de \texttt{ContractStatus}: \texttt{PENDING\_START}, \texttt{IN\_PROGRESS}, \texttt{WAITING\_CLIENT\_APPROVAL}, \texttt{COMPLETED}, \texttt{REOPENED} e \texttt{CANCELED}. A Figura~\ref{fig:state-contratos} mostra os participantes. O serviço mantém a persistência e converte a recusa da política em erro HTTP. O trecho posterior mostra o catálogo e a regra do estado \texttt{IN\_PROGRESS}; a verificação de ausência de estado foi omitida do recorte. A implementação atual também utiliza a política quando uma avaliação conclui o contrato.
+Na revisão refatorada, \texttt{ContractStatusPolicyService} recebe status atual, destino, ator e presença de avaliação. Ele seleciona, por status, uma implementação da interface \texttt{ContractState} e delega a validação. Há seis classes, uma para cada valor de \texttt{ContractStatus}: \texttt{PENDING\_START}, \texttt{IN\_PROGRESS}, \texttt{WAITING\_CLIENT\_APPROVAL}, \texttt{COMPLETED}, \texttt{REOPENED} e \texttt{CANCELED}. A Figura~\ref{fig:state-contratos} mostra os participantes. O serviço mantém a persistência e converte a recusa da política em erro HTTP. O trecho posterior vem do mesmo método \texttt{updateStatus} após a refatoração; a implementação atual também utiliza a política quando uma avaliação conclui o contrato.
 
 \begin{figure}[htbp]
   \centering
@@ -158,25 +153,28 @@ Na revisão refatorada, \texttt{ContractStatusPolicyService} recebe status atual
   \label{fig:state-contratos}
 \end{figure}
 
-\noindent\textbf{State, depois (\texttt{1de9e8f}).}
+\noindent\textbf{Depois -- \texttt{contracts.service.ts}, método \texttt{updateStatus}.}
 \begin{verbatim}
-// ContractStatusPolicyService: catalogo de estados
-private readonly states = new Map<ContractStatus,
-  ContractState>(
-  contractStates.map((state) => [state.status, state]),
-);
+const contract = await this.getVisibleContract(
+  userId, id);
+const actor =
+  contract.client.userId === userId
+    ? ContractActor.CLIENT
+    : ContractActor.PROFESSIONAL;
 
-// InProgressContractState: regra especifica
-const professionalCanRequestApproval =
-  actor === ContractActor.PROFESSIONAL &&
-  targetStatus === ContractStatus.WAITING_CLIENT_APPROVAL;
-const clientCanComplete =
-  actor === ContractActor.CLIENT &&
-  targetStatus === ContractStatus.COMPLETED;
-if (professionalCanRequestApproval || clientCanComplete) {
-  return;
+try {
+  this.contractStatusPolicy.assertCanTransition({
+    currentStatus: contract.status,
+    targetStatus: dto.status,
+    actor,
+    hasReview: Boolean(contract.review),
+  });
+} catch (error) {
+  if (error instanceof ContractTransitionDeniedError) {
+    throw new BadRequestException(error.message);
+  }
+  throw error;
 }
-this.deny(actor);
 \end{verbatim}
 
 Na comparação da revisão que introduziu o padrão, os dois conjuntos independentes de regras foram substituídos por um catálogo de objetos de estado. A política passou a permitir que o profissional mova um contrato \texttt{IN\_PROGRESS} para \texttt{WAITING\_CLIENT\_APPROVAL}; portanto, houve uma mudança funcional deliberada, além da reorganização. O código atual verifica novamente o status no momento da escrita e exige ausência de avaliação para reabrir um contrato. Essa proteção foi acrescentada depois da refatoração inicial e não integra as métricas históricas da Tabela~\ref{tab:comparacao-padroes}.
@@ -185,7 +183,7 @@ Na comparação da revisão que introduziu o padrão, os dois conjuntos independ
 
 Antes da fachada, \texttt{ApplicationsService.accept} e \texttt{DirectRequestsService.accept} criavam contrato e histórico diretamente, além de coordenar conversas e notificações. A criação inicial aparecia nos dois serviços. A duplicação exigia revisar ambos quando a composição do contrato mudasse. Em cada fluxo havia uma transação, mas a coordenação permanecia nos serviços de origem. O trecho a seguir vem de \texttt{ApplicationsService}; \texttt{DirectRequestsService} continha a mesma sequência para sua origem.
 
-\noindent\textbf{Facade, antes (\texttt{8a00fce}).}
+\noindent\textbf{Antes -- \texttt{applications.service.ts}, método \texttt{accept}.}
 \begin{verbatim}
 const created = await tx.contract.create({
   data: {
@@ -208,7 +206,7 @@ await tx.contractStatusHistory.create({
 });
 \end{verbatim}
 
-A classe \texttt{ContractCreationService} passou a expor \texttt{acceptApplication} e \texttt{acceptDirectRequest}. Cada operação conserva as validações e ações próprias da origem, mas utiliza o mesmo método privado \texttt{createContract} para gravar contrato e histórico inicial. A candidatura recusa as demais candidaturas pendentes e marca o anúncio como contratado; a solicitação direta associa conversas existentes ao contrato. Conversas e notificações recebem o cliente Prisma da mesma transação. A Figura~\ref{fig:facade-contratacao} representa a coordenação. O trecho posterior mostra a delegação e o método compartilhado.
+A classe \texttt{ContractCreationService} passou a expor \texttt{acceptApplication} e \texttt{acceptDirectRequest}. Cada operação conserva as validações e ações próprias da origem, mas utiliza o mesmo método privado \texttt{createContract} para gravar contrato e histórico inicial. A candidatura recusa as demais candidaturas pendentes e marca o anúncio como contratado; a solicitação direta associa conversas existentes ao contrato. Conversas e notificações recebem o cliente Prisma da mesma transação. A Figura~\ref{fig:facade-contratacao} representa a coordenação. Os trechos posteriores mostram a delegação e o método compartilhado em seus respectivos arquivos.
 
 \begin{figure}[htbp]
   \centering
@@ -217,13 +215,14 @@ A classe \texttt{ContractCreationService} passou a expor \texttt{acceptApplicati
   \label{fig:facade-contratacao}
 \end{figure}
 
-\noindent\textbf{Facade, depois (\texttt{381f612}).}
+\noindent\textbf{Depois -- \texttt{applications.service.ts}, método \texttt{accept}.}
 \begin{verbatim}
-// ApplicationsService.accept
 return this.contractCreation
   .acceptApplication(userId, id);
+\end{verbatim}
 
-// ContractCreationService: usado nos dois aceites
+\noindent\textbf{Depois -- \texttt{contract-creation.service.ts}, método \texttt{createContract}.}
+\begin{verbatim}
 private async createContract(
   tx: Prisma.TransactionClient, data: NewContractData) {
   const contract = await tx.contract.create({
@@ -274,9 +273,9 @@ Esta é uma pesquisa \textbf{aplicada}, pois analisa intervenções em um sistem
 
 O ambiente de desenvolvimento compreende TypeScript e Node.js no backend, com NestJS para a API REST, Prisma para persistência e MySQL como banco configurado no esquema. O sistema também possui aplicativo Expo/React Native em TypeScript; ele fornece o contexto de uso, mas não é a unidade de análise dos padrões. Para verificação, o backend utiliza \texttt{node:test}, compilação TypeScript e o build do NestJS.
 
-A unidade de análise de \emph{State} é a validação das transições dos contratos. Sua versão anterior é o pai do commit \texttt{1de9e8f}, e a refatorada é o próprio commit. Foram contadas as linhas físicas de \texttt{contract-status-policy.service.ts}, \texttt{contracts.service.ts} e dos arquivos de estados, incluindo linhas vazias e comentários. A quantidade de transições permitidas considera as combinações de origem, ator e destino que passam pelas duas verificações anteriores ou pela política nova no endpoint de atualização de status. As seis combinações anteriores permanecem; uma foi acrescentada para o profissional. A validação da conclusão por avaliação foi integrada posteriormente, no commit \texttt{0f0e8f2}.
+A unidade de análise de \emph{State} é a validação das transições dos contratos. A versão anterior é o commit \texttt{b034e0e}; a refatorada é \texttt{1de9e8f}. Foram contadas as linhas físicas de \texttt{contract-status-policy.service.ts}, \texttt{contracts.service.ts} e dos arquivos de estados, incluindo linhas vazias e comentários. A quantidade de transições permitidas considera as combinações de origem, ator e destino que passam pelas duas verificações anteriores ou pela política nova no endpoint de atualização de status. As seis combinações anteriores permanecem; uma foi acrescentada para o profissional. A validação da conclusão por avaliação foi integrada posteriormente, no commit \texttt{0f0e8f2}.
 
-Para \emph{Facade}, a versão anterior é o pai do commit \texttt{381f612}, e a refatorada é o próprio commit. O recorte de linhas contém \texttt{applications.service.ts}, \texttt{direct-requests.service.ts} e \texttt{contract-creation.service.ts}; arquivos ainda inexistentes na versão anterior contam como zero. Os pontos de criação são as ocorrências de \texttt{tx.contract.create} e \texttt{tx.contractStatusHistory.create} nesses três serviços. As contagens podem ser conferidas por \texttt{git show}, \texttt{git grep} e \texttt{wc -l} nas revisões indicadas. Os recortes dos dois padrões são distintos, de modo que seus totais de linhas não são somados.
+Para \emph{Facade}, a versão anterior é \texttt{8a00fce}, e a refatorada é \texttt{381f612}. O recorte de linhas contém \texttt{applications.service.ts}, \texttt{direct-requests.service.ts} e \texttt{contract-creation.service.ts}; arquivos ainda inexistentes na versão anterior contam como zero. Os pontos de criação são as ocorrências de \texttt{tx.contract.create} e \texttt{tx.contractStatusHistory.create} nesses três serviços. As contagens podem ser conferidas por \texttt{git show}, \texttt{git grep} e \texttt{wc -l} nas revisões indicadas. Os recortes dos dois padrões são distintos, de modo que seus totais de linhas não são somados.
 
 Os critérios para avaliar os resultados são: concentração das regras de transição; número de pontos de criação de contrato e histórico; tamanho físico do código diretamente envolvido; preservação ou mudança explícita dos comportamentos observados; e possibilidade de testar os fluxos por suas interfaces. A complexidade de compreensão é examinada qualitativamente pela localização das decisões e pelas novas indireções, sem atribuir uma medida de complexidade ciclomática. No estado atual da branch, os testes cobrem as combinações de status e ator da política, aceites de ambas as origens, uso do cliente transacional, erros de persistência e leituras desatualizadas. Foram executados \texttt{npm test}, \texttt{npm run typecheck} e \texttt{npm run build} no backend: 318 testes passaram, cinco foram ignorados e não houve falhas. Esses resultados verificam o código atual; não constituem uma taxa comparativa de aprovação antes e depois.
 
