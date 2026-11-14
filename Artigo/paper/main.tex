@@ -20,6 +20,8 @@
 
 %\usepackage[brazil]{babel}   
 \usepackage[utf8]{inputenc}  
+\renewcommand{\figurename}{Figura}
+\renewcommand{\tablename}{Tabela}
 
      
 \sloppy
@@ -131,15 +133,23 @@ A escolha considera responsabilidades observáveis no código, e não apenas a p
 
 \subsubsection{State no ciclo de vida dos contratos}
 
-Antes da refatoração, o controlador chamava uma política com mapas de permissões separados para cliente e profissional. Em seguida, o serviço de contratos consultava outro mapa em \texttt{assertStatusTransition}. Uma requisição só avançava se passasse pelas duas verificações. Essa duplicidade dificultava identificar qual conjunto definia a regra efetiva de transição. O trecho abaixo mostra a chamada adicional existente no serviço:
+Antes da refatoração, o controlador chamava uma política com mapas de permissões separados para cliente e profissional. Em seguida, o serviço de contratos consultava outro mapa em \texttt{assertStatusTransition}. Uma requisição só avançava se passasse pelas duas verificações. Essa duplicidade dificultava identificar qual conjunto definia a regra efetiva de transição. O trecho a seguir reúne código das duas fontes; as quebras de linha foram ajustadas à largura da página.
 
+\noindent\textbf{State, antes (\texttt{b034e0e}).}
 \begin{verbatim}
-// Antes: ContractsService.updateStatus
-this.assertStatusTransition(
-  contract.status, dto.status);
+// ContractStatusPolicyService: regra por ator
+const allowedForProfessional:
+  Partial<Record<ContractStatus, ContractStatus[]>> = {
+    PENDING_START: [ContractStatus.IN_PROGRESS],
+    REOPENED: [ContractStatus.IN_PROGRESS],
+    IN_PROGRESS: [],
+  };
+
+// ContractsService: segunda verificacao
+this.assertStatusTransition(contract.status, dto.status);
 \end{verbatim}
 
-Na revisão refatorada, \texttt{ContractStatusPolicyService} recebe status atual, destino, ator e presença de avaliação. Ele seleciona, por status, uma implementação da interface \texttt{ContractState} e delega a validação. Há seis classes, uma para cada valor de \texttt{ContractStatus}: \texttt{PENDING\_START}, \texttt{IN\_PROGRESS}, \texttt{WAITING\_CLIENT\_APPROVAL}, \texttt{COMPLETED}, \texttt{REOPENED} e \texttt{CANCELED}. A Figura~\ref{fig:state-contratos} mostra os participantes. O serviço mantém a persistência e converte a recusa da política em erro HTTP. O trecho seguinte vem da revisão que introduziu o padrão; no código atual, um método privado do serviço faz essa chamada e converte a recusa em erro HTTP. A implementação atual também utiliza a política quando uma avaliação conclui o contrato.
+Na revisão refatorada, \texttt{ContractStatusPolicyService} recebe status atual, destino, ator e presença de avaliação. Ele seleciona, por status, uma implementação da interface \texttt{ContractState} e delega a validação. Há seis classes, uma para cada valor de \texttt{ContractStatus}: \texttt{PENDING\_START}, \texttt{IN\_PROGRESS}, \texttt{WAITING\_CLIENT\_APPROVAL}, \texttt{COMPLETED}, \texttt{REOPENED} e \texttt{CANCELED}. A Figura~\ref{fig:state-contratos} mostra os participantes. O serviço mantém a persistência e converte a recusa da política em erro HTTP. O trecho posterior mostra o catálogo e a regra do estado \texttt{IN\_PROGRESS}; a verificação de ausência de estado foi omitida do recorte. A implementação atual também utiliza a política quando uma avaliação conclui o contrato.
 
 \begin{figure}[htbp]
   \centering
@@ -148,35 +158,57 @@ Na revisão refatorada, \texttt{ContractStatusPolicyService} recebe status atual
   \label{fig:state-contratos}
 \end{figure}
 
+\noindent\textbf{State, depois (\texttt{1de9e8f}).}
 \begin{verbatim}
-// Depois: delegacao a politica de estados
-this.contractStatusPolicy.assertCanTransition({
-  currentStatus: contract.status,
-  targetStatus: dto.status,
-  actor,
-  hasReview: Boolean(contract.review),
-});
+// ContractStatusPolicyService: catalogo de estados
+private readonly states = new Map<ContractStatus,
+  ContractState>(
+  contractStates.map((state) => [state.status, state]),
+);
+
+// InProgressContractState: regra especifica
+const professionalCanRequestApproval =
+  actor === ContractActor.PROFESSIONAL &&
+  targetStatus === ContractStatus.WAITING_CLIENT_APPROVAL;
+const clientCanComplete =
+  actor === ContractActor.CLIENT &&
+  targetStatus === ContractStatus.COMPLETED;
+if (professionalCanRequestApproval || clientCanComplete) {
+  return;
+}
+this.deny(actor);
 \end{verbatim}
 
 Na comparação da revisão que introduziu o padrão, os dois conjuntos independentes de regras foram substituídos por um catálogo de objetos de estado. A política passou a permitir que o profissional mova um contrato \texttt{IN\_PROGRESS} para \texttt{WAITING\_CLIENT\_APPROVAL}; portanto, houve uma mudança funcional deliberada, além da reorganização. O código atual verifica novamente o status no momento da escrita e exige ausência de avaliação para reabrir um contrato. Essa proteção foi acrescentada depois da refatoração inicial e não integra as métricas históricas da Tabela~\ref{tab:comparacao-padroes}.
 
 \subsubsection{Facade no aceite de contratações}
 
-Antes da fachada, \texttt{ApplicationsService.accept} e \texttt{DirectRequestsService.accept} criavam contrato e histórico diretamente, além de coordenar conversas e notificações. A criação inicial aparecia nos dois serviços. A duplicação exigia revisar ambos quando a composição do contrato mudasse. Em cada fluxo havia uma transação, mas a coordenação permanecia nos serviços de origem.
+Antes da fachada, \texttt{ApplicationsService.accept} e \texttt{DirectRequestsService.accept} criavam contrato e histórico diretamente, além de coordenar conversas e notificações. A criação inicial aparecia nos dois serviços. A duplicação exigia revisar ambos quando a composição do contrato mudasse. Em cada fluxo havia uma transação, mas a coordenação permanecia nos serviços de origem. O trecho a seguir vem de \texttt{ApplicationsService}; \texttt{DirectRequestsService} continha a mesma sequência para sua origem.
 
+\noindent\textbf{Facade, antes (\texttt{8a00fce}).}
 \begin{verbatim}
-// Antes: repetido nos dois fluxos de aceite
-const contract = await tx.contract.create({
-  data: { /* campos da origem */,
-          status: ContractStatus.PENDING_START },
+const created = await tx.contract.create({
+  data: {
+    clientId: application.ad.clientId,
+    professionalId: application.professionalId,
+    adId: application.adId,
+    applicationId: application.id,
+    title: application.ad.title,
+    description: application.ad.description,
+    agreedValue,
+    startDate: application.ad.startDate,
+    status: ContractStatus.PENDING_START,
+  },
 });
 await tx.contractStatusHistory.create({
-  data: { contractId: contract.id,
-          toStatus: ContractStatus.PENDING_START },
+  data: {
+    contractId: created.id,
+    toStatus: ContractStatus.PENDING_START,
+  },
 });
 \end{verbatim}
 
-A classe \texttt{ContractCreationService} passou a expor \texttt{acceptApplication} e \texttt{acceptDirectRequest}. Cada operação conserva as validações e ações próprias da origem, mas utiliza o mesmo método privado \texttt{createContract} para gravar contrato e histórico inicial. A candidatura recusa as demais candidaturas pendentes e marca o anúncio como contratado; a solicitação direta associa conversas existentes ao contrato. Conversas e notificações recebem o cliente Prisma da mesma transação. A Figura~\ref{fig:facade-contratacao} representa a coordenação.
+A classe \texttt{ContractCreationService} passou a expor \texttt{acceptApplication} e \texttt{acceptDirectRequest}. Cada operação conserva as validações e ações próprias da origem, mas utiliza o mesmo método privado \texttt{createContract} para gravar contrato e histórico inicial. A candidatura recusa as demais candidaturas pendentes e marca o anúncio como contratado; a solicitação direta associa conversas existentes ao contrato. Conversas e notificações recebem o cliente Prisma da mesma transação. A Figura~\ref{fig:facade-contratacao} representa a coordenação. O trecho posterior mostra a delegação e o método compartilhado.
 
 \begin{figure}[htbp]
   \centering
@@ -185,29 +217,51 @@ A classe \texttt{ContractCreationService} passou a expor \texttt{acceptApplicati
   \label{fig:facade-contratacao}
 \end{figure}
 
+\noindent\textbf{Facade, depois (\texttt{381f612}).}
 \begin{verbatim}
-// Depois: delegacao dos servicos de origem
+// ApplicationsService.accept
 return this.contractCreation
   .acceptApplication(userId, id);
-// Ou: .acceptDirectRequest(userId, id);
+
+// ContractCreationService: usado nos dois aceites
+private async createContract(
+  tx: Prisma.TransactionClient, data: NewContractData) {
+  const contract = await tx.contract.create({
+    data: {
+      ...data,
+      status: ContractStatus.PENDING_START,
+    },
+  });
+  await tx.contractStatusHistory.create({
+    data: {
+      contractId: contract.id,
+      toStatus: ContractStatus.PENDING_START,
+    },
+  });
+  return contract;
+}
 \end{verbatim}
 
-Na revisão da fachada, as chamadas a \texttt{tx.contract.create} e \texttt{tx.contractStatusHistory.create} nos serviços do recorte passaram de duas para uma cada. O código atual também impede o aceite de candidaturas encerradas e confirma, dentro da transação, que o anúncio ou a solicitação continuam pendentes. Essas validações foram acrescentadas após a extração inicial e são tratadas separadamente na análise. A Tabela~\ref{tab:comparacao-padroes} resume indicadores que podem ser reproduzidos nas revisões de cada padrão.
+Na revisão da fachada, as chamadas a \texttt{tx.contract.create} e \texttt{tx.contractStatusHistory.create} nos serviços do recorte passaram de duas para uma cada. O código atual também impede o aceite de candidaturas encerradas e confirma, dentro da transação, que o anúncio ou a solicitação continuam pendentes. Essas validações foram acrescentadas após a extração inicial e são tratadas separadamente na análise. A Tabela~\ref{tab:comparacao-padroes} reúne as contagens de cada revisão; a variação é calculada como depois menos antes.
 
 \begin{table}[htbp]
   \centering
-  \caption{Comparação das revisões que introduziram os padrões}
+  \caption{Indicadores estáticos antes e depois das refatorações}
   \label{tab:comparacao-padroes}
-  \begin{tabular}{p{8.2cm}cc}
+  \small
+  \begin{tabular}{@{}lrrr@{}}
     \hline
-    Indicador e recorte & Antes & Depois \\
+    Indicador & Antes & Depois & $\Delta$ \\
     \hline
-    State: conjuntos independentes de regras de transição & 2 & 1 catálogo \\
-    State: linhas físicas dos arquivos do recorte & 327 & 438 \\
-    State: transições permitidas no endpoint de status & 6 & 7 \\
-    Facade: pontos de criação de contrato nos aceites & 2 & 1 \\
-    Facade: pontos de criação do histórico inicial & 2 & 1 \\
-    Facade: linhas físicas dos três serviços do recorte & 447 & 487 \\
+    \multicolumn{4}{@{}l}{\textbf{State}} \\
+    Fontes de regras de transição & 2 & 1 & $-1$ \\
+    Transições permitidas (API de status) & 6 & 7 & $+1$ \\
+    Linhas físicas (arquivos analisados) & 327 & 438 & $+111$ \\
+    \hline
+    \multicolumn{4}{@{}l}{\textbf{Facade}} \\
+    Pontos de criação do contrato & 2 & 1 & $-1$ \\
+    Pontos de criação do histórico inicial & 2 & 1 & $-1$ \\
+    Linhas físicas (três serviços analisados) & 447 & 487 & $+40$ \\
     \hline
   \end{tabular}
 \end{table}
