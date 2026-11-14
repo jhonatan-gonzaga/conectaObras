@@ -42,20 +42,34 @@ export class ContractCreationService {
       throw new BadRequestException('Este anuncio nao esta aberto para contratacao.');
     }
 
+    if (application.status !== ApplicationStatus.SENT && application.status !== ApplicationStatus.COUNTER_OFFERED) {
+      throw new BadRequestException('Esta candidatura nao esta pendente.');
+    }
+
     const agreedValue = application.proposedValue ?? application.ad.budget;
 
     const contract = await this.prisma.$transaction(async (tx) => {
-      await tx.application.update({
-        where: { id },
+      const claimedAd = await tx.serviceAd.updateMany({
+        where: { id: application.adId, status: ServiceAdStatus.OPEN },
+        data: { status: ServiceAdStatus.CONTRACTED },
+      });
+      if (claimedAd.count !== 1) {
+        throw new BadRequestException('Este anuncio nao esta aberto para contratacao.');
+      }
+      const claimedApplication = await tx.application.updateMany({
+        where: { id, status: { in: [ApplicationStatus.SENT, ApplicationStatus.COUNTER_OFFERED] } },
         data: { status: ApplicationStatus.ACCEPTED },
       });
+      if (claimedApplication.count !== 1) {
+        throw new BadRequestException('Esta candidatura nao esta pendente.');
+      }
       await tx.application.updateMany({
-        where: { adId: application.adId, id: { not: id } },
+        where: {
+          adId: application.adId,
+          id: { not: id },
+          status: { in: [ApplicationStatus.SENT, ApplicationStatus.COUNTER_OFFERED] },
+        },
         data: { status: ApplicationStatus.REJECTED },
-      });
-      await tx.serviceAd.update({
-        where: { id: application.adId },
-        data: { status: ServiceAdStatus.CONTRACTED },
       });
       const created = await this.createContract(tx, {
         clientId: application.ad.clientId,
@@ -105,10 +119,13 @@ export class ContractCreationService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.directRequest.update({
-        where: { id },
+      const claimedRequest = await tx.directRequest.updateMany({
+        where: { id, status: DirectRequestStatus.SENT },
         data: { status: DirectRequestStatus.ACCEPTED },
       });
+      if (claimedRequest.count !== 1) {
+        throw new BadRequestException('Solicitacao direta nao esta pendente.');
+      }
       const contract = await this.createContract(tx, {
         clientId: request.clientId,
         professionalId: request.professionalId,
