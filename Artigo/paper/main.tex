@@ -76,7 +76,7 @@ Práticas de projeto como separação de responsabilidades, encapsulamento, coes
 
 O Conecta Obras é uma plataforma digital voltada a obras e serviços relacionados. O sistema contempla os perfis de cliente, profissional, lojista, suporte e administração. Clientes buscam soluções, profissionais oferecem serviços e lojistas disponibilizam produtos, enquanto as equipes de suporte e administração atendem usuários e gerenciam a plataforma. Assim, o projeto reúne diferentes necessidades e responsabilidades em uma mesma aplicação. Nesse contexto, a pesquisa investiga a seguinte questão: como a aplicação dos padrões State e Facade no Conecta Obras afeta a organização das responsabilidades, a duplicação, a complexidade e a testabilidade do sistema?
 
-O objetivo geral é analisar os efeitos da aplicação de State e Facade na qualidade interna do Conecta Obras, comparando as implementações inicial e refatorada. Para isso, o trabalho busca caracterizar o sistema e seu projeto inicial; identificar problemas de acoplamento, coesão, duplicação, manutenção e extensão; aplicar os padrões selecionados; verificar, por testes automatizados, a preservação do comportamento funcional; comparar as implementações com métricas estáticas, testes e análise qualitativa; e discutir os resultados, os custos das soluções e as limitações da avaliação.
+O objetivo geral é analisar os efeitos da aplicação de State e Facade na qualidade interna do Conecta Obras, comparando as implementações inicial e refatorada. Para isso, o trabalho busca caracterizar o sistema e seu projeto inicial; identificar problemas de acoplamento, coesão, duplicação, manutenção e extensão; aplicar os padrões selecionados; verificar, por testes automatizados, os comportamentos preservados e as mudanças deliberadas; comparar as implementações com métricas estáticas, testes e análise qualitativa; e discutir os resultados, os custos das soluções e as limitações da avaliação.
 
 
 
@@ -120,6 +120,113 @@ Os \emph{padrões criacionais} tratam da criação de objetos. Eles separam, em 
 Os \emph{padrões estruturais} descrevem como classes e objetos se combinam para formar estruturas maiores. \emph{Composite} permite tratar objetos individuais e composições por uma interface comum; \emph{Decorator} acrescenta responsabilidades por composição. \emph{Facade} pertence a essa categoria porque organiza o acesso a um subsistema por meio de uma interface de mais alto nível. A Facade simplifica o contato dos clientes com o subsistema, mas não elimina a necessidade de distribuir adequadamente as responsabilidades entre seus componentes internos \cite{gamma1994}.
 
 Os \emph{padrões comportamentais} tratam da distribuição de algoritmos, decisões e comunicação entre objetos. \emph{Strategy} encapsula alternativas de algoritmo; \emph{Observer} organiza a comunicação entre um objeto e seus observadores. Em \emph{State}, o contexto delega o comportamento a um objeto que representa seu estado atual, permitindo que operações e transições variem conforme esse estado \cite{gamma1994}. Essa organização pode tornar regras de estado mais localizadas, mas a quantidade de interações e a posição das transições ainda precisam ser consideradas nos testes \cite{baudry2003}.
+
+\section{Padrões de Projeto Aplicados ao Desenvolvimento de Software}
+
+O estudo examina dois problemas do backend do Conecta Obras. O primeiro é o controle do ciclo de vida dos contratos: a autorização e as transições variam conforme o status atual, o perfil de quem executa a ação e a existência de avaliação. O segundo é o aceite de candidaturas e solicitações diretas: ambos precisam criar contrato e histórico, coordenar conversas e registrar notificações. Foram escolhidos \emph{State}, padrão comportamental, para organizar as regras de transição, e \emph{Facade}, padrão estrutural, para oferecer uma entrada única aos fluxos de contratação \cite{gamma1994}.
+
+A escolha considera responsabilidades observáveis no código, e não apenas a presença de classes com nomes correspondentes aos padrões. Em \emph{State}, cada objeto representa um status e decide se uma transição é permitida; uma política seleciona esse objeto. Em \emph{Facade}, os serviços de candidatura e solicitação chamam operações da fachada, que coordena colaboradores e transações. A análise abaixo distingue a refatoração inicial das correções posteriores, pois elas não ocorreram na mesma revisão.
+
+\subsection{Aplicação dos padrões: problema, solução, diagrama e implementação}
+
+\subsubsection{State no ciclo de vida dos contratos}
+
+Antes da refatoração, o controlador chamava uma política com mapas de permissões separados para cliente e profissional. Em seguida, o serviço de contratos consultava outro mapa em \texttt{assertStatusTransition}. Uma requisição só avançava se passasse pelas duas verificações. Essa duplicidade dificultava identificar qual conjunto definia a regra efetiva de transição. O trecho abaixo mostra a chamada adicional existente no serviço:
+
+\begin{verbatim}
+// Antes: ContractsService.updateStatus
+this.assertStatusTransition(
+  contract.status, dto.status);
+\end{verbatim}
+
+Na revisão refatorada, \texttt{ContractStatusPolicyService} recebe status atual, destino, ator e presença de avaliação. Ele seleciona, por status, uma implementação da interface \texttt{ContractState} e delega a validação. Há seis classes, uma para cada valor de \texttt{ContractStatus}: \texttt{PENDING\_START}, \texttt{IN\_PROGRESS}, \texttt{WAITING\_CLIENT\_APPROVAL}, \texttt{COMPLETED}, \texttt{REOPENED} e \texttt{CANCELED}. A Figura~\ref{fig:state-contratos} mostra os participantes. O serviço mantém a persistência e converte a recusa da política em erro HTTP. O trecho seguinte vem da revisão que introduziu o padrão; no código atual, um método privado do serviço faz essa chamada e converte a recusa em erro HTTP. A implementação atual também utiliza a política quando uma avaliação conclui o contrato.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{fig-state-contratos.png}
+  \caption{Participantes da aplicação de State aos contratos. Fonte: elaboração própria a partir do código do projeto.}
+  \label{fig:state-contratos}
+\end{figure}
+
+\begin{verbatim}
+// Depois: delegacao a politica de estados
+this.contractStatusPolicy.assertCanTransition({
+  currentStatus: contract.status,
+  targetStatus: dto.status,
+  actor,
+  hasReview: Boolean(contract.review),
+});
+\end{verbatim}
+
+Na comparação da revisão que introduziu o padrão, os dois conjuntos independentes de regras foram substituídos por um catálogo de objetos de estado. A política passou a permitir que o profissional mova um contrato \texttt{IN\_PROGRESS} para \texttt{WAITING\_CLIENT\_APPROVAL}; portanto, houve uma mudança funcional deliberada, além da reorganização. O código atual verifica novamente o status no momento da escrita e exige ausência de avaliação para reabrir um contrato. Essa proteção foi acrescentada depois da refatoração inicial e não integra as métricas históricas da Tabela~\ref{tab:comparacao-padroes}.
+
+\subsubsection{Facade no aceite de contratações}
+
+Antes da fachada, \texttt{ApplicationsService.accept} e \texttt{DirectRequestsService.accept} criavam contrato e histórico diretamente, além de coordenar conversas e notificações. A criação inicial aparecia nos dois serviços. A duplicação exigia revisar ambos quando a composição do contrato mudasse. Em cada fluxo havia uma transação, mas a coordenação permanecia nos serviços de origem.
+
+\begin{verbatim}
+// Antes: repetido nos dois fluxos de aceite
+const contract = await tx.contract.create({
+  data: { /* campos da origem */,
+          status: ContractStatus.PENDING_START },
+});
+await tx.contractStatusHistory.create({
+  data: { contractId: contract.id,
+          toStatus: ContractStatus.PENDING_START },
+});
+\end{verbatim}
+
+A classe \texttt{ContractCreationService} passou a expor \texttt{acceptApplication} e \texttt{acceptDirectRequest}. Cada operação conserva as validações e ações próprias da origem, mas utiliza o mesmo método privado \texttt{createContract} para gravar contrato e histórico inicial. A candidatura recusa as demais candidaturas pendentes e marca o anúncio como contratado; a solicitação direta associa conversas existentes ao contrato. Conversas e notificações recebem o cliente Prisma da mesma transação. A Figura~\ref{fig:facade-contratacao} representa a coordenação.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{fig-facade-contratacao.png}
+  \caption{Fachada dos dois fluxos de contratação. Fonte: elaboração própria a partir do código do projeto.}
+  \label{fig:facade-contratacao}
+\end{figure}
+
+\begin{verbatim}
+// Depois: delegacao dos servicos de origem
+return this.contractCreation
+  .acceptApplication(userId, id);
+// Ou: .acceptDirectRequest(userId, id);
+\end{verbatim}
+
+Na revisão da fachada, as chamadas a \texttt{tx.contract.create} e \texttt{tx.contractStatusHistory.create} nos serviços do recorte passaram de duas para uma cada. O código atual também impede o aceite de candidaturas encerradas e confirma, dentro da transação, que o anúncio ou a solicitação continuam pendentes. Essas validações foram acrescentadas após a extração inicial e são tratadas separadamente na análise. A Tabela~\ref{tab:comparacao-padroes} resume indicadores que podem ser reproduzidos nas revisões de cada padrão.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Comparação das revisões que introduziram os padrões}
+  \label{tab:comparacao-padroes}
+  \begin{tabular}{p{8.2cm}cc}
+    \hline
+    Indicador e recorte & Antes & Depois \\
+    \hline
+    State: conjuntos independentes de regras de transição & 2 & 1 catálogo \\
+    State: linhas físicas dos arquivos do recorte & 327 & 438 \\
+    State: transições permitidas no endpoint de status & 6 & 7 \\
+    Facade: pontos de criação de contrato nos aceites & 2 & 1 \\
+    Facade: pontos de criação do histórico inicial & 2 & 1 \\
+    Facade: linhas físicas dos três serviços do recorte & 447 & 487 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+As contagens de linhas aumentaram nos dois casos: 111 linhas em \emph{State} e 40 em \emph{Facade}. Classes, métodos e delegações adicionais têm custo de leitura. As contagens de pontos de escrita indicam menor repetição nos aceites, mas não medem diretamente esforço de manutenção. Também não permitem concluir que a complexidade total ou o desempenho melhoraram.
+
+\section{Metodologia}
+
+Esta é uma pesquisa \textbf{aplicada}, pois analisa intervenções em um sistema existente, com \textbf{abordagem quali-quantitativa}. O desenho é um \textbf{estudo de caso exploratório} do backend do Conecta Obras. A análise qualitativa examina a distribuição de responsabilidades, as dependências entre componentes, os caminhos de execução e os custos introduzidos pelos padrões. A parte quantitativa usa contagens estáticas delimitadas e resultados de testes automatizados. Não houve grupo de controle, participantes observados ou experimento de tempo de manutenção.
+
+O ambiente de desenvolvimento compreende TypeScript e Node.js no backend, com NestJS para a API REST, Prisma para persistência e MySQL como banco configurado no esquema. O sistema também possui aplicativo Expo/React Native em TypeScript; ele fornece o contexto de uso, mas não é a unidade de análise dos padrões. Para verificação, o backend utiliza \texttt{node:test}, compilação TypeScript e o build do NestJS.
+
+A unidade de análise de \emph{State} é a validação das transições dos contratos. Sua versão anterior é o pai do commit \texttt{1de9e8f}, e a refatorada é o próprio commit. Foram contadas as linhas físicas de \texttt{contract-status-policy.service.ts}, \texttt{contracts.service.ts} e dos arquivos de estados, incluindo linhas vazias e comentários. A quantidade de transições permitidas considera as combinações de origem, ator e destino que passam pelas duas verificações anteriores ou pela política nova no endpoint de atualização de status. As seis combinações anteriores permanecem; uma foi acrescentada para o profissional. A validação da conclusão por avaliação foi integrada posteriormente, no commit \texttt{0f0e8f2}.
+
+Para \emph{Facade}, a versão anterior é o pai do commit \texttt{381f612}, e a refatorada é o próprio commit. O recorte de linhas contém \texttt{applications.service.ts}, \texttt{direct-requests.service.ts} e \texttt{contract-creation.service.ts}; arquivos ainda inexistentes na versão anterior contam como zero. Os pontos de criação são as ocorrências de \texttt{tx.contract.create} e \texttt{tx.contractStatusHistory.create} nesses três serviços. As contagens podem ser conferidas por \texttt{git show}, \texttt{git grep} e \texttt{wc -l} nas revisões indicadas. Os recortes dos dois padrões são distintos, de modo que seus totais de linhas não são somados.
+
+Os critérios para avaliar os resultados são: concentração das regras de transição; número de pontos de criação de contrato e histórico; tamanho físico do código diretamente envolvido; preservação ou mudança explícita dos comportamentos observados; e possibilidade de testar os fluxos por suas interfaces. A complexidade de compreensão é examinada qualitativamente pela localização das decisões e pelas novas indireções, sem atribuir uma medida de complexidade ciclomática. No estado atual da branch, os testes cobrem as combinações de status e ator da política, aceites de ambas as origens, uso do cliente transacional, erros de persistência e leituras desatualizadas. Foram executados \texttt{npm test}, \texttt{npm run typecheck} e \texttt{npm run build} no backend: 318 testes passaram, cinco foram ignorados e não houve falhas. Esses resultados verificam o código atual; não constituem uma taxa comparativa de aprovação antes e depois.
+
+A avaliação se limita ao repositório e às revisões especificadas. As simulações de Prisma verificam chamadas e propagação de falhas, mas não substituem um teste de concorrência e rollback em MySQL real. As contagens estáticas mostram a localização de responsabilidades e o custo em linhas; não demonstram redução de esforço humano, ganho de desempenho nem efeito causal generalizável a outros sistemas.
 
 \bibliographystyle{sbc}
 \bibliography{referencias}
