@@ -16,7 +16,7 @@
 
 \usepackage{sbc-template}
 
-\usepackage{graphicx,url}
+\usepackage{graphicx,url,float}
 
 %\usepackage[brazil]{babel}   
 \usepackage[utf8]{inputenc}  
@@ -131,119 +131,115 @@ A escolha considera responsabilidades observáveis no código, e não apenas a p
 
 \subsection{Aplicação dos padrões: problema, solução, diagrama e implementação}
 
-\emph{State} e \emph{Facade} são os nomes dos padrões estudados; \emph{antes} e \emph{depois} indicam versões históricas do mesmo fluxo. Os blocos \emph{antes} foram extraídos do histórico Git imediatamente anterior a cada refatoração; os blocos \emph{depois} vêm da revisão que introduziu o respectivo padrão. Os códigos alfanuméricos citados na Seção~4 são identificadores abreviados dos commits Git e permitem recuperar as duas versões. Os trechos apresentam apenas as linhas relevantes, com recuos e quebras ajustados à página; cada bloco informa o arquivo e o método de origem.
+\emph{State} e \emph{Facade} são os nomes dos padrões estudados; \emph{antes} e \emph{depois} indicam versões históricas do mesmo fluxo. O código alfanumérico entre parênteses em cada painel, como \texttt{b034e0e}, é o identificador abreviado de um \emph{commit} Git: ele localiza a revisão do projeto usada na comparação, e não é uma instrução do programa. Em cada par, o commit \emph{antes} precede a refatoração e o commit \emph{depois} a introduz. Os trechos apresentam apenas as linhas relevantes, com recuos e quebras ajustados à página; o arquivo e o método de origem são indicados no texto que antecede cada par.
 
 \subsubsection{State no ciclo de vida dos contratos}
 
-Antes da refatoração, o controlador chamava uma política com mapas de permissões separados para cliente e profissional. Em seguida, o serviço de contratos consultava outro mapa em \texttt{assertStatusTransition}. Uma requisição só avançava se passasse pelas duas verificações. Essa duplicidade dificultava identificar qual conjunto definia a regra efetiva de transição. O trecho abaixo é de \texttt{ContractsService.updateStatus}, na versão anterior.
+Antes da refatoração, o controlador chamava uma política com mapas de permissões separados para cliente e profissional. Em seguida, o serviço de contratos consultava outro mapa em \texttt{assertStatusTransition}. Uma requisição só avançava se passasse pelas duas verificações. Essa duplicidade dificultava identificar qual conjunto definia a regra efetiva de transição. Os recortes lado a lado são do mesmo método \texttt{ContractsService.updateStatus}; o restante de cada método foi omitido.
 
-\noindent\textbf{Antes -- \texttt{contracts.service.ts}, método \texttt{updateStatus}.}
+\noindent
+\begin{minipage}[t]{0.48\linewidth}
+  \vspace{0pt}\textbf{Antes (\texttt{b034e0e})}\par
+  \footnotesize
 \begin{verbatim}
-const contract = await this.getVisibleContract(
-  userId, id);
-this.assertStatusTransition(contract.status, dto.status);
+this.assertStatusTransition(
+  contract.status, dto.status);
 \end{verbatim}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\linewidth}
+  \vspace{0pt}\textbf{Depois (\texttt{1de9e8f})}\par
+  \footnotesize
+\begin{verbatim}
+this.contractStatusPolicy
+  .assertCanTransition({
+    currentStatus:
+      contract.status,
+    targetStatus: dto.status,
+    actor,
+    hasReview:
+      Boolean(contract.review),
+  });
+\end{verbatim}
+\end{minipage}
 
-Na revisão refatorada, \texttt{ContractStatusPolicyService} recebe status atual, destino, ator e presença de avaliação. Ele seleciona, por status, uma implementação da interface \texttt{ContractState} e delega a validação. Há seis classes, uma para cada valor de \texttt{ContractStatus}: \texttt{PENDING\_START}, \texttt{IN\_PROGRESS}, \texttt{WAITING\_CLIENT\_APPROVAL}, \texttt{COMPLETED}, \texttt{REOPENED} e \texttt{CANCELED}. A Figura~\ref{fig:state-contratos} mostra os participantes. O serviço mantém a persistência e converte a recusa da política em erro HTTP. O trecho posterior vem do mesmo método \texttt{updateStatus} após a refatoração; a implementação atual também utiliza a política quando uma avaliação conclui o contrato.
+Na revisão refatorada, \texttt{ContractStatusPolicyService} recebe status atual, destino, ator e presença de avaliação. Ele seleciona, por status, uma implementação da interface \texttt{ContractState} e delega a validação. Há seis classes, uma para cada valor de \texttt{ContractStatus}: \texttt{PENDING\_START}, \texttt{IN\_PROGRESS}, \texttt{WAITING\_CLIENT\_APPROVAL}, \texttt{COMPLETED}, \texttt{REOPENED} e \texttt{CANCELED}. O serviço mantém a persistência e converte a recusa da política em erro HTTP. A implementação atual também utiliza a política quando uma avaliação conclui o contrato. A Figura~\ref{fig:state-contratos} mostra os participantes no ponto em que são discutidos.
 
-\begin{figure}[htbp]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=\linewidth]{fig-state-contratos.png}
+  \includegraphics[width=0.88\linewidth]{fig-state-contratos.png}
   \caption{Participantes da aplicação de State aos contratos. Fonte: elaboração própria a partir do código do projeto.}
   \label{fig:state-contratos}
 \end{figure}
-
-\noindent\textbf{Depois -- \texttt{contracts.service.ts}, método \texttt{updateStatus}.}
-\begin{verbatim}
-const contract = await this.getVisibleContract(
-  userId, id);
-const actor =
-  contract.client.userId === userId
-    ? ContractActor.CLIENT
-    : ContractActor.PROFESSIONAL;
-
-try {
-  this.contractStatusPolicy.assertCanTransition({
-    currentStatus: contract.status,
-    targetStatus: dto.status,
-    actor,
-    hasReview: Boolean(contract.review),
-  });
-} catch (error) {
-  if (error instanceof ContractTransitionDeniedError) {
-    throw new BadRequestException(error.message);
-  }
-  throw error;
-}
-\end{verbatim}
 
 Na comparação da revisão que introduziu o padrão, os dois conjuntos independentes de regras foram substituídos por um catálogo de objetos de estado. A política passou a permitir que o profissional mova um contrato \texttt{IN\_PROGRESS} para \texttt{WAITING\_CLIENT\_APPROVAL}; portanto, houve uma mudança funcional deliberada, além da reorganização. O código atual verifica novamente o status no momento da escrita e exige ausência de avaliação para reabrir um contrato. Essa proteção foi acrescentada depois da refatoração inicial e não integra as métricas históricas da Tabela~\ref{tab:comparacao-padroes}.
 
 \subsubsection{Facade no aceite de contratações}
 
-Antes da fachada, \texttt{ApplicationsService.accept} e \texttt{DirectRequestsService.accept} criavam contrato e histórico diretamente, além de coordenar conversas e notificações. A criação inicial aparecia nos dois serviços. A duplicação exigia revisar ambos quando a composição do contrato mudasse. Em cada fluxo havia uma transação, mas a coordenação permanecia nos serviços de origem. O trecho a seguir vem de \texttt{ApplicationsService}; \texttt{DirectRequestsService} continha a mesma sequência para sua origem.
+Antes da fachada, \texttt{ApplicationsService.accept} e \texttt{DirectRequestsService.accept} criavam contrato e histórico diretamente, além de coordenar conversas e notificações. A criação inicial aparecia nos dois serviços. A duplicação exigia revisar ambos quando a composição do contrato mudasse. Em cada fluxo havia uma transação, mas a coordenação permanecia nos serviços de origem. Os recortes lado a lado são de \texttt{ApplicationsService.accept}; os campos específicos da candidatura foram omitidos do painel \emph{Antes}.
 
-\noindent\textbf{Antes -- \texttt{applications.service.ts}, método \texttt{accept}.}
+\noindent
+\begin{minipage}[t]{0.48\linewidth}
+  \vspace{0pt}\textbf{Antes (\texttt{8a00fce})}\par
+  \fontsize{9}{11}\selectfont
 \begin{verbatim}
-const created = await tx.contract.create({
-  data: {
-    clientId: application.ad.clientId,
-    professionalId: application.professionalId,
-    adId: application.adId,
-    applicationId: application.id,
-    title: application.ad.title,
-    description: application.ad.description,
-    agreedValue,
-    startDate: application.ad.startDate,
-    status: ContractStatus.PENDING_START,
-  },
-});
-await tx.contractStatusHistory.create({
-  data: {
-    contractId: created.id,
-    toStatus: ContractStatus.PENDING_START,
-  },
-});
+const created = await
+  tx.contract.create({
+    data: {
+      // campos da candidatura
+      status:
+        ContractStatus.PENDING_START,
+    },
+  });
+await tx.contractStatusHistory
+  .create({
+    data: {
+      contractId: created.id,
+      toStatus:
+        ContractStatus.PENDING_START,
+    },
+  });
 \end{verbatim}
-
-A classe \texttt{ContractCreationService} passou a expor \texttt{acceptApplication} e \texttt{acceptDirectRequest}. Cada operação conserva as validações e ações próprias da origem, mas utiliza o mesmo método privado \texttt{createContract} para gravar contrato e histórico inicial. A candidatura recusa as demais candidaturas pendentes e marca o anúncio como contratado; a solicitação direta associa conversas existentes ao contrato. Conversas e notificações recebem o cliente Prisma da mesma transação. A Figura~\ref{fig:facade-contratacao} representa a coordenação. Os trechos posteriores mostram a delegação e o método compartilhado em seus respectivos arquivos.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\linewidth]{fig-facade-contratacao.png}
-  \caption{Fachada dos dois fluxos de contratação. Fonte: elaboração própria a partir do código do projeto.}
-  \label{fig:facade-contratacao}
-\end{figure}
-
-\noindent\textbf{Depois -- \texttt{applications.service.ts}, método \texttt{accept}.}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\linewidth}
+  \vspace{0pt}\textbf{Depois (\texttt{381f612})}\par
+  \footnotesize
 \begin{verbatim}
 return this.contractCreation
   .acceptApplication(userId, id);
 \end{verbatim}
+\end{minipage}
 
-\noindent\textbf{Depois -- \texttt{contract-creation.service.ts}, método \texttt{createContract}.}
+A classe \texttt{ContractCreationService} passou a expor \texttt{acceptApplication} e \texttt{acceptDirectRequest}. Cada operação conserva as validações e ações próprias da origem, mas utiliza o mesmo método privado \texttt{createContract} para gravar contrato e histórico inicial. A candidatura recusa as demais candidaturas pendentes e marca o anúncio como contratado; a solicitação direta associa conversas existentes ao contrato. Conversas e notificações recebem o cliente Prisma da mesma transação. O método compartilhado está no trecho seguinte.
+
+\begin{samepage}
+\noindent\textbf{\texttt{contract-creation.service.ts}, método \texttt{createContract}.}
 \begin{verbatim}
 private async createContract(
   tx: Prisma.TransactionClient, data: NewContractData) {
   const contract = await tx.contract.create({
-    data: {
-      ...data,
-      status: ContractStatus.PENDING_START,
-    },
+    data: { ...data, status: ContractStatus.PENDING_START },
   });
   await tx.contractStatusHistory.create({
-    data: {
-      contractId: contract.id,
-      toStatus: ContractStatus.PENDING_START,
-    },
+    data: { contractId: contract.id,
+      toStatus: ContractStatus.PENDING_START },
   });
   return contract;
 }
 \end{verbatim}
+\end{samepage}
+
+A Figura~\ref{fig:facade-contratacao} mostra a posição da fachada entre os dois serviços de origem e os colaboradores utilizados na transação.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.75\linewidth]{fig-facade-contratacao.png}
+  \caption{Fachada dos dois fluxos de contratação. Fonte: elaboração própria a partir do código do projeto.}
+  \label{fig:facade-contratacao}
+\end{figure}
 
 Na revisão da fachada, as chamadas a \texttt{tx.contract.create} e \texttt{tx.contractStatusHistory.create} nos serviços do recorte passaram de duas para uma cada. O código atual também impede o aceite de candidaturas encerradas e confirma, dentro da transação, que o anúncio ou a solicitação continuam pendentes. Essas validações foram acrescentadas após a extração inicial e são tratadas separadamente na análise. A Tabela~\ref{tab:comparacao-padroes} reúne as contagens de cada revisão; a variação é calculada como depois menos antes.
 
-\begin{table}[htbp]
+\begin{table}[H]
   \centering
   \caption{Indicadores estáticos antes e depois das refatorações}
   \label{tab:comparacao-padroes}
