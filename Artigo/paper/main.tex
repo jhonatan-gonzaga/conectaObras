@@ -138,19 +138,15 @@ A escolha considera responsabilidades observáveis no código, e não apenas a p
 Antes da refatoração, o controlador chamava uma política com mapas de permissões separados para cliente e profissional. Em seguida, o serviço de contratos consultava outro mapa em \texttt{assertStatusTransition}. Uma requisição só avançava se passasse pelas duas verificações. Essa duplicidade dificultava identificar qual conjunto definia a regra efetiva de transição. Os recortes lado a lado são do mesmo método \texttt{ContractsService.updateStatus}; o restante de cada método foi omitido.
 
 \noindent
-\begingroup
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{|c|c|}
-\hline
-\begin{minipage}[t]{0.475\textwidth}
+\begin{minipage}[t]{0.48\linewidth}
   \vspace{0pt}\textbf{Antes (\texttt{b034e0e})}\par
   \footnotesize
 \begin{verbatim}
 this.assertStatusTransition(
   contract.status, dto.status);
 \end{verbatim}
-\end{minipage} &
-\begin{minipage}[t]{0.475\textwidth}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\linewidth}
   \vspace{0pt}\textbf{Depois (\texttt{1de9e8f})}\par
   \footnotesize
 \begin{verbatim}
@@ -164,9 +160,7 @@ this.contractStatusPolicy
       Boolean(contract.review),
   });
 \end{verbatim}
-\end{minipage} \\ \hline
-\end{tabular}
-\endgroup
+\end{minipage}
 
 Na revisão refatorada, \texttt{ContractStatusPolicyService} recebe status atual, destino, ator e presença de avaliação. Ele seleciona, por status, uma implementação da interface \texttt{ContractState} e delega a validação. Há seis classes, uma para cada valor de \texttt{ContractStatus}: \texttt{PENDING\_START}, \texttt{IN\_PROGRESS}, \texttt{WAITING\_CLIENT\_APPROVAL}, \texttt{COMPLETED}, \texttt{REOPENED} e \texttt{CANCELED}. O serviço mantém a persistência e converte a recusa da política em erro HTTP. A implementação atual também utiliza a política quando uma avaliação conclui o contrato. A Figura~\ref{fig:state-contratos} mostra os participantes no ponto em que são discutidos.
 
@@ -184,11 +178,7 @@ Na comparação da revisão que introduziu o padrão, os dois conjuntos independ
 Antes da fachada, \texttt{ApplicationsService.accept} e \texttt{DirectRequestsService.accept} criavam contrato e histórico diretamente, além de coordenar conversas e notificações. A criação inicial aparecia nos dois serviços. A duplicação exigia revisar ambos quando a composição do contrato mudasse. Em cada fluxo havia uma transação, mas a coordenação permanecia nos serviços de origem. Os recortes lado a lado são de \texttt{ApplicationsService.accept}; os campos específicos da candidatura foram omitidos do painel \emph{Antes}.
 
 \noindent
-\begingroup
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{|c|c|}
-\hline
-\begin{minipage}[t]{0.475\textwidth}
+\begin{minipage}[t]{0.48\linewidth}
   \vspace{0pt}\textbf{Antes (\texttt{8a00fce})}\par
   \fontsize{9}{11}\selectfont
 \begin{verbatim}
@@ -209,17 +199,15 @@ await tx.contractStatusHistory
     },
   });
 \end{verbatim}
-\end{minipage} &
-\begin{minipage}[t]{0.475\textwidth}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\linewidth}
   \vspace{0pt}\textbf{Depois (\texttt{381f612})}\par
   \footnotesize
 \begin{verbatim}
 return this.contractCreation
   .acceptApplication(userId, id);
 \end{verbatim}
-\end{minipage} \\ \hline
-\end{tabular}
-\endgroup
+\end{minipage}
 
 A classe \texttt{ContractCreationService} passou a expor \texttt{acceptApplication} e \texttt{acceptDirectRequest}. Cada operação conserva as validações e ações próprias da origem, mas utiliza o mesmo método privado \texttt{createContract} para gravar contrato e histórico inicial. A candidatura recusa as demais candidaturas pendentes e marca o anúncio como contratado; a solicitação direta associa conversas existentes ao contrato. Conversas e notificações recebem o cliente Prisma da mesma transação. O método compartilhado está no trecho seguinte.
 
