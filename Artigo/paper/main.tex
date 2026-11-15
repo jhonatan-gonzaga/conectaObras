@@ -139,29 +139,30 @@ Antes da refatoração, o controlador chamava uma política com mapas de permiss
 
 \noindent
 \begingroup
-\setlength{\tabcolsep}{3pt}
+\setlength{\tabcolsep}{2.5pt}
 \begin{tabular}{|c|c|}
 \hline
-\begin{minipage}[t]{0.475\textwidth}
+\begin{minipage}[t]{0.485\textwidth}
   \vspace{0pt}\textbf{Antes (\texttt{b034e0e})}\par
-  \footnotesize
 \begin{verbatim}
 this.assertStatusTransition(
-  contract.status, dto.status);
+  contract.status,
+  dto.status);
 \end{verbatim}
 \end{minipage} &
-\begin{minipage}[t]{0.475\textwidth}
+\begin{minipage}[t]{0.485\textwidth}
   \vspace{0pt}\textbf{Depois (\texttt{1de9e8f})}\par
-  \footnotesize
 \begin{verbatim}
 this.contractStatusPolicy
   .assertCanTransition({
     currentStatus:
       contract.status,
-    targetStatus: dto.status,
+    targetStatus:
+      dto.status,
     actor,
     hasReview:
-      Boolean(contract.review),
+      Boolean(
+        contract.review),
   });
 \end{verbatim}
 \end{minipage} \\ \hline
@@ -177,45 +178,37 @@ Na revisão refatorada, \texttt{ContractStatusPolicyService} recebe status atual
   \label{fig:state-contratos}
 \end{figure}
 
-Na comparação da revisão que introduziu o padrão, os dois conjuntos independentes de regras foram substituídos por um catálogo de objetos de estado. A política passou a permitir que o profissional mova um contrato \texttt{IN\_PROGRESS} para \texttt{WAITING\_CLIENT\_APPROVAL}; portanto, houve uma mudança funcional deliberada, além da reorganização. O código atual verifica novamente o status no momento da escrita e exige ausência de avaliação para reabrir um contrato. Essa proteção foi acrescentada depois da refatoração inicial e não integra as métricas históricas da Tabela~\ref{tab:comparacao-padroes}.
+Na revisão inicial, um catálogo de objetos de estado substituiu os dois conjuntos de regras. A política também permitiu ao profissional passar de \texttt{IN\_PROGRESS} para \texttt{WAITING\_CLIENT\_APPROVAL}, mudança funcional deliberada. As verificações atuais do status na escrita e da ausência de avaliação para reabrir foram adicionadas depois e não entram nas métricas históricas da Tabela~\ref{tab:comparacao-padroes}.
 
 \subsubsection{Facade no aceite de contratações}
 
-Antes da fachada, \texttt{ApplicationsService.accept} e \texttt{DirectRequestsService.accept} criavam contrato e histórico diretamente, além de coordenar conversas e notificações. A criação inicial aparecia nos dois serviços. A duplicação exigia revisar ambos quando a composição do contrato mudasse. Em cada fluxo havia uma transação, mas a coordenação permanecia nos serviços de origem. Os recortes lado a lado são de \texttt{ApplicationsService.accept}; os campos específicos da candidatura foram omitidos do painel \emph{Antes}.
+Antes da fachada, \texttt{ApplicationsService.accept} e \texttt{DirectRequestsService.accept} criavam contrato e histórico diretamente, além de coordenar conversas e notificações. A criação inicial aparecia nos dois serviços. A duplicação exigia revisar ambos quando a composição do contrato mudasse. Em cada fluxo havia uma transação, mas a coordenação permanecia nos serviços de origem. Os recortes lado a lado são de \texttt{ApplicationsService.accept}; os comentários com reticências no painel \emph{Antes} marcam os campos omitidos.
 
 \noindent
 \begingroup
-\setlength{\tabcolsep}{3pt}
+\setlength{\tabcolsep}{2.5pt}
 \begin{tabular}{|c|c|}
 \hline
-\begin{minipage}[t]{0.475\textwidth}
+\begin{minipage}[t]{0.485\textwidth}
   \vspace{0pt}\textbf{Antes (\texttt{8a00fce})}\par
-  \fontsize{9}{11}\selectfont
 \begin{verbatim}
 const created = await
   tx.contract.create({
-    data: {
-      // campos da candidatura
-      status:
-        ContractStatus.PENDING_START,
-    },
+    data: { /* ... */ },
   });
-await tx.contractStatusHistory
+await tx
+  .contractStatusHistory
   .create({
-    data: {
-      contractId: created.id,
-      toStatus:
-        ContractStatus.PENDING_START,
-    },
+    data: { /* ... */ },
   });
 \end{verbatim}
 \end{minipage} &
-\begin{minipage}[t]{0.475\textwidth}
+\begin{minipage}[t]{0.485\textwidth}
   \vspace{0pt}\textbf{Depois (\texttt{381f612})}\par
-  \footnotesize
 \begin{verbatim}
 return this.contractCreation
-  .acceptApplication(userId, id);
+  .acceptApplication(
+    userId, id);
 \end{verbatim}
 \end{minipage} \\ \hline
 \end{tabular}
