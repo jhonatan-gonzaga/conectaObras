@@ -4,6 +4,7 @@ import type { ImagePickerAsset } from "expo-image-picker";
 import type { StoreProfile } from "./store-form";
 import type { ProductImage } from "./store-products";
 import { API_URL, ApiError, getAccessToken, request } from "./api-core";
+import type { UploadedAudio, UploadedImage } from "./api-types";
 
 export async function uploadStoreImage(kind: "cover" | "background", file: { uri: string; name: string; type: string; file?: Blob }) {
   const data = new FormData();
@@ -47,3 +48,22 @@ export function uploadStoreProductImage(id: string, asset: ImagePickerAsset, onP
     xhr.send(form);
   });
 }
+
+export const uploadApi = {
+  uploadImage: async (file: { uri: string; name: string; type: string }) => {
+    const formData = new FormData();
+    formData.append("file", file as unknown as Blob);
+    return request<UploadedImage>("/uploads/image", {
+      method: "POST",
+      body: formData,
+    });
+  },
+  uploadAudio: async (file: { uri: string; name: string; type: string }) => {
+    const formData = new FormData();
+    formData.append("file", file as unknown as Blob);
+    return request<UploadedAudio>("/uploads/audio", {
+      method: "POST",
+      body: formData,
+    });
+  },
+};
