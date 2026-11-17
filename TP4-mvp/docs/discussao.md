@@ -1,5 +1,7 @@
 # Analise do Codigo, Componentes e Padroes
 
+> Analise historica: algumas recomendacoes abaixo ja foram implementadas. Para o diagnostico do codigo atual e dos problemas anteriores a State e Facade, consulte [5.3 — Identificacao dos problemas de design](diagnostico-design-5-3.md).
+
 Projeto analisado: `projeto/TP4-mvp/TP4-mvp`
 
 Base conceitual consultada:
