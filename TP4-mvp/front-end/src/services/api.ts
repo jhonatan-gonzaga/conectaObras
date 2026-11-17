@@ -1,84 +1,10 @@
 import type { StoreProfile } from "./store-form";
 import type { CatalogPage, ProductQuery, PublicProduct, PublicStore, PublicStoreDetail, StoreQuery } from "./public-catalog";
-import * as SecureStore from "expo-secure-store";
-import Constants from "expo-constants";
-import { File } from "expo-file-system";
-import { Platform } from "react-native";
-import type { ImagePickerAsset } from "expo-image-picker";
-import { resolveApiUrl } from "./api-url";
 import type { ProductCategory, ProductDetails, ProductFilters, ProductImage, ProductPage, ProductStatus, StoreProduct } from "./store-products";
+import { request, toQuery, setAccessToken } from "./api-core";
+import { uploadStoreImage, uploadStoreProductImage } from "./api-uploads";
 
-const API_URL = resolveApiUrl(
-  process.env.EXPO_PUBLIC_API_URL,
-  Platform.OS,
-  Constants.expoConfig?.hostUri,
-  typeof window !== "undefined" ? window.location?.hostname : undefined,
-);
-
-let accessToken: string | null = null;
-
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number,
-    public readonly details?: { pending?: string[]; message?: string | string[]; field?: string },
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
-type RequestOptions = RequestInit & {
-  auth?: boolean;
-};
-
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const headers = new Headers(options.headers);
-
-  if (!headers.has("Content-Type") && options.body && !(options.body instanceof FormData)) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  if (options.auth !== false && accessToken) {
-    headers.set("Authorization", `Bearer ${accessToken}`);
-  }
-
-  let response: Response;
-
-  try {
-    response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers,
-    });
-  } catch {
-    throw new ApiError("Nao foi possivel conectar ao servidor.", 0);
-  }
-
-  const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
-
-  if (!response.ok) {
-    const message = Array.isArray(data?.message)
-      ? data.message.join("\n")
-      : data?.message || "A requisicao falhou.";
-    throw new ApiError(message, response.status, data);
-  }
-
-  return data as T;
-}
-
-function toQuery(params: Record<string, string | number | boolean | undefined>) {
-  const search = new URLSearchParams();
-
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== "") {
-      search.set(key, String(value));
-    }
-  });
-
-  const query = search.toString();
-  return query ? `?${query}` : "";
-}
+export { ApiError, setAccessToken, restoreAccessToken, resolveImageUrl } from "./api-core";
 
 export type UserRole = "CLIENTE" | "PROFISSIONAL" | "LOJISTA" | "SUPORTE";
 export type SelectableUserRole = Extract<UserRole, "CLIENTE" | "PROFISSIONAL" | "LOJISTA">;
@@ -346,40 +272,6 @@ export type Conversation = {
   updatedAt: string;
 };
 
-export async function setAccessToken(token: string | null) {
-  accessToken = token;
-  if (Platform.OS === "web") {
-    try {
-      if (token) globalThis.sessionStorage?.setItem("accessToken", token);
-      else globalThis.sessionStorage?.removeItem("accessToken");
-    } catch { /* Storage can be disabled by the browser. */ }
-  } else if (token) await SecureStore.setItemAsync("accessToken", token).catch(() => undefined);
-  else await SecureStore.deleteItemAsync("accessToken").catch(() => undefined);
-}
-
-export async function restoreAccessToken() {
-  if (Platform.OS === "web") {
-    try { accessToken = globalThis.sessionStorage?.getItem("accessToken") ?? null; }
-    catch { accessToken = null; }
-  } else accessToken = await SecureStore.getItemAsync("accessToken").catch(() => null);
-  return accessToken;
-}
-
-// Local uploads must use the same reachable origin as the configured API.
-// Preserve remote image providers and local picker URIs.
-export function resolveImageUrl(value?: string | null): string | undefined {
-  if (!value) return undefined;
-  try {
-    const base = new URL(API_URL);
-    const image = new URL(value, base.origin);
-    if (image.pathname.startsWith("/uploads/") &&
-        (value.startsWith("/") || image.hostname === "localhost" || image.hostname === "127.0.0.1" || image.origin === base.origin)) {
-      return `${base.origin}${image.pathname}${image.search}`;
-    }
-  } catch { /* A picker URI or non-HTTP source does not need rewriting. */ }
-  return value;
-}
-
 export const api = {
   async login(email: string, password: string) {
     const response = await request<AuthResponse>("/auth/login", {
@@ -446,15 +338,7 @@ export const api = {
   myStore: () => request<StoreProfile>("/stores/me"),
   storeIdentity: () => request<StoreIdentity>("/stores/me/identity"),
   saveMyStore: (input: unknown) => request<StoreProfile>("/stores/me", { method: "PUT", body: JSON.stringify(input) }),
-  uploadStoreImage: async (kind: "cover" | "background", file: { uri: string; name: string; type: string; file?: Blob }) => {
-    const data = new FormData();
-    if (Platform.OS === "web") {
-      const blob = file.file ?? await fetch(file.uri).then((response) => response.blob());
-      if (!blob) throw new ApiError("Não foi possível ler a imagem selecionada.", 0);
-      data.append("file", blob, file.name);
-    } else data.append("file", new File(file.uri));
-    return request<StoreProfile>(`/stores/me/${kind}`, { method: "POST", body: data });
-  },
+  uploadStoreImage,
   storeActivationReadiness: () => request<{ allowed: boolean; pending: string[] }>("/stores/me/activation-readiness"),
   changeMyStoreStatus: (status: "ACTIVE" | "INACTIVE") => request<StoreProfile>("/stores/me/status", { method: "PATCH", body: JSON.stringify({ status }) }),
   storeDashboard: () => request<StoreDashboardSummary>("/stores/me/dashboard"),
@@ -485,8 +369,7 @@ export const api = {
   reorderStoreProductImages: (id: string, imageIds: string[]) => request<ProductImage[]>(`/store-products/${encodeURIComponent(id)}/images/order`, { method: "PATCH", body: JSON.stringify({ imageIds }) }),
   setStoreProductCover: (id: string, imageId: string) => request<ProductImage[]>(`/store-products/${encodeURIComponent(id)}/images/cover`, { method: "PATCH", body: JSON.stringify({ imageId }) }),
   removeStoreProductImage: (id: string, imageId: string) => request<void>(`/store-products/${encodeURIComponent(id)}/images/${encodeURIComponent(imageId)}`, { method: "DELETE" }),
-  uploadStoreProductImage: (id: string, asset: ImagePickerAsset, onProgress: (percent: number) => void) =>
-    uploadStoreProductImage(id, asset, onProgress),
+  uploadStoreProductImage,
   logout: async () => { await setAccessToken(null); },
   updateMe: (input: Partial<Pick<AuthUser, "name" | "email" | "phone" | "avatarUrl">>) =>
     request<AuthUser>("/users/me", {
@@ -653,38 +536,6 @@ export const api = {
   updateSupportStatus: (id: string, status: SupportTicket["status"], note?: string) => request<SupportTicketDetail>(`/support-tickets/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status, note }) }),
   supportWhatsApp: (id: string) => request<{ url: string }>(`/support-tickets/${encodeURIComponent(id)}/whatsapp`, { method: "POST" }),
 };
-
-function uploadStoreProductImage(id: string, asset: ImagePickerAsset, onProgress: (percent: number) => void): Promise<ProductImage> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const form = new FormData();
-    const name = asset.fileName || asset.uri.split("/").pop() || "produto.jpg";
-    const type = asset.mimeType || (name.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg");
-    if (asset.file) form.append("file", asset.file, name);
-    else form.append("file", { uri: asset.uri, name, type } as unknown as Blob);
-    xhr.open("POST", `${API_URL}/store-products/${encodeURIComponent(id)}/images`);
-    if (accessToken) xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && event.total > 0) onProgress(Math.round(event.loaded * 100 / event.total));
-    };
-    xhr.onerror = () => reject(new ApiError("Nao foi possivel enviar a foto.", 0));
-    xhr.onabort = () => reject(new ApiError("Envio da foto cancelado.", 0));
-    xhr.onload = () => {
-      let data: unknown;
-      try { data = xhr.responseText ? JSON.parse(xhr.responseText) : null; }
-      catch { reject(new ApiError("Resposta invalida ao enviar a foto.", xhr.status)); return; }
-      if (xhr.status < 200 || xhr.status >= 300) {
-        const error = data as { message?: string | string[] } | null;
-        reject(new ApiError(Array.isArray(error?.message) ? error.message.join("\n") : error?.message || "Falha ao enviar a foto.", xhr.status));
-        return;
-      }
-      onProgress(100);
-      resolve(data as ProductImage);
-    };
-    onProgress(0);
-    xhr.send(form);
-  });
-}
 
 export function formatMoney(value?: string | number | null) {
   const numericValue = Number(value ?? 0);
