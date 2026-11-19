@@ -60,11 +60,18 @@ export class ContractsService {
     });
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const next = await tx.contract.update({
-        where: { id },
+      const claimed = await tx.contract.updateMany({
+        where: {
+          id,
+          status: contract.status,
+          ...(dto.status === ContractStatus.REOPENED && { review: { is: null } }),
+        },
         data: { status: dto.status },
-        include: contractInclude,
       });
+      if (claimed.count !== 1) {
+        throw new BadRequestException('Status do contrato foi alterado. Atualize e tente novamente.');
+      }
+      const next = await tx.contract.findUniqueOrThrow({ where: { id }, include: contractInclude });
       await tx.contractStatusHistory.create({
         data: {
           contractId: id,
@@ -115,11 +122,14 @@ export class ContractsService {
     }
 
     const review = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.contract.updateMany({
+        where: { id, status: contract.status, review: { is: null } },
+        data: { status: ContractStatus.COMPLETED },
+      });
+      if (claimed.count !== 1) {
+        throw new BadRequestException('Status do contrato foi alterado. Atualize e tente novamente.');
+      }
       if (contract.status !== ContractStatus.COMPLETED) {
-        await tx.contract.update({
-          where: { id },
-          data: { status: ContractStatus.COMPLETED },
-        });
         await tx.contractStatusHistory.create({
           data: {
             contractId: id,

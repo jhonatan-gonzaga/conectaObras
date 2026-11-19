@@ -13,15 +13,18 @@ import { PrismaService } from '../src/prisma/prisma.service';
 function fixture(options: {
   missing?: boolean;
   adStatus?: ServiceAdStatus;
+  applicationStatus?: ApplicationStatus;
   requestStatus?: DirectRequestStatus;
   proposedValue?: number | null;
   budget?: number | null;
   failAt?: string;
+  claimMissAt?: string;
 } = {}) {
   const startDate = new Date('2026-12-01T12:00:00Z');
   const budget = options.budget === undefined ? 200 : options.budget;
   const application = {
     id: 'application', adId: 'ad', professionalId: 'professional-profile',
+    status: options.applicationStatus ?? ApplicationStatus.SENT,
     proposedValue: options.proposedValue === undefined ? 120 : options.proposedValue,
     professional: { userId: 'professional-user' },
     ad: {
@@ -42,15 +45,15 @@ function fixture(options: {
   const record = async (operation: string, args: unknown) => {
     calls.push({ operation, args });
     if (operation === options.failAt) throw failure;
+    return { count: operation === options.claimMissAt ? 0 : 1 };
   };
   let readArgs: Prisma.ContractFindUniqueOrThrowArgs | undefined;
   const tx = {
     application: {
-      update: (args: unknown) => record('application.update', args),
-      updateMany: (args: unknown) => record('application.updateMany', args),
+      updateMany: (args: { where: { id?: string | { not: string } } }) => record(typeof args.where.id === 'string' ? 'application.claim' : 'application.rejectMany', args),
     },
-    serviceAd: { update: (args: unknown) => record('ad.update', args) },
-    directRequest: { update: (args: unknown) => record('request.update', args) },
+    serviceAd: { updateMany: (args: unknown) => record('ad.claim', args) },
+    directRequest: { updateMany: (args: unknown) => record('request.claim', args) },
     contract: {
       create: async (args: unknown) => { await record('contract.create', args); return { id: 'contract' }; },
       findUniqueOrThrow: async (args: Prisma.ContractFindUniqueOrThrowArgs) => {
@@ -99,14 +102,19 @@ describe('Fachada de contratacao', () => {
     assert.equal(await f.applications.accept('client-user', 'application'), f.result);
     assert.equal(f.transactions(), 1);
     assert.equal(f.completed(), true);
-    assert.deepEqual(f.args('application.update'), {
-      where: { id: 'application' }, data: { status: ApplicationStatus.ACCEPTED },
+    assert.deepEqual(f.args('ad.claim'), {
+      where: { id: 'ad', status: ServiceAdStatus.OPEN }, data: { status: ServiceAdStatus.CONTRACTED },
     });
-    assert.deepEqual(f.args('application.updateMany'), {
-      where: { adId: 'ad', id: { not: 'application' } }, data: { status: ApplicationStatus.REJECTED },
+    assert.deepEqual(f.args('application.claim'), {
+      where: { id: 'application', status: { in: [ApplicationStatus.SENT, ApplicationStatus.COUNTER_OFFERED] } },
+      data: { status: ApplicationStatus.ACCEPTED },
     });
-    assert.deepEqual(f.args('ad.update'), {
-      where: { id: 'ad' }, data: { status: ServiceAdStatus.CONTRACTED },
+    assert.deepEqual(f.args('application.rejectMany'), {
+      where: {
+        adId: 'ad', id: { not: 'application' },
+        status: { in: [ApplicationStatus.SENT, ApplicationStatus.COUNTER_OFFERED] },
+      },
+      data: { status: ApplicationStatus.REJECTED },
     });
     assert.deepEqual(f.args('contract.create'), { data: {
       clientId: 'client-profile', professionalId: 'professional-profile',
@@ -132,8 +140,9 @@ describe('Fachada de contratacao', () => {
     const f = fixture();
     assert.equal(await f.requests.accept('professional-user', 'request'), f.result);
     assert.equal(f.transactions(), 1);
-    assert.deepEqual(f.args('request.update'), {
-      where: { id: 'request' }, data: { status: DirectRequestStatus.ACCEPTED },
+    assert.deepEqual(f.args('request.claim'), {
+      where: { id: 'request', status: DirectRequestStatus.SENT },
+      data: { status: DirectRequestStatus.ACCEPTED },
     });
     assert.deepEqual(f.args('contract.create'), { data: {
       clientId: 'client-profile', professionalId: 'professional-profile', directRequestId: 'request',
@@ -153,6 +162,37 @@ describe('Fachada de contratacao', () => {
       data: { directRequestId: 'request', contractId: 'contract' },
     } });
   });
+
+  it('aceita candidatura com contraproposta pendente', async () => {
+    const f = fixture({ applicationStatus: ApplicationStatus.COUNTER_OFFERED });
+    assert.equal(await f.applications.accept('client-user', 'application'), f.result);
+    assert.equal(f.completed(), true);
+  });
+
+  for (const status of [ApplicationStatus.ACCEPTED, ApplicationStatus.REJECTED, ApplicationStatus.CANCELED]) {
+    it(`nao aceita candidatura ${status}`, async () => {
+      const f = fixture({ applicationStatus: status });
+      await assert.rejects(f.applications.accept('client-user', 'application'), BadRequestException);
+      assert.equal(f.transactions(), 0);
+      assert.equal(f.calls.length, 0);
+    });
+  }
+
+  for (const [source, claimMissAt] of [
+    ['application', 'ad.claim'],
+    ['application', 'application.claim'],
+    ['request', 'request.claim'],
+  ] as const) {
+    it(`interrompe aceite de ${source} quando ${claimMissAt} encontra status alterado`, async () => {
+      const f = fixture({ claimMissAt });
+      const action = source === 'application'
+        ? f.applications.accept('client-user', 'application')
+        : f.requests.accept('professional-user', 'request');
+      await assert.rejects(action, BadRequestException);
+      assert.equal(f.completed(), false);
+      assert.equal(f.args('contract.create'), undefined);
+    });
+  }
 
   for (const [proposedValue, budget, expected] of [[null, 200, 200], [0, 200, 0], [null, null, null]]) {
     it(`preserva valor negociado: proposta=${proposedValue}, orcamento=${budget}`, async () => {

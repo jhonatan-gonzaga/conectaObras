@@ -104,6 +104,7 @@ A pasta `docs` contém os seguintes documentos:
 *   `rastreabilidade-profissional.md`: Documento de rastreabilidade focado nas funcionalidades e telas relacionadas à persona Profissional.
 *   `rastreabilidade-resumo.md`: Um resumo da rastreabilidade, mapeando telas e User Stories (US) para ambas as personas.
 *   `refatoracao.md`: Documento detalhando o processo de refatoração do código.
+*   [`diagnostico-design-5-3.md`](docs/diagnostico-design-5-3.md): Diagnóstico dos problemas de design do projeto, com evidências históricas e situação atual.
 
 ## 6. Banco de Dados (Prisma Schema)
 O arquivo `prisma/schema.prisma` define o esquema do banco de dados, incluindo as seguintes entidades principais:
