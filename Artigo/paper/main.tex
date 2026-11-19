@@ -78,7 +78,7 @@ Práticas de projeto como separação de responsabilidades, encapsulamento, coes
 
 O Conecta Obras é uma plataforma digital voltada a obras e serviços relacionados. O sistema contempla os perfis de cliente, profissional, lojista, suporte e administração. Clientes buscam soluções, profissionais oferecem serviços e lojistas disponibilizam produtos, enquanto as equipes de suporte e administração atendem usuários e gerenciam a plataforma. Assim, o projeto reúne diferentes necessidades e responsabilidades em uma mesma aplicação. Nesse contexto, a pesquisa investiga a seguinte questão: como a aplicação dos padrões State e Facade no Conecta Obras afeta a organização das responsabilidades, a duplicação, a complexidade e a testabilidade do sistema?
 
-O objetivo geral é analisar os efeitos da aplicação de State e Facade na qualidade interna do Conecta Obras, comparando as implementações inicial e refatorada. Para isso, o trabalho busca caracterizar o sistema e seu projeto inicial; identificar problemas de acoplamento, coesão, duplicação, manutenção e extensão; aplicar os padrões selecionados; verificar, por testes automatizados, os comportamentos preservados e as mudanças deliberadas; comparar as implementações com métricas estáticas, testes e análise qualitativa; e discutir os resultados, os custos das soluções e as limitações da avaliação.
+O objetivo geral é analisar os efeitos da aplicação de State e Facade na qualidade interna do Conecta Obras, comparando as implementações inicial e refatorada. Para isso, o trabalho busca caracterizar o sistema e seu projeto inicial; identificar problemas de acoplamento, coesão, duplicação, manutenção e extensão; aplicar os padrões selecionados; verificar, por testes automatizados, os comportamentos preservados e as mudanças deliberadas; comparar qualitativamente as responsabilidades e os fluxos das duas implementações, com apoio de contagens descritivas do código; e discutir os resultados, os custos das soluções e as limitações da avaliação.
 
 
 
@@ -171,7 +171,7 @@ Na revisão refatorada, \texttt{ContractStatusPolicyService} recebe status atual
   \label{fig:state-contratos}
 \end{figure}
 
-Na comparação da revisão que introduziu o padrão, os dois conjuntos independentes de regras foram substituídos por um catálogo de objetos de estado. A política passou a permitir que o profissional mova um contrato \texttt{IN\_PROGRESS} para \texttt{WAITING\_CLIENT\_APPROVAL}; portanto, houve uma mudança funcional deliberada, além da reorganização. O código atual verifica novamente o status no momento da escrita e exige ausência de avaliação para reabrir um contrato. Essa proteção foi acrescentada depois da refatoração inicial e não integra as métricas históricas da Tabela~\ref{tab:comparacao-padroes}.
+Na comparação da revisão que introduziu o padrão, os dois conjuntos independentes de regras foram substituídos por um catálogo de objetos de estado. A política passou a permitir que o profissional mova um contrato \texttt{IN\_PROGRESS} para \texttt{WAITING\_CLIENT\_APPROVAL}; portanto, houve uma mudança funcional deliberada, além da reorganização. O código atual verifica novamente o status no momento da escrita e exige ausência de avaliação para reabrir um contrato. Essa proteção foi acrescentada depois da refatoração inicial e não integra as contagens históricas da Tabela~\ref{tab:comparacao-padroes}.
 
 \subsubsection{Facade no aceite de contratações}
 
@@ -237,11 +237,11 @@ A Figura~\ref{fig:facade-contratacao} mostra a posição da fachada entre os doi
   \label{fig:facade-contratacao}
 \end{figure}
 
-Na revisão da fachada, as chamadas a \texttt{tx.contract.create} e \texttt{tx.contractStatusHistory.create} nos serviços do recorte passaram de duas para uma cada. O código atual também impede o aceite de candidaturas encerradas e confirma, dentro da transação, que o anúncio ou a solicitação continuam pendentes. Essas validações foram acrescentadas após a extração inicial e são tratadas separadamente na análise. A Tabela~\ref{tab:comparacao-padroes} reúne as contagens de cada revisão; a variação é calculada como depois menos antes.
+Na revisão da fachada, as chamadas a \texttt{tx.contract.create} e \texttt{tx.contractStatusHistory.create} nos serviços do recorte passaram de duas para uma cada. O código atual também impede o aceite de candidaturas encerradas e confirma, dentro da transação, que o anúncio ou a solicitação continuam pendentes. Essas validações foram acrescentadas após a extração inicial e são tratadas separadamente na análise. A Tabela~\ref{tab:comparacao-padroes} registra contagens descritivas dos recortes históricos; a variação é calculada como depois menos antes.
 
 \begin{table}[H]
   \centering
-  \caption{Indicadores estáticos antes e depois das refatorações}
+  \caption{Contagens descritivas antes e depois das refatorações}
   \label{tab:comparacao-padroes}
   \small
   \begin{tabular}{@{}lrrr@{}}
@@ -265,7 +265,7 @@ As contagens de linhas aumentaram nos dois casos: 111 linhas em \emph{State} e 4
 
 \section{Metodologia}
 
-Esta é uma pesquisa \textbf{aplicada}, pois analisa intervenções em um sistema existente, com \textbf{abordagem quali-quantitativa}. O desenho é um \textbf{estudo de caso exploratório} do backend do Conecta Obras. A análise qualitativa examina a distribuição de responsabilidades, as dependências entre componentes, os caminhos de execução e os custos introduzidos pelos padrões. A parte quantitativa usa contagens estáticas delimitadas e resultados de testes automatizados. Não houve grupo de controle, participantes observados ou experimento de tempo de manutenção.
+Esta é uma pesquisa \textbf{aplicada}, de \textbf{abordagem qualitativa}, conduzida como \textbf{estudo de caso exploratório} do backend do Conecta Obras. A análise interpreta a distribuição de responsabilidades, as dependências entre componentes, os caminhos de execução e os custos introduzidos pelos padrões nas revisões do código. As contagens estáticas da Tabela~\ref{tab:comparacao-padroes} são registros descritivos auxiliares, usados para localizar mudanças e explicitar o custo em linhas; não constituem uma avaliação estatística da qualidade. Os testes automatizados verificam comportamentos do código atual. Não houve grupo de controle, participantes observados ou experimento de tempo de manutenção.
 
 O ambiente de desenvolvimento compreende TypeScript e Node.js no backend, com NestJS para a API REST, Prisma para persistência e MySQL como banco configurado no esquema. O sistema também possui aplicativo Expo/React Native em TypeScript; ele fornece o contexto de uso, mas não é a unidade de análise dos padrões. Para verificação, o backend utiliza \texttt{node:test}, compilação TypeScript e o build do NestJS.
 
@@ -273,9 +273,9 @@ A unidade de análise de \emph{State} é a validação das transições dos cont
 
 Para \emph{Facade}, a versão anterior é \texttt{8a00fce}, e a refatorada é \texttt{381f612}. O recorte de linhas contém \texttt{applications.service.ts}, \texttt{direct-requests.service.ts} e \texttt{contract-creation.service.ts}; arquivos ainda inexistentes na versão anterior contam como zero. Os pontos de criação são as ocorrências de \texttt{tx.contract.create} e \texttt{tx.contractStatusHistory.create} nesses três serviços. As contagens podem ser conferidas por \texttt{git show}, \texttt{git grep} e \texttt{wc -l} nas revisões indicadas. Os recortes dos dois padrões são distintos, de modo que seus totais de linhas não são somados.
 
-Os critérios para avaliar os resultados são: concentração das regras de transição; número de pontos de criação de contrato e histórico; tamanho físico do código diretamente envolvido; preservação ou mudança explícita dos comportamentos observados; e possibilidade de testar os fluxos por suas interfaces. A complexidade de compreensão é examinada qualitativamente pela localização das decisões e pelas novas indireções, sem atribuir uma medida de complexidade ciclomática. No estado atual da branch, os testes cobrem as combinações de status e ator da política, aceites de ambas as origens, uso do cliente transacional, erros de persistência e leituras desatualizadas. Foram executados \texttt{npm test}, \texttt{npm run typecheck} e \texttt{npm run build} no backend: 318 testes passaram, cinco foram ignorados e não houve falhas. Esses resultados verificam o código atual; não constituem uma taxa comparativa de aprovação antes e depois.
+Os critérios de interpretação são: a localização das regras de transição; a distribuição de responsabilidades e dependências; a reutilização da criação de contrato e histórico; as mudanças de comportamento observadas; e os custos de leitura das novas classes e delegações. A complexidade de compreensão é examinada pela localização das decisões e pelas novas indireções, sem atribuir uma medida de complexidade ciclomática. As contagens da Tabela~\ref{tab:comparacao-padroes} documentam esses recortes, sem representar uma nota de qualidade. No estado atual da branch, os testes cobrem as combinações de status e ator da política, aceites de ambas as origens, uso do cliente transacional, erros de persistência e leituras desatualizadas. Foram executados \texttt{npm test}, \texttt{npm run typecheck} e \texttt{npm run build} no backend: 318 testes passaram, cinco foram ignorados e não houve falhas. Esses resultados verificam o código atual; não constituem uma comparação estatística entre as versões.
 
-A avaliação se limita ao repositório e às revisões especificadas. As simulações de Prisma verificam chamadas e propagação de falhas, mas não substituem um teste de concorrência e rollback em MySQL real. As contagens estáticas mostram a localização de responsabilidades e o custo em linhas; não demonstram redução de esforço humano, ganho de desempenho nem efeito causal generalizável a outros sistemas.
+A interpretação se limita ao repositório e às revisões especificadas. As simulações de Prisma verificam chamadas e propagação de falhas, mas não substituem um teste de concorrência e rollback em MySQL real. O estudo descreve a reorganização dos fluxos e seus custos observáveis no código; não demonstra redução de esforço humano, ganho de desempenho nem efeito causal generalizável a outros sistemas.
 
 \bibliographystyle{sbc}
 \bibliography{referencias}
