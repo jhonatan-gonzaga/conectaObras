@@ -40,8 +40,8 @@ No front-end, a aplicacao usa componentes e paginas React Native. Existe uma cam
 
 Arquitetura de componentes gerada:
 
-- Especificacao: `docs/arquitetura-componentes.architecture.json`
-- HTML interativo: `docs/arquitetura-componentes.html`
+- [Especificação da arquitetura](../diagramas/arquitetura-componentes.architecture.json).
+- [HTML interativo da arquitetura](../diagramas/arquitetura-componentes.html).
 
 Resumo textual da arquitetura:
 

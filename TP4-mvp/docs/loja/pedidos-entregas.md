@@ -128,12 +128,12 @@ Capturas feitas com o bundle exportado e respostas de API **simuladas**, usando
 dados fictícios. Comprovam a apresentação da UI; não representam teste integrado
 com MySQL nem execução física no Android.
 
-- [Lista do cliente, 390 px](../prints/loja-022/cliente-pedidos-web.png).
-- [Detalhe do cliente, 320 px](../prints/loja-022/cliente-pedido-320-web.png).
-- [Detalhe do lojista, 390 px](../prints/loja-022/lojista-pedido-web.png).
-- [Formulário de rastreio do lojista](../prints/loja-022/lojista-rastreio-web.png).
-- [Produto incluso no pedido do lojista](../prints/loja-022/lojista-produto-do-pedido-web.png).
-- [Produto incluso no pedido do cliente, 320 px](../prints/loja-022/cliente-produto-do-pedido-web.png).
+- [Lista do cliente, 390 px](../../prints/loja-022/cliente-pedidos-web.png).
+- [Detalhe do cliente, 320 px](../../prints/loja-022/cliente-pedido-320-web.png).
+- [Detalhe do lojista, 390 px](../../prints/loja-022/lojista-pedido-web.png).
+- [Formulário de rastreio do lojista](../../prints/loja-022/lojista-rastreio-web.png).
+- [Produto incluso no pedido do lojista](../../prints/loja-022/lojista-produto-do-pedido-web.png).
+- [Produto incluso no pedido do cliente, 320 px](../../prints/loja-022/cliente-produto-do-pedido-web.png).
 
 Na validação desta implementação: 181 testes do frontend aprovados; 300 testes do
 backend aprovados e 5 integrações opcionais de banco ignoradas, pois as variáveis

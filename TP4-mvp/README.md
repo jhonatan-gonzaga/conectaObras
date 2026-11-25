@@ -96,18 +96,22 @@ Os principais scripts disponíveis no `package.json` do frontend são:
 As principais dependências incluem `@expo/vector-icons`, `@react-native-community/datetimepicker`, `expo`, `expo-av`, `expo-image-picker`, `expo-linear-gradient`, `expo-status-bar`, `nativewind`, `react`, `react-dom`, `react-native`, `react-native-reanimated`, `react-native-safe-area-context`, e `react-native-web`.
 
 ## 5. Documentação
-A pasta `docs` contém os seguintes documentos:
+A documentação está organizada por assunto. O [índice de documentação](docs/README.md)
+reúne todos os documentos e as convenções de nomes.
 
-*   `Termos de Uso e Política de Privacidade/Politica_de_Privacidade_Conecta_Obra_Itacoatiara.md`: Detalhes da política de privacidade da aplicação.
-*   `Termos de Uso e Política de Privacidade/Termos_de_Uso_Conecta_Obra_Itacoatiara.md`: Os termos de uso da plataforma.
-*   `rastreabilidade-cliente.md`: Documento de rastreabilidade focado nas funcionalidades e telas relacionadas à persona Cliente.
-*   `rastreabilidade-profissional.md`: Documento de rastreabilidade focado nas funcionalidades e telas relacionadas à persona Profissional.
-*   `rastreabilidade-resumo.md`: Um resumo da rastreabilidade, mapeando telas e User Stories (US) para ambas as personas.
-*   `refatoracao.md`: Documento detalhando o processo de refatoração do código.
-*   [`diagnostico-design-5-3.md`](docs/diagnostico-design-5-3.md): Diagnóstico dos problemas de design do projeto, com evidências históricas e situação atual.
+Acessos principais:
+
+*   [Política de privacidade](docs/politicas/politica-privacidade.md).
+*   [Termos de uso](docs/politicas/termos-uso.md).
+*   [Telas do cliente](docs/rastreabilidade/telas-cliente.md).
+*   [Telas do profissional](docs/rastreabilidade/telas-profissional.md).
+*   [Visão geral da rastreabilidade](docs/rastreabilidade/visao-geral.md).
+*   [Refatorações do código](docs/arquitetura/refatoracoes-codigo.md).
+*   [Diagramas do sistema](docs/diagramas/README.md).
+*   [`arquitetura/diagnostico-design-5-3.md`](docs/arquitetura/diagnostico-design-5-3.md): Diagnóstico dos problemas de design do projeto, com evidências históricas e situação atual.
 
 ## 6. Banco de Dados (Prisma Schema)
-O arquivo `prisma/schema.prisma` define o esquema do banco de dados, incluindo as seguintes entidades principais:
+O arquivo [`backend/prisma/schema.prisma`](backend/prisma/schema.prisma) define o esquema do banco de dados, incluindo as seguintes entidades principais:
 
 *   **User**: Informações básicas do usuário, incluindo autenticação.
 *   **ClientProfile**: Perfil específico para clientes.
@@ -125,7 +129,7 @@ O arquivo `prisma/schema.prisma` define o esquema do banco de dados, incluindo a
 *   **DeviceToken**: Tokens de dispositivo para notificações push.
 
 ## 7. Rastreabilidade
-Os documentos de rastreabilidade (`rastreabilidade-cliente.md`, `rastreabilidade-profissional.md`, `rastreabilidade-resumo.md`) são cruciais para entender a ligação entre os requisitos do projeto (User Stories) e as telas implementadas no frontend. Eles fornecem um mapeamento detalhado das funcionalidades para cada persona, garantindo que todas as necessidades foram abordadas no MVP.
+Os documentos de rastreabilidade (`rastreabilidade/telas-cliente.md`, `rastreabilidade/telas-profissional.md`, `rastreabilidade/visao-geral.md`) são cruciais para entender a ligação entre os requisitos do projeto (User Stories) e as telas implementadas no frontend. Eles fornecem um mapeamento detalhado das funcionalidades para cada persona, garantindo que todas as necessidades foram abordadas no MVP.
 
 ## 8. Ferramentas de IA Utilizadas
 Durante o desenvolvimento e organização deste projeto, as seguintes ferramentas de Inteligência Artificial foram utilizadas:

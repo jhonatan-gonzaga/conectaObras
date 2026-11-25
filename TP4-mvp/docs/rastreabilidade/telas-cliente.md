@@ -1,7 +1,7 @@
 # Rastreabilidade de Telas - Persona Cliente
-Este documento visa atingir a rastreabilidade das telas da persona de profissional. Neste documento, está documentado todas as US dessa persona (Profissional), bem como o as telas relacionadas em: [/front-end/src/pages/cliente](https://github.com/jhonatan-gonzaga/projeto-pratico-es/tree/main/TP4-mvp/front-end/src/pages/cliente). 
+Este documento relaciona as histórias de usuário da persona Cliente às [telas implementadas](../../front-end/src/pages/cliente).
 
-Para um resumo das telas e suas US relacionadas, favor verificar ```rastreabilida-resumo```.
+Para um resumo das telas e suas histórias de usuário, consulte a [visão geral da rastreabilidade](visao-geral.md).
 
 ---
 

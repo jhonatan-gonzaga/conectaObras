@@ -1,7 +1,7 @@
 # Rastreabilidade de Telas - Persona Profissional
-Este documento visa atingir a rastreabilidade das telas da persona de profissional. Neste documento, está documentado todas as US dessa persona (Profissional), bem como o as telas relacionadas em: [/front-end/src/pages/profissional](https://github.com/jhonatan-gonzaga/projeto-pratico-es/tree/main/TP4-mvp/front-end/src/pages/profissional). 
+Este documento relaciona as histórias de usuário da persona Profissional às [telas implementadas](../../front-end/src/pages/profissional).
 
-Para um resumo das telas e suas US relacionadas, favor verificar ```rastreabilidade-resumo```.
+Para um resumo das telas e suas histórias de usuário, consulte a [visão geral da rastreabilidade](visao-geral.md).
 
 ---
 
