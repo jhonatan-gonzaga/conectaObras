@@ -5,7 +5,7 @@
 - [Aplicativo e instruções do MVP](TP4-mvp/README.md).
 - [Índice da documentação](TP4-mvp/docs/README.md).
 - [Diagramas do sistema](TP4-mvp/docs/diagramas/README.md).
-- [Artigo em LaTeX](Artigo/paper/main.tex).
+- [Artigo e instruções de compilação](artigo/README.md).
 - [Padrões de commits](TP4-mvp/docs/contribuicao/padroes-commits.md).
 
 ---

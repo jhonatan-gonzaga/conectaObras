@@ -34,6 +34,7 @@ validação nem altera esse registro histórico.
 
 Os arquivos `.dot` são as fontes editáveis. As imagens utilizadas pelo LaTeX
 ficam na pasta de figuras do artigo e devem ser atualizadas quando essas fontes
-forem modificadas. Consulte o README do artigo para os comandos de geração.
+forem modificadas. Consulte o [README do artigo](../../../artigo/README.md) para
+os comandos de geração.
 
 [Voltar ao índice da documentação](../README.md).

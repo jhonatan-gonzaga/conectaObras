@@ -2,6 +2,7 @@
 
 Os documentos estão agrupados por assunto. Para executar o aplicativo, consulte
 o [README do MVP](../README.md) e o [guia do backend](../backend/README.md).
+O [artigo em LaTeX](../../artigo/README.md) tem um guia próprio de figuras e compilação.
 
 | Pasta | Conteúdo |
 | --- | --- |
