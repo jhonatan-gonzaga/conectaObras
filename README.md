@@ -109,10 +109,6 @@ O resultado será `artigo/build/main.pdf`. Para editar no Overleaf, carregue a p
 [Facade](TP4-mvp/docs/diagramas/padrao-facade-contratacao.dot), gere a imagem com
 `dot -Tpng arquivo.dot -o 'artigo/figuras/figN - descricao.png'` e ajuste o caminho no `.tex`.
 
-## Contribuição
+## Ferramentas de IA usadas
 
-Use nomes de documentos em português, minúsculos, sem acentos e separados por
-hífens. Agrupe-os por assunto e atualize os links deste README ao mover arquivos.
-Consulte o [guia de commits](TP4-mvp/docs/contribuicao/padroes-commits.md) antes de contribuir.
-
-Ferramentas de IA utilizadas no projeto: Codex, Figma Maker e Manus.
+Codex, Figma Maker e Manus.
