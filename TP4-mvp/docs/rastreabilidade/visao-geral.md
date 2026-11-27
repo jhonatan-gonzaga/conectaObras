@@ -4,7 +4,7 @@ Este documento mapeia, por persona, cada História de Usuário (US) o e as telas
 
 Primeiro temos as telas compartilhadas, que servem tanto para a persona de cliente quanto da de profissional. Depois, temos um resumo das duas personas por meio de tabelas. Temos cada tela da persona, juntamente com a US relacionada.
 
-Para uma descrição um pouco mais detalhada das telas e suas US relacionadas, tanto para a persona cliente quanto profissional, favor verificar ```rastreabilida-cliente``` e ```rastreabilida-profissional```, respectivamente.
+Para uma descrição detalhada das telas e suas histórias de usuário, consulte a rastreabilidade do [cliente](telas-cliente.md) e do [profissional](telas-profissional.md).
 
 ---
 

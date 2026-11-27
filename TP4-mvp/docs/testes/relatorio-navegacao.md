@@ -66,4 +66,4 @@ Durante `npm ci`, o npm reportou vulnerabilidades transitivas no frontend e no b
 - `TP4-mvp/tests/navigation-types.test.ts`: testes dos guardas de contexto.
 - `TP4-mvp/tests/use-app-navigation.test.ts`: testes do hook de navegação.
 - `TP4-mvp/tests/service-mapping.test.ts`: testes do adaptador de serviços.
-- `TP4-mvp/docs/relatorio-testes-navegacao.md`: este relatório.
+- `TP4-mvp/docs/testes/relatorio-navegacao.md`: este relatório.
