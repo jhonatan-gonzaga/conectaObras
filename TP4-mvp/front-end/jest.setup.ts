@@ -1,5 +1,16 @@
 import "@testing-library/jest-native/extend-expect";
 
+jest.mock("@react-native-async-storage/async-storage", () =>
+  require("@react-native-async-storage/async-storage/jest/async-storage-mock"),
+);
+
+jest.mock("expo-file-system", () => ({ File: jest.fn().mockImplementation((uri: string) => ({ uri })) }));
+
+jest.mock("expo-constants", () => ({
+  __esModule: true,
+  default: { expoConfig: { hostUri: "localhost:8081" } },
+}));
+
 jest.mock("expo-linear-gradient", () => {
   const { View } = require("react-native");
 

@@ -1,0 +1,16 @@
+digraph StateContratos {
+  graph [rankdir=TB, bgcolor="white", pad=0.2, nodesep=0.35, ranksep=0.6];
+  node [shape=box, style="rounded,filled", fillcolor="#eef4fa", color="#36536b", fontname="DejaVu Sans", fontsize=11];
+  edge [color="#36536b", fontname="DejaVu Sans", fontsize=9];
+
+  service [label="ContractsService\nupdateStatus / createReview"];
+  policy [label="ContractStatusPolicyService\nseleciona pelo status atual", fillcolor="#dceef2"];
+  state [label="ContractState\nassertCanTransition(context)", shape=component, fillcolor="#dceef2"];
+  concrete [label="PendingStart | InProgress\nWaitingClientApproval | Completed\nReopened | Canceled", fillcolor="#fff0d9"];
+  persistence [label="Prisma\nstatus + historico"];
+
+  service -> policy [label="estado, ator, destino, avaliacao"];
+  policy -> state [label="despacha"];
+  concrete -> state [style=dashed, arrowhead=empty, label="implementam"];
+  service -> persistence [label="atualiza apos validar"];
+}

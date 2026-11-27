@@ -14,6 +14,28 @@ enum UserRole {
   SUPORTE
 }
 
+enum StoreStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum StoreOrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELED
+}
+
 enum WeekDay {
   SUNDAY
   MONDAY
@@ -68,6 +90,7 @@ enum NotificationType {
   CONTRACT_STATUS_CHANGED
   NEW_MESSAGE
   REVIEW_RECEIVED
+  STORE_ORDER_UPDATED
 }
 
 enum PortfolioImageType {
@@ -99,16 +122,304 @@ model User {
   role                      UserRole             @default(CLIENTE)
   clientProfile             ClientProfile?
   professionalProfile       ProfessionalProfile?
+  storeProfile              StoreProfile?
   notifications             Notification[]
   deviceTokens              DeviceToken[]
   sentMessages              Message[]
   supportTickets            SupportTicket[]
+  supportMessages           SupportMessage[]      @relation("SupportMessageActor")
+  supportAuditLogs          SupportAuditLog[]     @relation("SupportAuditActor")
   clientConversations       Conversation[]       @relation("ClientConversationUser")
   professionalConversations Conversation[]       @relation("ProfessionalConversationUser")
+  storeOrders               StoreOrder[]
+  storeReviews              StoreReview[]
+  orderStatusChanges        OrderStatusHistory[]
   createdAt                 DateTime             @default(now())
   updatedAt                 DateTime             @updatedAt
 
   @@map("users")
+}
+
+model StoreProfile {
+  id           String             @id @default(cuid())
+  ownerId      String             @unique
+  name         String?
+  /// Digits only; SQL CHECK constraints live in store_persistence_constraints.
+  cnpj         String?            @unique
+  description  String?            @db.Text
+  phone        String?
+  whatsapp     String?
+  /// Square cover; retains the legacy logo field for compatibility.
+  logoUrl      String?
+  backgroundUrl String?
+  status       StoreStatus        @default(DRAFT)
+  owner        User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  address      StoreAddress?
+  openingHours StoreOpeningHour[]
+  products     Product[]
+  promotions   StorePromotion[]
+  orders       StoreOrder[]
+  reviews      StoreReview[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([status, name])
+  @@map("store_profiles")
+}
+
+model StoreAddress {
+  id           String       @id @default(cuid())
+  storeId      String       @unique
+  street       String?
+  number       String?
+  neighborhood String?
+  city         String?
+  state        String?
+  /// Eight digits when supplied; nullable for drafts.
+  zipCode      String?
+  complement   String?
+  latitude     Decimal?     @db.Decimal(10, 7)
+  longitude    Decimal?     @db.Decimal(10, 7)
+  store        StoreProfile @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([city, neighborhood])
+  @@map("store_addresses")
+}
+
+model StoreOpeningHour {
+  id          String       @id @default(cuid())
+  storeId     String
+  dayOfWeek   WeekDay
+  /// SQL CHECK: closed => null times; open => ordered HH:mm pair.
+  openingTime String?
+  closingTime String?
+  closed      Boolean      @default(false)
+  store       StoreProfile @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([storeId, dayOfWeek])
+  @@index([storeId])
+  @@map("store_opening_hours")
+}
+
+model ProductCategory {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?   @db.Text
+  imageUrl    String?
+  active      Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("product_categories")
+}
+
+model Product {
+  id                String          @id @default(cuid())
+  storeId           String
+  categoryId        String
+  sku               String?         @db.VarChar(64)
+  name              String          @db.VarChar(120)
+  description       String?         @db.Text
+  /// SQL CHECK requires a positive price and nonnegative stock.
+  price             Decimal         @db.Decimal(10, 2)
+  stock             Int             @default(0)
+  status            ProductStatus   @default(DRAFT)
+  lastPriceUpdateAt DateTime        @default(now())
+  store             StoreProfile    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  category          ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images            ProductImage[]
+  inventoryEvents   ProductInventoryEvent[]
+  promotions        StorePromotion[]
+  orderItems        StoreOrderItem[]
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([storeId, sku])
+  @@index([storeId, status])
+  @@index([categoryId, status])
+  @@index([name])
+  @@index([status, createdAt, id])
+  @@map("products")
+}
+
+model ProductInventoryEvent {
+  id           String   @id @default(cuid())
+  productId    String
+  storeId      String
+  actorId      String
+  priceChanged Boolean
+  stockChanged Boolean
+  occurredAt   DateTime @default(now())
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([productId, occurredAt])
+  @@index([storeId, occurredAt])
+  @@map("product_inventory_events")
+}
+
+model StorePromotion {
+  id               String        @id @default(cuid())
+  storeId          String
+  productId        String
+  promotionalPrice Decimal?      @db.Decimal(10, 2)
+  discountPercent  Decimal?      @db.Decimal(5, 2)
+  startAt           DateTime
+  endAt             DateTime
+  enabled           Boolean       @default(true)
+  store             StoreProfile @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product           Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([storeId, enabled, startAt, endAt])
+  @@index([productId, enabled, startAt, endAt])
+  @@map("store_promotions")
+}
+
+model StoreOrder {
+  id          String          @id @default(cuid())
+  orderNumber String? @unique @db.VarChar(40)
+  storeId     String
+  customerId  String?
+  status      StoreOrderStatus @default(PENDING)
+  /// Only client checkout orders reserve product stock.
+  stockReserved Boolean        @default(false)
+  subtotal    Decimal?         @db.Decimal(10, 2)
+  discount    Decimal          @default(0) @db.Decimal(10, 2)
+  total       Decimal          @db.Decimal(10, 2)
+  addressSnapshot Json?
+  note            String?       @db.Text
+  store       StoreProfile    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  customer    User?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  items       StoreOrderItem[]
+  statusHistory OrderStatusHistory[]
+  delivery Delivery?
+  review   StoreReview?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([storeId, status, createdAt])
+  @@map("store_orders")
+}
+
+model StoreReview {
+  id         String       @id @default(cuid())
+  orderId    String       @unique
+  storeId    String
+  customerId String
+  /// Verified order review; SQL CHECK also restricts the rating to 1..5.
+  rating     Int
+  comment    String?      @db.Text
+  order      StoreOrder   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  store      StoreProfile @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  customer   User         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([storeId, createdAt, id])
+  @@index([storeId, rating])
+  @@index([customerId])
+  @@map("store_reviews")
+}
+
+model StoreOrderItem {
+  id        String     @id @default(cuid())
+  orderId   String
+  productId String?
+  name      String     @db.VarChar(120)
+  sku       String?    @db.VarChar(64)
+  quantity  Int
+  unitPrice Decimal    @db.Decimal(10, 2)
+  lineTotal Decimal?   @db.Decimal(10, 2)
+
+  order     StoreOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime   @default(now())
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("store_order_items")
+}
+
+model OrderStatusHistory {
+  id         String            @id @default(cuid())
+  orderId    String
+  fromStatus StoreOrderStatus?
+  toStatus   StoreOrderStatus
+  actorId    String?
+  note       String?           @db.Text
+  createdAt  DateTime          @default(now())
+
+  order      StoreOrder        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  actor      User?             @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt])
+  @@index([actorId])
+  @@map("order_status_history")
+}
+
+enum DeliveryStatus {
+  PENDING
+  PREPARING
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+  CANCELED
+}
+
+model DeliveryStatusHistory {
+  id         String         @id @default(cuid())
+  deliveryId String
+  fromStatus DeliveryStatus?
+  toStatus   DeliveryStatus
+  actorId    String?
+  createdAt  DateTime       @default(now())
+  delivery   Delivery       @relation(fields: [deliveryId], references: [id], onDelete: Restrict)
+
+  @@index([deliveryId, createdAt])
+  @@map("delivery_status_history")
+}
+
+model Delivery {
+  id            String         @id @default(cuid())
+  orderId       String         @unique
+  status        DeliveryStatus @default(PENDING)
+  trackingCode  String?
+  carrier       String?
+  estimatedDate DateTime?
+  deliveredAt   DateTime?
+
+  order         StoreOrder     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  statusHistory DeliveryStatusHistory[]
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([status])
+  @@map("deliveries")
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  url       String   @db.Text
+  objectKey String?  @db.Text
+  altText   String?
+  position  Int      @default(0)
+  isCover   Boolean  @default(false)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId, position])
+  @@map("product_images")
 }
 
 model ClientProfile {
@@ -489,10 +800,57 @@ model SupportTicket {
   context   String?
   status    SupportTicketStatus @default(OPEN)
   user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  SupportMessage[]
+  auditLogs SupportAuditLog[]
   createdAt DateTime            @default(now())
   updatedAt DateTime            @updatedAt
 
   @@index([userId])
   @@index([status])
   @@map("support_tickets")
+}
+
+model SupportMessage {
+  id         String        @id @default(cuid())
+  ticketId   String
+  actorId    String
+  type       MessageType   @default(TEXT)
+  text       String?       @db.Text
+  imageUrl   String?       @db.Text
+  audioUrl   String?       @db.Text
+  durationMs Int?
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor      User          @relation("SupportMessageActor", fields: [actorId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
+  @@map("support_messages")
+}
+
+model SupportAuditLog {
+  id         String        @id @default(cuid())
+  ticketId   String
+  actorId    String
+  action     String
+  fromStatus SupportTicketStatus?
+  toStatus   SupportTicketStatus?
+  note       String?       @db.Text
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor      User          @relation("SupportAuditActor", fields: [actorId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
+  @@map("support_audit_logs")
+}
+
+model SupportRoleGrant {
+  id           String   @id @default(cuid())
+  userId       String
+  userEmail    String
+  previousRole UserRole
+  operator     String
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("support_role_grants")
 }

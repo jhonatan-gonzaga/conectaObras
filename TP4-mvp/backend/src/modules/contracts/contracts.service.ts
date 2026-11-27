@@ -1,41 +1,31 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ContractStatus, NotificationType } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ConversationsService } from '../conversations/conversations.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { contractInclude, ContractWithRelations } from './contract.include';
+import { ContractStatusPolicyService } from './contract-status-policy.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { ReplyReviewDto } from './dto/reply-review.dto';
 import { ReportReviewDto } from './dto/report-review.dto';
 import { UpdateContractStatusDto } from './dto/update-contract-status.dto';
-
-const contractInclude = {
-  client: { include: { user: { select: { id: true, name: true, phone: true, avatarUrl: true } } } },
-  professional: {
-    include: {
-      user: { select: { id: true, name: true, phone: true, avatarUrl: true } },
-      specialties: { include: { category: true } },
-    },
-  },
-  ad: { include: { category: true, images: true } },
-  application: true,
-  directRequest: { include: { images: true } },
-  statusHistory: { orderBy: { createdAt: 'desc' as const } },
-  conversations: {
-    include: {
-      messages: {
-        include: { sender: { select: { id: true, name: true } } },
-        orderBy: { createdAt: 'desc' as const },
-        take: 1,
-      },
-    },
-  },
-  review: true,
-};
+import {
+  ContractActor,
+  ContractStatusPolicyInput,
+  ContractTransitionDeniedError,
+} from './states/contract-state';
 
 @Injectable()
 export class ContractsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly contractStatusPolicy: ContractStatusPolicyService,
+    private readonly notifications: NotificationsService,
+    private readonly conversations: ConversationsService,
+  ) {}
 
-  async findMine(userId: string) {
-    await this.ensureMissingConversations(userId);
+  async findMine(userId: string): Promise<ContractWithRelations[]> {
+    await this.conversations.ensureForContracts(userId);
 
     return this.prisma.contract.findMany({
       where: {
@@ -46,21 +36,42 @@ export class ContractsService {
     });
   }
 
-  async findOne(userId: string, id: string) {
+  async findOne(userId: string, id: string): Promise<ContractWithRelations> {
     const contract = await this.getVisibleContract(userId, id);
     return contract;
   }
 
-  async updateStatus(userId: string, id: string, dto: UpdateContractStatusDto) {
+  async updateStatus(
+    userId: string,
+    id: string,
+    dto: UpdateContractStatusDto,
+  ): Promise<ContractWithRelations> {
     const contract = await this.getVisibleContract(userId, id);
-    this.assertStatusTransition(contract.status, dto.status);
+    const actor =
+      contract.client.userId === userId
+        ? ContractActor.CLIENT
+        : ContractActor.PROFESSIONAL;
+
+    this.assertCanTransition({
+      currentStatus: contract.status,
+      targetStatus: dto.status,
+      actor,
+      hasReview: Boolean(contract.review),
+    });
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const next = await tx.contract.update({
-        where: { id },
+      const claimed = await tx.contract.updateMany({
+        where: {
+          id,
+          status: contract.status,
+          ...(dto.status === ContractStatus.REOPENED && { review: { is: null } }),
+        },
         data: { status: dto.status },
-        include: contractInclude,
       });
+      if (claimed.count !== 1) {
+        throw new BadRequestException('Status do contrato foi alterado. Atualize e tente novamente.');
+      }
+      const next = await tx.contract.findUniqueOrThrow({ where: { id }, include: contractInclude });
       await tx.contractStatusHistory.create({
         data: {
           contractId: id,
@@ -73,15 +84,13 @@ export class ContractsService {
         contract.client.userId === userId
           ? contract.professional.userId
           : contract.client.userId;
-      await tx.notification.create({
-        data: {
-          userId: notifyUserId,
-          type: NotificationType.CONTRACT_STATUS_CHANGED,
-          title: 'Status do contrato atualizado',
-          body: `${contract.title} mudou para ${dto.status}.`,
-          data: { contractId: id, status: dto.status },
-        },
-      });
+      await this.notifications.create({
+        userId: notifyUserId,
+        type: NotificationType.CONTRACT_STATUS_CHANGED,
+        title: 'Status do contrato atualizado',
+        body: `${contract.title} mudou para ${dto.status}.`,
+        data: { contractId: id, status: dto.status },
+      }, tx);
       return next;
     });
 
@@ -103,12 +112,24 @@ export class ContractsService {
       throw new BadRequestException('Este contrato ja foi avaliado.');
     }
 
+    if (contract.status !== ContractStatus.COMPLETED) {
+      this.assertCanTransition({
+        currentStatus: contract.status,
+        targetStatus: ContractStatus.COMPLETED,
+        actor: ContractActor.CLIENT,
+        hasReview: false,
+      });
+    }
+
     const review = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.contract.updateMany({
+        where: { id, status: contract.status, review: { is: null } },
+        data: { status: ContractStatus.COMPLETED },
+      });
+      if (claimed.count !== 1) {
+        throw new BadRequestException('Status do contrato foi alterado. Atualize e tente novamente.');
+      }
       if (contract.status !== ContractStatus.COMPLETED) {
-        await tx.contract.update({
-          where: { id },
-          data: { status: ContractStatus.COMPLETED },
-        });
         await tx.contractStatusHistory.create({
           data: {
             contractId: id,
@@ -144,14 +165,12 @@ export class ContractsService {
       },
     });
 
-    await this.prisma.notification.create({
-      data: {
-        userId: contract.professional.userId,
-        type: NotificationType.REVIEW_RECEIVED,
-        title: 'Nova avaliacao recebida',
-        body: `Voce recebeu uma avaliacao de ${dto.rating} estrela(s).`,
-        data: { contractId: id, reviewId: review.id },
-      },
+    await this.notifications.create({
+      userId: contract.professional.userId,
+      type: NotificationType.REVIEW_RECEIVED,
+      title: 'Nova avaliacao recebida',
+      body: `Voce recebeu uma avaliacao de ${dto.rating} estrela(s).`,
+      data: { contractId: id, reviewId: review.id },
     });
 
     return review;
@@ -197,7 +216,19 @@ export class ContractsService {
     return review;
   }
 
-  private async getVisibleContract(userId: string, id: string) {
+  private assertCanTransition(input: ContractStatusPolicyInput) {
+    try {
+      this.contractStatusPolicy.assertCanTransition(input);
+    } catch (error) {
+      if (error instanceof ContractTransitionDeniedError) {
+        throw new BadRequestException(error.message);
+      }
+
+      throw error;
+    }
+  }
+
+  private async getVisibleContract(userId: string, id: string): Promise<ContractWithRelations> {
     const contract = await this.prisma.contract.findUnique({
       where: { id },
       include: contractInclude,
@@ -214,54 +245,4 @@ export class ContractsService {
     return contract;
   }
 
-  private async ensureMissingConversations(userId: string) {
-    const contracts = await this.prisma.contract.findMany({
-      where: {
-        OR: [{ client: { userId } }, { professional: { userId } }],
-        conversations: { none: {} },
-      },
-      include: {
-        client: true,
-        professional: true,
-      },
-    });
-
-    if (contracts.length === 0) {
-      return;
-    }
-
-    await this.prisma.conversation.createMany({
-      data: contracts.map((contract) => ({
-        clientUserId: contract.client.userId,
-        professionalUserId: contract.professional.userId,
-        contractId: contract.id,
-        applicationId: contract.applicationId,
-        directRequestId: contract.directRequestId,
-      })),
-      skipDuplicates: true,
-    });
-  }
-
-  private assertStatusTransition(current: ContractStatus, next: ContractStatus) {
-    const allowed: Record<ContractStatus, ContractStatus[]> = {
-      PENDING_START: [
-        ContractStatus.IN_PROGRESS,
-        ContractStatus.COMPLETED,
-        ContractStatus.CANCELED,
-      ],
-      IN_PROGRESS: [
-        ContractStatus.WAITING_CLIENT_APPROVAL,
-        ContractStatus.COMPLETED,
-        ContractStatus.CANCELED,
-      ],
-      WAITING_CLIENT_APPROVAL: [ContractStatus.COMPLETED, ContractStatus.REOPENED],
-      COMPLETED: [ContractStatus.REOPENED],
-      REOPENED: [ContractStatus.IN_PROGRESS, ContractStatus.CANCELED],
-      CANCELED: [],
-    };
-
-    if (!allowed[current].includes(next)) {
-      throw new BadRequestException(`Transicao de status invalida: ${current} -> ${next}.`);
-    }
-  }
 }

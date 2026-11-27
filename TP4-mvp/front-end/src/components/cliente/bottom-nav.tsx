@@ -4,7 +4,7 @@ import { Pressable, Text, View } from "react-native";
 
 import { api } from "../../services/api";
 
-export type ClientNavKey = "home" | "work" | "search" | "ads" | "settings";
+export type ClientNavKey = "home" | "work" | "search" | "orders" | "ads" | "settings";
 
 type NavItem = {
   key: ClientNavKey;
@@ -22,6 +22,7 @@ const navItems: NavItem[] = [
   { key: "home", label: "Inicio", icon: "home-outline" },
   { key: "work", label: "Obra", icon: "hammer-outline" },
   { key: "search", label: "Buscar", icon: "search-outline" },
+  { key: "orders", label: "Pedidos", icon: "receipt-outline" },
   { key: "ads", label: "Anunciar", icon: "megaphone-outline" },
   { key: "settings", label: "Ajustes", icon: "settings-outline" },
 ];
@@ -61,8 +62,9 @@ export function ClientBottomNav({ active = "home", onSelect }: ClientBottomNavPr
             <Pressable
               key={item.key}
               onPress={() => onSelect?.(item.key)}
-              className="min-w-0 flex-1 items-center gap-1 px-1"
+              className="min-h-11 min-w-0 flex-1 items-center gap-1 px-1"
               accessibilityRole="button"
+              accessibilityState={{ selected: isActive }}
               accessibilityLabel={item.label}
             >
               <View className="relative">

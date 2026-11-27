@@ -7,6 +7,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { SwitchRoleDto } from './dto/switch-role.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -37,6 +38,12 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.profile(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('switch-role')
+  switchRole(@CurrentUser() user: AuthenticatedUser, @Body() dto: SwitchRoleDto) {
+    return this.authService.switchRole(user.id, dto);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -1,0 +1,20 @@
+digraph FacadeContratacao {
+  graph [rankdir=TB, bgcolor="white", pad=0.2, nodesep=0.45, ranksep=0.65];
+  node [shape=box, style="rounded,filled", fillcolor="#eef4fa", color="#36536b", fontname="DejaVu Sans", fontsize=11];
+  edge [color="#36536b", fontname="DejaVu Sans", fontsize=9];
+
+  applications [label="ApplicationsService\naccept"];
+  requests [label="DirectRequestsService\naccept"];
+  facade [label="ContractCreationService\nacceptApplication / acceptDirectRequest", fillcolor="#dceef2"];
+  tx [label="Prisma $transaction\numa transacao por aceite", fillcolor="#fff0d9"];
+  contract [label="Contrato + historico"];
+  conversation [label="ConversationsService"];
+  notification [label="NotificationsService"];
+
+  applications -> facade;
+  requests -> facade;
+  facade -> tx;
+  tx -> contract;
+  facade -> conversation [label="usa tx"];
+  facade -> notification [label="usa tx"];
+}

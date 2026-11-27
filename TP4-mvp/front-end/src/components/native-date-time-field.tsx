@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Platform, Pressable, Text, TextInput, View } from "react-native";
 
 type NativeDateTimeFieldProps = {
+  disabled?: boolean;
   helperText?: string;
   label?: string;
   minimumDate?: Date;
@@ -52,6 +53,7 @@ function formatPickerValue(date: Date, mode: "date" | "time") {
 }
 
 export function NativeDateTimeField({
+  disabled = false,
   helperText,
   label,
   minimumDate,
@@ -87,6 +89,8 @@ export function NativeDateTimeField({
         >
           <Ionicons name={icon} size={16} color="#b94b50" />
           <TextInput
+            editable={!disabled}
+            accessibilityLabel={label ?? placeholder}
             value={value}
             onBlur={onBlur}
             onChangeText={onChange}
@@ -119,10 +123,12 @@ export function NativeDateTimeField({
     <View className="gap-1">
       {label ? <Text className="text-sm font-bold text-foreground">{label}</Text> : null}
       <Pressable
+        disabled={disabled}
+        accessibilityState={{ disabled }}
         onPress={() => setIsOpen(true)}
         className={`flex-row items-center gap-2.5 rounded-[16px] border-[1.5px] px-4 py-3 shadow-sm ${statusClass[status]}`}
         accessibilityRole="button"
-        accessibilityLabel={placeholder}
+        accessibilityLabel={label ?? placeholder}
       >
         <Ionicons name={icon} size={16} color="#b94b50" />
         <Text
@@ -140,7 +146,7 @@ export function NativeDateTimeField({
           />
         ) : null}
       </Pressable>
-      {isOpen ? (
+      {isOpen && !disabled ? (
         <DateTimePicker
           value={toPickerDate(value, mode)}
           mode={mode}

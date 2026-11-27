@@ -38,4 +38,4 @@ O vídeo de demonstração ilustra as seguintes funcionalidades chave:
 
 Para uma compreensão visual e detalhada das funcionalidades do Conecta Obras Itacoatiara, assista ao vídeo de demonstração completo:
 
-[Assista à Demonstração do Conecta Obras Itacoatiara]([MVP TP4](https://drive.google.com/drive/folders/1OAOiMc7auPUMWu6mn3stXAroOF4NY9mq?usp=sharing))
+[Assista à Demonstração do Conecta Obras Itacoatiara](https://drive.google.com/drive/folders/1OAOiMc7auPUMWu6mn3stXAroOF4NY9mq?usp=sharing)

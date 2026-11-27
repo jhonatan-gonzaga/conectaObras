@@ -1,0 +1,283 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% How to use writeLaTeX: 
+%
+% You edit the source code here on the left, and the preview on the
+% right shows you the result within a few seconds.
+%
+% Bookmark this page and share the URL with your co-authors. They can
+% edit at the same time!
+%
+% You can upload figures, bibliographies, custom classes and
+% styles using the files menu.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[12pt]{article}
+
+\usepackage{sbc-template}
+
+\usepackage{graphicx,url,float}
+
+%\usepackage[brazil]{babel}   
+\usepackage[utf8]{inputenc}  
+\renewcommand{\figurename}{Figura}
+\renewcommand{\tablename}{Tabela}
+
+     
+\sloppy
+
+\title{Instructions for Authors of SBC Conferences\\ Papers and Abstracts}
+
+\author{Luciana P. Nedel\inst{1}, Rafael H. Bordini\inst{2}, Flávio Rech
+  Wagner\inst{1}, Jomi F. Hübner\inst{3} }
+
+
+\address{Instituto de Informática -- Universidade Federal do Rio Grande do Sul
+  (UFRGS)\\
+  Caixa Postal 15.064 -- 91.501-970 -- Porto Alegre -- RS -- Brazil
+\nextinstitute
+  Department of Computer Science -- University of Durham\\
+  Durham, U.K.
+\nextinstitute
+  Departamento de Sistemas e Computação\\
+  Universidade Regional de Blumenal (FURB) -- Blumenau, SC -- Brazil
+  \email{\{nedel,flavio\}@inf.ufrgs.br, R.Bordini@durham.ac.uk,
+  jomi@inf.furb.br}
+}
+
+\begin{document} 
+
+\maketitle
+
+\begin{abstract}
+  This meta-paper describes the style to be used in articles and short papers
+  for SBC conferences. For papers in English, you should add just an abstract
+  while for the papers in Portuguese, we also ask for an abstract in
+  Portuguese (``resumo''). In both cases, abstracts should not have more than
+  10 lines and must be in the first page of the paper.
+\end{abstract}
+     
+\begin{resumo} 
+  Este meta-artigo descreve o estilo a ser usado na confecção de artigos e
+  resumos de artigos para publicação nos anais das conferências organizadas
+  pela SBC. É solicitada a escrita de resumo e abstract apenas para os artigos
+  escritos em português. Artigos em inglês deverão apresentar apenas abstract.
+  Nos dois casos, o autor deve tomar cuidado para que o resumo (e o abstract)
+  não ultrapassem 10 linhas cada, sendo que ambos devem estar na primeira
+  página do artigo.
+\end{resumo}
+
+
+\section{Introdução}
+
+O desenvolvimento de software envolve compreender necessidades, projetar soluções, implementá-las e mantê-las ao longo do tempo. Em sistemas que atendem diferentes perfis de usuários, essas necessidades podem envolver áreas distintas e relacionadas. Como requisitos e condições de uso mudam, o software precisa evoluir sem perder os comportamentos de que seus usuários dependem. A manutenção e a evolução também influenciam a qualidade interna do sistema \cite{alenezi2021}.
+
+Manter e ampliar um sistema pode se tornar difícil quando responsabilidades ficam espalhadas, componentes dependem diretamente de muitos outros ou regras semelhantes são implementadas em mais de um lugar. Essas condições aumentam o esforço para localizar uma regra, avaliar o alcance de uma alteração e reutilizar partes do sistema. Estudos sobre evolução de software também analisam a relação entre mudanças e atributos internos como complexidade, acoplamento e coesão \cite{alenezi2021}. A evolução exige cuidado para que novas funcionalidades não introduzam regressões no comportamento existente.
+
+Práticas de projeto como separação de responsabilidades, encapsulamento, coesão e controle do acoplamento ajudam a organizar o código para que mudanças fiquem mais localizadas. Padrões de projeto descrevem soluções reutilizáveis para problemas recorrentes e podem orientar a implementação de funcionalidades semelhantes \cite{alhawari2022}. Seus efeitos sobre dependências e qualidade precisam ser avaliados no contexto do sistema em que são aplicados \cite{hsu2024}.
+
+O Conecta Obras é uma plataforma digital voltada a obras e serviços relacionados. O sistema contempla os perfis de cliente, profissional, lojista, suporte e administração. Clientes buscam soluções, profissionais oferecem serviços e lojistas disponibilizam produtos, enquanto as equipes de suporte e administração atendem usuários e gerenciam a plataforma. Assim, o projeto reúne diferentes necessidades e responsabilidades em uma mesma aplicação. Nesse contexto, a pesquisa investiga a seguinte questão: como a aplicação dos padrões State e Facade no Conecta Obras afeta a organização das responsabilidades, a duplicação, a complexidade e a testabilidade do sistema?
+
+O objetivo geral é analisar os efeitos da aplicação de State e Facade na qualidade interna do Conecta Obras, comparando as implementações inicial e refatorada. Para isso, o trabalho busca caracterizar o sistema e seu projeto inicial; identificar problemas de acoplamento, coesão, duplicação, manutenção e extensão; aplicar os padrões selecionados; verificar, por testes automatizados, os comportamentos preservados e as mudanças deliberadas; comparar qualitativamente as responsabilidades e os fluxos das duas implementações, com apoio de contagens descritivas do código; e discutir os resultados, os custos das soluções e as limitações da avaliação.
+
+
+
+
+\section{Fundamentação Teórica}
+
+\subsection{Desenvolvimento de software}
+
+O desenvolvimento de software compreende as atividades pelas quais uma necessidade é transformada em um sistema utilizável. Requisitos, projeto, implementação, verificação, implantação e manutenção são partes desse trabalho, ainda que sua ordem e seu grau de sobreposição variem conforme o processo adotado. O produto não se reduz ao código: inclui decisões sobre comportamento, estrutura e formas de verificar se o sistema atende ao que foi solicitado. Depois da entrega, correções e novas demandas continuam a alterar o software. Por isso, o ciclo de vida abrange tanto a construção inicial quanto sua evolução \cite{hsu2024}.
+
+Um processo de desenvolvimento define como essas atividades são organizadas, acompanhadas e revistas. Em processos tradicionais, costuma-se estabelecer um planejamento mais detalhado antes da implementação e formalizar a passagem entre etapas. Essa organização facilita o registro de decisões e a previsão de entregas quando os requisitos estão relativamente estáveis, mas torna mais custosa a incorporação de mudanças descobertas tardiamente. As abordagens ágeis trabalham com incrementos menores, avaliações frequentes do produto e ajuste das prioridades a partir do retorno obtido. A distinção não significa ausência de planejamento em um caso ou de revisões no outro; diz respeito, sobretudo, ao momento em que se assumem compromissos e à frequência com que eles são reavaliados.
+
+A qualidade deve ser considerada durante todo o ciclo de vida. A verificação funcional examina se o sistema executa as operações esperadas; a qualidade interna diz respeito, entre outros aspectos, à facilidade de compreender, testar e modificar sua implementação. Uma funcionalidade pode estar correta hoje e, ainda assim, exigir alterações extensas para atender a um requisito novo. Estudos sobre evolução e manutenção mostram a utilidade de examinar a estrutura do código juntamente com seu comportamento, pois os efeitos de uma mudança dependem das dependências existentes e da tarefa realizada \cite{prechelt2001,hsu2024}.
+
+\subsection{Projeto e design de software}
+
+O design de software é a definição da estrutura de uma solução antes e durante sua implementação: quais responsabilidades pertencem a cada componente, por quais interfaces eles se comunicam e onde ficam as regras do domínio. Essas escolhas influenciam o alcance de uma alteração. Quando uma regra está distribuída por vários pontos, sua revisão exige localizar todos eles; quando as dependências são explícitas e as responsabilidades estão bem delimitadas, é mais fácil identificar o que precisa mudar \cite{gamma1994}.
+
+Coesão descreve o quanto as responsabilidades de um componente se relacionam entre si. Acoplamento expressa o grau de dependência entre componentes. Alta coesão e acoplamento controlado são objetivos de projeto porque favorecem alterações localizadas, mas não se alcançam apenas pelo aumento do número de classes. Dividir uma operação simples entre muitos objetos pode deslocar a complexidade para as interações. Da mesma forma, concentrar operações sem relação em uma única classe dificulta compreender sua finalidade. Em uma análise empírica, o tamanho das classes mostrou influência maior sobre a propensão a mudanças do que o papel exercido por elas em padrões de projeto \cite{posnett2011}. Esse resultado recomenda cautela ao atribuir efeitos de qualidade a uma única decisão estrutural.
+
+Encapsulamento consiste em manter detalhes e invariantes de um componente sob seu controle, expondo operações pelas quais outros componentes podem utilizá-lo. Abstração permite descrever essas operações por contratos relevantes para o cliente, sem exigir conhecimento de cada implementação concreta. A decomposição divide o problema em partes tratáveis; a separação de responsabilidades orienta essa divisão para que cada parte tenha um motivo identificável para mudar. São princípios relacionados, mas distintos: uma interface abstrata pode esconder detalhes e ainda oferecer operações demais, enquanto uma decomposição em vários módulos pode preservar dependências excessivas entre eles \cite{gamma1994}.
+
+A relação entre design e qualidade, portanto, deve ser examinada por atributo e por contexto. Interfaces e responsabilidades bem definidas podem facilitar substituições e testes isolados; também podem acrescentar camadas de indireção que dificultam rastrear a execução. Uma análise das estruturas de interação entre classes discute riscos para a testabilidade \cite{baudry2003}; outra investiga mudanças nas dependências durante a evolução de exemplos com padrões \cite{hsu2024}. Nenhum desses indicadores, isoladamente, demonstra menor esforço de manutenção em todo sistema.
+
+\subsection{Padrões de projeto de software}
+
+Padrões de projeto, ou \emph{design patterns}, descrevem soluções recorrentes para problemas de design em um contexto determinado. Um padrão apresenta uma intenção, os participantes envolvidos e as consequências de organizar suas relações de certa maneira. Ele não é um trecho de código pronto: sua aplicação exige adaptar a estrutura proposta às regras e às restrições do sistema. O catálogo de Gamma e colaboradores reuniu 23 padrões orientados a objetos e consolidou um vocabulário para discutir essas decisões \cite{gamma1994}.
+
+A noção de padrão veio da documentação de soluções recorrentes em arquitetura e foi incorporada ao desenvolvimento de software orientado a objetos. Após a publicação do catálogo, o tema passou a incluir estudos sobre identificação de padrões em código, formas de aplicá-los e seus efeitos na qualidade. Um mapeamento da pesquisa sobre padrões registra essa ampliação e mostra que estudos sobre um mesmo padrão podem chegar a conclusões diferentes quanto aos atributos avaliados \cite{ampatzoglou2013}.
+
+Os problemas tratados pelos padrões são específicos. \emph{State}, por exemplo, organiza comportamentos que variam conforme o estado de um objeto; \emph{Facade} oferece uma interface para operações de um subsistema cujos detalhes os clientes não precisam coordenar diretamente \cite{gamma1994}. Nesses casos, a solução pode reunir regras dispersas ou reduzir o conhecimento exigido do cliente. A reutilização está principalmente na ideia de organização, e não na cópia de uma implementação. Nomear o padrão também facilita explicar por que determinadas responsabilidades foram distribuídas entre componentes.
+
+Esses benefícios têm custos. Novas interfaces, classes e delegações aumentam o trabalho de leitura quando a variação prevista não existe ou a operação já é simples. Em um experimento controlado, soluções com padrões favoreceram parte das tarefas de manutenção, mas alternativas mais simples tiveram melhor resultado em outras \cite{prechelt2001}. Uma revisão da literatura também relata resultados divergentes entre estudos, associados a diferenças de contexto, métricas e implementação \cite{wedyan2020}. Assim, empregar um padrão como boa prática requer identificar o problema que ele resolve, explicitar seus custos e verificar seus efeitos no código concreto.
+
+\subsection{Classificação dos padrões de projeto}
+
+O catálogo clássico organiza os padrões pela finalidade principal em três categorias: criacionais, estruturais e comportamentais \cite{gamma1994}. A classificação ajuda a localizar soluções para problemas semelhantes, mas não determina, por si, qual padrão convém a uma implementação.
+
+Os \emph{padrões criacionais} tratam da criação de objetos. Eles separam, em graus diferentes, o uso de um objeto da escolha de sua classe concreta e da forma de construí-lo. \emph{Factory Method} transfere a decisão de instanciação para uma operação especializada; \emph{Abstract Factory} reúne a criação de objetos relacionados. Essas alternativas são pertinentes quando a criação direta espalharia decisões sobre tipos concretos por vários clientes \cite{gamma1994}.
+
+Os \emph{padrões estruturais} descrevem como classes e objetos se combinam para formar estruturas maiores. \emph{Composite} permite tratar objetos individuais e composições por uma interface comum; \emph{Decorator} acrescenta responsabilidades por composição. \emph{Facade} pertence a essa categoria porque organiza o acesso a um subsistema por meio de uma interface de mais alto nível. A Facade simplifica o contato dos clientes com o subsistema, mas não elimina a necessidade de distribuir adequadamente as responsabilidades entre seus componentes internos \cite{gamma1994}.
+
+Os \emph{padrões comportamentais} tratam da distribuição de algoritmos, decisões e comunicação entre objetos. \emph{Strategy} encapsula alternativas de algoritmo; \emph{Observer} organiza a comunicação entre um objeto e seus observadores. Em \emph{State}, o contexto delega o comportamento a um objeto que representa seu estado atual, permitindo que operações e transições variem conforme esse estado \cite{gamma1994}. Essa organização pode tornar regras de estado mais localizadas, mas a quantidade de interações e a posição das transições ainda precisam ser consideradas nos testes \cite{baudry2003}.
+
+\section{Padrões de Projeto Aplicados ao Desenvolvimento de Software}
+
+O estudo examina dois problemas do backend do Conecta Obras. O primeiro é o controle do ciclo de vida dos contratos: a autorização e as transições variam conforme o status atual, o perfil de quem executa a ação e a existência de avaliação. O segundo é o aceite de candidaturas e solicitações diretas: ambos precisam criar contrato e histórico, coordenar conversas e registrar notificações. Foram escolhidos \emph{State}, padrão comportamental, para organizar as regras de transição, e \emph{Facade}, padrão estrutural, para oferecer uma entrada única aos fluxos de contratação \cite{gamma1994}.
+
+A escolha considera responsabilidades observáveis no código, e não apenas a presença de classes com nomes correspondentes aos padrões. Em \emph{State}, cada objeto representa um status e decide se uma transição é permitida; uma política seleciona esse objeto. Em \emph{Facade}, os serviços de candidatura e solicitação chamam operações da fachada, que coordena colaboradores e transações. A análise abaixo distingue a refatoração inicial das correções posteriores, pois elas não ocorreram na mesma revisão.
+
+\subsection{Aplicação dos padrões: problema, solução, diagrama e implementação}
+
+\emph{State} e \emph{Facade} são os nomes dos padrões estudados; \emph{antes} e \emph{depois} indicam versões históricas do mesmo fluxo. O código alfanumérico entre parênteses em cada painel, como \texttt{b034e0e}, é o identificador abreviado de um \emph{commit} Git: ele localiza a revisão do projeto usada na comparação, e não é uma instrução do programa. Em cada par, o commit \emph{antes} precede a refatoração e o commit \emph{depois} a introduz. Os trechos apresentam apenas as linhas relevantes, com recuos e quebras ajustados à página; o arquivo e o método de origem são indicados no texto que antecede cada par.
+
+\subsubsection{State no ciclo de vida dos contratos}
+
+Antes da refatoração, o controlador chamava uma política com mapas de permissões separados para cliente e profissional. Em seguida, o serviço de contratos consultava outro mapa em \texttt{assertStatusTransition}. Uma requisição só avançava se passasse pelas duas verificações. Essa duplicidade dificultava identificar qual conjunto definia a regra efetiva de transição. Os recortes lado a lado são do mesmo método \texttt{ContractsService.updateStatus}; o restante de cada método foi omitido.
+
+\noindent
+\begin{minipage}[t]{0.48\linewidth}
+  \vspace{0pt}\textbf{Antes (\texttt{b034e0e})}\par
+  \footnotesize
+\begin{verbatim}
+this.assertStatusTransition(
+  contract.status, dto.status);
+\end{verbatim}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\linewidth}
+  \vspace{0pt}\textbf{Depois (\texttt{1de9e8f})}\par
+  \footnotesize
+\begin{verbatim}
+this.contractStatusPolicy
+  .assertCanTransition({
+    currentStatus:
+      contract.status,
+    targetStatus: dto.status,
+    actor,
+    hasReview:
+      Boolean(contract.review),
+  });
+\end{verbatim}
+\end{minipage}
+
+Na revisão refatorada, \texttt{ContractStatusPolicyService} recebe status atual, destino, ator e presença de avaliação. Ele seleciona, por status, uma implementação da interface \texttt{ContractState} e delega a validação. Há seis classes, uma para cada valor de \texttt{ContractStatus}: \texttt{PENDING\_START}, \texttt{IN\_PROGRESS}, \texttt{WAITING\_CLIENT\_APPROVAL}, \texttt{COMPLETED}, \texttt{REOPENED} e \texttt{CANCELED}. O serviço mantém a persistência e converte a recusa da política em erro HTTP. A implementação atual também utiliza a política quando uma avaliação conclui o contrato. A Figura~\ref{fig:state-contratos} mostra os participantes no ponto em que são discutidos.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.88\linewidth]{figuras/fig1 - state contratos.png}
+  \caption{Participantes da aplicação de State aos contratos. Fonte: elaboração própria a partir do código do projeto.}
+  \label{fig:state-contratos}
+\end{figure}
+
+Na comparação da revisão que introduziu o padrão, os dois conjuntos independentes de regras foram substituídos por um catálogo de objetos de estado. A política passou a permitir que o profissional mova um contrato \texttt{IN\_PROGRESS} para \texttt{WAITING\_CLIENT\_APPROVAL}; portanto, houve uma mudança funcional deliberada, além da reorganização. O código atual verifica novamente o status no momento da escrita e exige ausência de avaliação para reabrir um contrato. Essa proteção foi acrescentada depois da refatoração inicial e não integra as contagens históricas da Tabela~\ref{tab:comparacao-padroes}.
+
+\subsubsection{Facade no aceite de contratações}
+
+Antes da fachada, \texttt{ApplicationsService.accept} e \texttt{DirectRequestsService.accept} criavam contrato e histórico diretamente, além de coordenar conversas e notificações. A criação inicial aparecia nos dois serviços. A duplicação exigia revisar ambos quando a composição do contrato mudasse. Em cada fluxo havia uma transação, mas a coordenação permanecia nos serviços de origem. Os recortes lado a lado são de \texttt{ApplicationsService.accept}; os campos específicos da candidatura foram omitidos do painel \emph{Antes}.
+
+\noindent
+\begin{minipage}[t]{0.48\linewidth}
+  \vspace{0pt}\textbf{Antes (\texttt{8a00fce})}\par
+  \fontsize{9}{11}\selectfont
+\begin{verbatim}
+const created = await
+  tx.contract.create({
+    data: {
+      // campos da candidatura
+      status:
+        ContractStatus.PENDING_START,
+    },
+  });
+await tx.contractStatusHistory
+  .create({
+    data: {
+      contractId: created.id,
+      toStatus:
+        ContractStatus.PENDING_START,
+    },
+  });
+\end{verbatim}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\linewidth}
+  \vspace{0pt}\textbf{Depois (\texttt{381f612})}\par
+  \footnotesize
+\begin{verbatim}
+return this.contractCreation
+  .acceptApplication(userId, id);
+\end{verbatim}
+\end{minipage}
+
+A classe \texttt{ContractCreationService} passou a expor \texttt{acceptApplication} e \texttt{acceptDirectRequest}. Cada operação conserva as validações e ações próprias da origem, mas utiliza o mesmo método privado \texttt{createContract} para gravar contrato e histórico inicial. A candidatura recusa as demais candidaturas pendentes e marca o anúncio como contratado; a solicitação direta associa conversas existentes ao contrato. Conversas e notificações recebem o cliente Prisma da mesma transação. O método compartilhado está no trecho seguinte.
+
+\begin{samepage}
+\noindent\textbf{\texttt{contract-creation.service.ts}, método \texttt{createContract}.}
+\begin{verbatim}
+private async createContract(
+  tx: Prisma.TransactionClient, data: NewContractData) {
+  const contract = await tx.contract.create({
+    data: { ...data, status: ContractStatus.PENDING_START },
+  });
+  await tx.contractStatusHistory.create({
+    data: { contractId: contract.id,
+      toStatus: ContractStatus.PENDING_START },
+  });
+  return contract;
+}
+\end{verbatim}
+\end{samepage}
+
+A Figura~\ref{fig:facade-contratacao} mostra a posição da fachada entre os dois serviços de origem e os colaboradores utilizados na transação.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.75\linewidth]{figuras/fig2 - facade contratacao.png}
+  \caption{Fachada dos dois fluxos de contratação. Fonte: elaboração própria a partir do código do projeto.}
+  \label{fig:facade-contratacao}
+\end{figure}
+
+Na revisão da fachada, as chamadas a \texttt{tx.contract.create} e \texttt{tx.contractStatusHistory.create} nos serviços do recorte passaram de duas para uma cada. O código atual também impede o aceite de candidaturas encerradas e confirma, dentro da transação, que o anúncio ou a solicitação continuam pendentes. Essas validações foram acrescentadas após a extração inicial e são tratadas separadamente na análise. A Tabela~\ref{tab:comparacao-padroes} registra contagens descritivas dos recortes históricos; a variação é calculada como depois menos antes.
+
+\begin{table}[H]
+  \centering
+  \caption{Contagens descritivas antes e depois das refatorações}
+  \label{tab:comparacao-padroes}
+  \small
+  \begin{tabular}{@{}lrrr@{}}
+    \hline
+    Indicador & Antes & Depois & $\Delta$ \\
+    \hline
+    \multicolumn{4}{@{}l}{\textbf{State}} \\
+    Fontes de regras de transição & 2 & 1 & $-1$ \\
+    Transições permitidas (API de status) & 6 & 7 & $+1$ \\
+    Linhas físicas (arquivos analisados) & 327 & 438 & $+111$ \\
+    \hline
+    \multicolumn{4}{@{}l}{\textbf{Facade}} \\
+    Pontos de criação do contrato & 2 & 1 & $-1$ \\
+    Pontos de criação do histórico inicial & 2 & 1 & $-1$ \\
+    Linhas físicas (três serviços analisados) & 447 & 487 & $+40$ \\
+    \hline
+  \end{tabular}
+\end{table}
+
+As contagens de linhas aumentaram nos dois casos: 111 linhas em \emph{State} e 40 em \emph{Facade}. Classes, métodos e delegações adicionais têm custo de leitura. As contagens de pontos de escrita indicam menor repetição nos aceites, mas não medem diretamente esforço de manutenção. Também não permitem concluir que a complexidade total ou o desempenho melhoraram.
+
+\section{Metodologia}
+
+Esta é uma pesquisa \textbf{aplicada}, de \textbf{abordagem qualitativa}, conduzida como \textbf{estudo de caso exploratório} do backend do Conecta Obras. A análise interpreta a distribuição de responsabilidades, as dependências entre componentes, os caminhos de execução e os custos introduzidos pelos padrões nas revisões do código. As contagens estáticas da Tabela~\ref{tab:comparacao-padroes} são registros descritivos auxiliares, usados para localizar mudanças e explicitar o custo em linhas; não constituem uma avaliação estatística da qualidade. Os testes automatizados verificam comportamentos do código atual. Não houve grupo de controle, participantes observados ou experimento de tempo de manutenção.
+
+O ambiente de desenvolvimento compreende TypeScript e Node.js no backend, com NestJS para a API REST, Prisma para persistência e MySQL como banco configurado no esquema. O sistema também possui aplicativo Expo/React Native em TypeScript; ele fornece o contexto de uso, mas não é a unidade de análise dos padrões. Para verificação, o backend utiliza \texttt{node:test}, compilação TypeScript e o build do NestJS.
+
+A unidade de análise de \emph{State} é a validação das transições dos contratos. A versão anterior é o commit \texttt{b034e0e}; a refatorada é \texttt{1de9e8f}. Foram contadas as linhas físicas de \texttt{contract-status-policy.service.ts}, \texttt{contracts.service.ts} e dos arquivos de estados, incluindo linhas vazias e comentários. A quantidade de transições permitidas considera as combinações de origem, ator e destino que passam pelas duas verificações anteriores ou pela política nova no endpoint de atualização de status. As seis combinações anteriores permanecem; uma foi acrescentada para o profissional. A validação da conclusão por avaliação foi integrada posteriormente, no commit \texttt{0f0e8f2}.
+
+Para \emph{Facade}, a versão anterior é \texttt{8a00fce}, e a refatorada é \texttt{381f612}. O recorte de linhas contém \texttt{applications.service.ts}, \texttt{direct-requests.service.ts} e \texttt{contract-creation.service.ts}; arquivos ainda inexistentes na versão anterior contam como zero. Os pontos de criação são as ocorrências de \texttt{tx.contract.create} e \texttt{tx.contractStatusHistory.create} nesses três serviços. As contagens podem ser conferidas por \texttt{git show}, \texttt{git grep} e \texttt{wc -l} nas revisões indicadas. Os recortes dos dois padrões são distintos, de modo que seus totais de linhas não são somados.
+
+Os critérios de interpretação são: a localização das regras de transição; a distribuição de responsabilidades e dependências; a reutilização da criação de contrato e histórico; as mudanças de comportamento observadas; e os custos de leitura das novas classes e delegações. A complexidade de compreensão é examinada pela localização das decisões e pelas novas indireções, sem atribuir uma medida de complexidade ciclomática. As contagens da Tabela~\ref{tab:comparacao-padroes} documentam esses recortes, sem representar uma nota de qualidade. No estado atual da branch, os testes cobrem as combinações de status e ator da política, aceites de ambas as origens, uso do cliente transacional, erros de persistência e leituras desatualizadas. Foram executados \texttt{npm test}, \texttt{npm run typecheck} e \texttt{npm run build} no backend: 318 testes passaram, cinco foram ignorados e não houve falhas. Esses resultados verificam o código atual; não constituem uma comparação estatística entre as versões.
+
+A interpretação se limita ao repositório e às revisões especificadas. As simulações de Prisma verificam chamadas e propagação de falhas, mas não substituem um teste de concorrência e rollback em MySQL real. O estudo descreve a reorganização dos fluxos e seus custos observáveis no código; não demonstra redução de esforço humano, ganho de desempenho nem efeito causal generalizável a outros sistemas.
+
+\bibliographystyle{sbc}
+\bibliography{referencias}
+
+\end{document}

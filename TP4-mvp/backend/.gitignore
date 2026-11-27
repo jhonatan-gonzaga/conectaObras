@@ -1,6 +1,7 @@
-node_modules
-dist
-.env
-.env.local
-.env.*.local
+node_modules/
+dist/
+dist-test/
+coverage/
+.env*
+!.env.example
 *.log

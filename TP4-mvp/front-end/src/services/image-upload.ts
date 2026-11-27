@@ -74,3 +74,16 @@ export async function captureAndUploadImage() {
 
   return uploaded.url;
 }
+
+export async function pickProductImage() {
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permission.granted) throw new Error("Permissão para acessar a galeria negada.");
+  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 1 });
+  if (result.canceled || !result.assets[0]) return null;
+  const asset = result.assets[0];
+  const name = asset.fileName || asset.uri.split("/").pop() || "produto.jpg";
+  const type = asset.mimeType || (name.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg");
+  if (type !== "image/jpeg" && type !== "image/png") throw new Error("Escolha uma imagem JPG ou PNG.");
+  if (asset.fileSize !== undefined && asset.fileSize > 5 * 1024 * 1024) throw new Error("A imagem deve ter até 5 MB.");
+  return asset;
+}

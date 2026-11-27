@@ -1,27 +1,32 @@
-import { Audio } from "expo-av";
+import {
+  AudioRecorder,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from "expo-audio";
 
 import { api } from "./api";
 
 export type AudioRecordingState = {
-  recording: Audio.Recording | null;
+  recording: AudioRecorder | null;
   startedAt: number | null;
 };
 
-export async function startAudioRecording(): Promise<AudioRecordingState> {
-  const permission = await Audio.requestPermissionsAsync();
+export async function startAudioRecording(
+  recording: AudioRecorder,
+): Promise<AudioRecordingState> {
+  const permission = await requestRecordingPermissionsAsync();
 
   if (!permission.granted) {
     throw new Error("Permita o acesso ao microfone para enviar audio.");
   }
 
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: true,
-    playsInSilentModeIOS: true,
+  await setAudioModeAsync({
+    allowsRecording: true,
+    playsInSilentMode: true,
   });
 
-  const { recording } = await Audio.Recording.createAsync(
-    Audio.RecordingOptionsPresets.HIGH_QUALITY,
-  );
+  await recording.prepareToRecordAsync();
+  recording.record();
 
   return { recording, startedAt: Date.now() };
 }
@@ -31,8 +36,8 @@ export async function stopAndUploadAudio(state: AudioRecordingState) {
     return null;
   }
 
-  await state.recording.stopAndUnloadAsync();
-  const uri = state.recording.getURI();
+  await state.recording.stop();
+  const uri = state.recording.uri;
 
   if (!uri) {
     return null;
